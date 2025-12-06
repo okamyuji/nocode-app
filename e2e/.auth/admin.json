@@ -1,0 +1,22 @@
+{
+  "cookies": [],
+  "origins": [
+    {
+      "origin": "http://localhost:3000",
+      "localStorage": [
+        {
+          "name": "chakra-ui-color-mode",
+          "value": "light"
+        },
+        {
+          "name": "token",
+          "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoxLCJlbWFpbCI6ImFkbWluQGV4YW1wbGUuY29tIiwicm9sZSI6ImFkbWluIiwiaXNzIjoibm9jb2RlLWFwcCIsImV4cCI6MTc2NTA3NzA0MywibmJmIjoxNzY0OTkwNjQzLCJpYXQiOjE3NjQ5OTA2NDN9.sgVyqtXmTRr2ZuEoJDcwKnj9T45iY9I_EVi9FKVWB8s"
+        },
+        {
+          "name": "auth-storage",
+          "value": "{\"state\":{\"token\":\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoxLCJlbWFpbCI6ImFkbWluQGV4YW1wbGUuY29tIiwicm9sZSI6ImFkbWluIiwiaXNzIjoibm9jb2RlLWFwcCIsImV4cCI6MTc2NTA3NzA0MywibmJmIjoxNzY0OTkwNjQzLCJpYXQiOjE3NjQ5OTA2NDN9.sgVyqtXmTRr2ZuEoJDcwKnj9T45iY9I_EVi9FKVWB8s\"},\"version\":0}"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,147 @@
+# ===================
+# OS generated files
+# ===================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# ===================
+# IDE / Editor
+# ===================
+.idea/
+.vscode/
+*.iml
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.project
+.classpath
+.settings/
+
+# ===================
+# Environment
+# ===================
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+
+# ===================
+# Logs
+# ===================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ===================
+# Backend (Go)
+# ===================
+# Binary
+/backend/nocode-app
+/backend/main
+/backend/*.exe
+/backend/bin/
+
+# Go workspace
+go.work
+go.work.sum
+
+# Test coverage
+/backend/coverage/
+/backend/*.out
+/backend/coverage.html
+
+# Vendor (if not committed)
+# /backend/vendor/
+
+# Build output
+/backend/dist/
+/backend/build/
+
+# ===================
+# Frontend (React/Node)
+# ===================
+/frontend/node_modules/
+/frontend/.pnpm-store/
+/frontend/dist/
+/frontend/build/
+/frontend/.cache/
+
+# TypeScript
+/frontend/*.tsbuildinfo
+
+# Vite
+/frontend/.vite/
+
+# ===================
+# Docker
+# ===================
+# Docker data volumes (if stored locally)
+mysql_data/
+redis_data/
+.docker/
+
+# ===================
+# Testing
+# ===================
+/frontend/coverage/
+*.lcov
+.nyc_output/
+
+# Playwright
+/frontend/playwright-report/
+/frontend/playwright/.cache/
+.playwright-mcp/
+/e2/.auth/
+/e2e/playwright-report/
+/e2e/node_modules/
+/e2e/test-results/
+
+# ===================
+# Miscellaneous
+# ===================
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Archives
+*.zip
+*.tar.gz
+*.rar
+
+# Certificates and keys (security)
+*.pem
+*.key
+*.crt
+*.p12
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Backup files
+*.bak
+*.backup
+
+# Lock files (comment out if you want to commit them)
+# pnpm-lock.yaml
+# package-lock.json
+# yarn.lock
+
