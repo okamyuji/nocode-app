@@ -14,6 +14,9 @@ type Validator struct {
 	validate *validator.Validate
 }
 
+// fieldCodeRegex フィールドコードのバリデーション用正規表現（パフォーマンス向上のため事前コンパイル）
+var fieldCodeRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_]*$`)
+
 // NewValidator 新しいValidatorを作成する
 func NewValidator() *Validator {
 	v := validator.New()
@@ -25,8 +28,7 @@ func NewValidator() *Validator {
 		if code == "" {
 			return false
 		}
-		matched, _ := regexp.MatchString(`^[a-zA-Z][a-zA-Z0-9_]*$`, code)
-		return matched
+		return fieldCodeRegex.MatchString(code)
 	})
 	if err != nil {
 		panic("failed to register fieldcode validation: " + err.Error())
