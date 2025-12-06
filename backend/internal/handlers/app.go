@@ -67,9 +67,9 @@ func (h *AppHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.appService.CreateApp(r.Context(), claims.UserID, &req)
 	if err != nil {
-		// エラーの詳細をログに出力
+		// エラーの詳細はログにのみ出力（クライアントには非公開）
 		log.Printf("アプリ作成エラー: %v", err)
-		utils.WriteErrorResponse(w, http.StatusInternalServerError, "アプリの作成に失敗しました: "+err.Error())
+		utils.WriteErrorResponse(w, http.StatusInternalServerError, "アプリの作成に失敗しました")
 		return
 	}
 
