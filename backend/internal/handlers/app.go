@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -66,7 +67,9 @@ func (h *AppHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.appService.CreateApp(r.Context(), claims.UserID, &req)
 	if err != nil {
-		utils.WriteErrorResponse(w, http.StatusInternalServerError, "アプリの作成に失敗しました")
+		// エラーの詳細をログに出力
+		log.Printf("アプリ作成エラー: %v", err)
+		utils.WriteErrorResponse(w, http.StatusInternalServerError, "アプリの作成に失敗しました: "+err.Error())
 		return
 	}
 

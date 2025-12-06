@@ -1,34 +1,11 @@
 import { FIELD_TYPE_LABELS, FieldType } from "@/types";
-import { Box, Icon, SimpleGrid, Text, VStack } from "@chakra-ui/react";
+import { Box, HStack, Icon, SimpleGrid, Text, VStack } from "@chakra-ui/react";
 import { useDraggable } from "@dnd-kit/core";
-import {
-  FiCalendar,
-  FiCheckSquare,
-  FiFile,
-  FiHash,
-  FiLink,
-  FiList,
-  FiType,
-} from "react-icons/fi";
-import { MdOutlineTextFields, MdRadioButtonChecked } from "react-icons/md";
+import { fieldTypeIcons } from "./fieldTypeIcons";
 
 interface FieldPaletteProps {
   onFieldSelect?: (fieldType: FieldType) => void;
 }
-
-const fieldTypeIcons: Record<FieldType, React.ComponentType> = {
-  text: FiType,
-  textarea: MdOutlineTextFields,
-  number: FiHash,
-  date: FiCalendar,
-  datetime: FiCalendar,
-  select: FiList,
-  multiselect: FiList,
-  checkbox: FiCheckSquare,
-  radio: MdRadioButtonChecked,
-  link: FiLink,
-  attachment: FiFile,
-};
 
 interface DraggableFieldTypeProps {
   fieldType: FieldType;
@@ -46,6 +23,7 @@ function DraggableFieldType({
     data: {
       type: "new-field",
       fieldType,
+      label,
     },
   });
 
@@ -62,15 +40,107 @@ function DraggableFieldType({
       borderColor="gray.200"
       borderRadius="md"
       cursor="grab"
-      opacity={isDragging ? 0.5 : 1}
+      opacity={isDragging ? 0.3 : 1}
       _hover={{ borderColor: "brand.300", bg: "brand.50" }}
       transition="all 0.2s"
       onClick={() => onSelect?.(fieldType)}
+      userSelect="none"
     >
       <VStack spacing={1}>
         <Icon as={IconComponent} boxSize={5} color="brand.500" />
         <Text fontSize="xs" textAlign="center" noOfLines={1}>
           {label}
+        </Text>
+      </VStack>
+    </Box>
+  );
+}
+
+/**
+ * ドラッグ中に表示されるパレットアイテムのオーバーレイ
+ */
+interface PaletteItemOverlayProps {
+  fieldType: FieldType;
+  label: string;
+}
+
+export function PaletteItemOverlay({
+  fieldType,
+  label,
+}: PaletteItemOverlayProps) {
+  const IconComponent = fieldTypeIcons[fieldType];
+
+  return (
+    <Box
+      p={4}
+      bg="brand.50"
+      border="2px"
+      borderColor="brand.500"
+      borderRadius="md"
+      shadow="xl"
+      minW="120px"
+      cursor="grabbing"
+    >
+      <VStack spacing={2}>
+        <Icon as={IconComponent} boxSize={6} color="brand.600" />
+        <Text
+          fontSize="sm"
+          fontWeight="bold"
+          color="brand.700"
+          textAlign="center"
+        >
+          {label}
+        </Text>
+        <Text fontSize="xs" color="gray.500">
+          ドロップして追加
+        </Text>
+      </VStack>
+    </Box>
+  );
+}
+
+/**
+ * ドラッグ中に表示される既存フィールドのオーバーレイ
+ */
+interface FieldItemOverlayProps {
+  fieldName: string;
+  fieldCode: string;
+  fieldType: FieldType;
+  fieldIndex: number;
+}
+
+export function FieldItemOverlay({
+  fieldName,
+  fieldCode,
+  fieldType,
+  fieldIndex,
+}: FieldItemOverlayProps) {
+  const IconComponent = fieldTypeIcons[fieldType];
+
+  // 表示名の決定: 表示名 > フィールドコード > フィールド #n
+  const displayName =
+    fieldName.trim() || fieldCode.trim() || `フィールド #${fieldIndex + 1}`;
+
+  return (
+    <Box
+      p={4}
+      bg="white"
+      border="2px"
+      borderColor="brand.500"
+      borderRadius="md"
+      shadow="xl"
+      minW="200px"
+      cursor="grabbing"
+    >
+      <VStack spacing={1} align="start">
+        <HStack spacing={2}>
+          <Icon as={IconComponent} boxSize={4} color="brand.500" />
+          <Text fontSize="sm" fontWeight="bold">
+            {displayName}
+          </Text>
+        </HStack>
+        <Text fontSize="xs" color="gray.500">
+          {FIELD_TYPE_LABELS[fieldType]}
         </Text>
       </VStack>
     </Box>
