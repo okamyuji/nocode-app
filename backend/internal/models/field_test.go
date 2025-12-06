@@ -27,9 +27,9 @@ func TestFieldOptions_Value(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotNil(t, val)
 
-		bytes, ok := val.([]byte)
+		str, ok := val.(string)
 		require.True(t, ok)
-		assert.Contains(t, string(bytes), "choices")
+		assert.Contains(t, str, "choices")
 	})
 }
 
@@ -49,9 +49,17 @@ func TestFieldOptions_Scan(t *testing.T) {
 		assert.Equal(t, "a", fo["default"])
 	})
 
+	t.Run("valid json string", func(t *testing.T) {
+		var fo models.FieldOptions
+		err := fo.Scan(`{"choices":["x","y"],"default":"x"}`)
+		assert.NoError(t, err)
+		assert.NotNil(t, fo)
+		assert.Equal(t, "x", fo["default"])
+	})
+
 	t.Run("invalid type", func(t *testing.T) {
 		var fo models.FieldOptions
-		err := fo.Scan("not bytes")
+		err := fo.Scan(12345)
 		assert.Error(t, err)
 	})
 

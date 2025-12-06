@@ -18,6 +18,7 @@ import {
   MenuButton,
   MenuItem,
   MenuList,
+  Portal,
   Text,
   useDisclosure,
   useToast,
@@ -93,33 +94,38 @@ export function AppCard({ app }: AppCardProps) {
                 size="sm"
                 onClick={(e) => e.stopPropagation()}
               />
-              <MenuList onClick={(e) => e.stopPropagation()}>
-                <MenuItem
-                  icon={<FiEdit2 />}
-                  onClick={() => navigate(`/apps/${app.id}/records`)}
+              <Portal>
+                <MenuList
+                  onClick={(e) => e.stopPropagation()}
+                  zIndex="dropdown"
                 >
-                  レコード管理
-                </MenuItem>
-                {isAdmin && (
-                  <>
-                    <MenuItem
-                      icon={<FiSettings />}
-                      onClick={() =>
-                        navigate(`/settings?tab=apps&appId=${app.id}`)
-                      }
-                    >
-                      アプリ設定
-                    </MenuItem>
-                    <MenuItem
-                      icon={<FiTrash2 />}
-                      color="red.500"
-                      onClick={onOpen}
-                    >
-                      削除
-                    </MenuItem>
-                  </>
-                )}
-              </MenuList>
+                  <MenuItem
+                    icon={<FiEdit2 />}
+                    onClick={() => navigate(`/apps/${app.id}/records`)}
+                  >
+                    レコード管理
+                  </MenuItem>
+                  {isAdmin && (
+                    <>
+                      <MenuItem
+                        icon={<FiSettings />}
+                        onClick={() =>
+                          navigate(`/settings?tab=apps&appId=${app.id}`)
+                        }
+                      >
+                        アプリ設定
+                      </MenuItem>
+                      <MenuItem
+                        icon={<FiTrash2 />}
+                        color="red.500"
+                        onClick={onOpen}
+                      >
+                        削除
+                      </MenuItem>
+                    </>
+                  )}
+                </MenuList>
+              </Portal>
             </Menu>
           </HStack>
         </CardBody>

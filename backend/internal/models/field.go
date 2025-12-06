@@ -40,7 +40,11 @@ func (fo FieldOptions) Value() (driver.Value, error) {
 	if fo == nil {
 		return nil, nil
 	}
-	return json.Marshal(fo)
+	bytes, err := json.Marshal(fo)
+	if err != nil {
+		return nil, err
+	}
+	return string(bytes), nil
 }
 
 // Scan FieldOptionsのsql.Scanner実装
@@ -49,11 +53,16 @@ func (fo *FieldOptions) Scan(value interface{}) error {
 		*fo = nil
 		return nil
 	}
-	bytes, ok := value.([]byte)
-	if !ok {
-		return errors.New("FieldOptionsのスキャンに失敗しました")
+	var data []byte
+	switch v := value.(type) {
+	case []byte:
+		data = v
+	case string:
+		data = []byte(v)
+	default:
+		return errors.New("FieldOptionsのスキャンに失敗しました: サポートされていない型です")
 	}
-	return json.Unmarshal(bytes, fo)
+	return json.Unmarshal(data, fo)
 }
 
 // AppField アプリ内のフィールド定義を表す構造体
@@ -74,7 +83,7 @@ type AppField struct {
 
 // CreateFieldRequest フィールド作成リクエストの構造体
 type CreateFieldRequest struct {
-	FieldCode    string       `json:"field_code" validate:"required,min=1,max=64,alphanum"`
+	FieldCode    string       `json:"field_code" validate:"required,min=1,max=64,fieldcode"`
 	FieldName    string       `json:"field_name" validate:"required,min=1,max=100"`
 	FieldType    string       `json:"field_type" validate:"required,oneof=text textarea number date datetime select multiselect checkbox radio link attachment"`
 	Options      FieldOptions `json:"options"`

@@ -14,9 +14,26 @@ type Validator struct {
 	validate *validator.Validate
 }
 
+// fieldCodeRegex フィールドコードのバリデーション用正規表現（パフォーマンス向上のため事前コンパイル）
+var fieldCodeRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_]*$`)
+
 // NewValidator 新しいValidatorを作成する
 func NewValidator() *Validator {
 	v := validator.New()
+
+	// フィールドコード用のカスタムバリデーター
+	// 英字で始まり、英数字とアンダースコアのみ許可
+	err := v.RegisterValidation("fieldcode", func(fl validator.FieldLevel) bool {
+		code := fl.Field().String()
+		if code == "" {
+			return false
+		}
+		return fieldCodeRegex.MatchString(code)
+	})
+	if err != nil {
+		panic("failed to register fieldcode validation: " + err.Error())
+	}
+
 	return &Validator{validate: v}
 }
 
