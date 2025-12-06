@@ -145,9 +145,12 @@ export function FieldEditor({
 
   const handleFieldCodeChange = useCallback(
     (value: string) => {
-      // 英字で始まる場合のみ、または空の場合は許可
+      // 不正な文字を除去
       const sanitized = value.replace(/[^a-zA-Z0-9_]/g, "");
-      onUpdate({ field_code: sanitized });
+      // 空、または英字で始まる場合のみ更新（数字やアンダースコアで始まる入力を防止）
+      if (sanitized === "" || /^[a-zA-Z]/.test(sanitized)) {
+        onUpdate({ field_code: sanitized });
+      }
     },
     [onUpdate]
   );

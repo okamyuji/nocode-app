@@ -200,6 +200,94 @@ func TestValidator_ParseAndValidate(t *testing.T) {
 	}
 }
 
+// fieldcodeカスタムバリデーターのテスト用構造体
+type FieldCodeTestStruct struct {
+	FieldCode string `validate:"fieldcode"`
+}
+
+func TestValidator_FieldCodeValidation(t *testing.T) {
+	v := utils.NewValidator()
+
+	tests := []struct {
+		name    string
+		code    string
+		wantErr bool
+	}{
+		{
+			name:    "valid simple code",
+			code:    "customer_name",
+			wantErr: false,
+		},
+		{
+			name:    "valid with numbers",
+			code:    "field1",
+			wantErr: false,
+		},
+		{
+			name:    "valid uppercase",
+			code:    "FieldName",
+			wantErr: false,
+		},
+		{
+			name:    "valid camelCase",
+			code:    "fieldCode",
+			wantErr: false,
+		},
+		{
+			name:    "empty code",
+			code:    "",
+			wantErr: true,
+		},
+		{
+			name:    "starts with number",
+			code:    "1field",
+			wantErr: true,
+		},
+		{
+			name:    "starts with underscore",
+			code:    "_field",
+			wantErr: true,
+		},
+		{
+			name:    "contains hyphen",
+			code:    "field-name",
+			wantErr: true,
+		},
+		{
+			name:    "contains dot",
+			code:    "field.name",
+			wantErr: true,
+		},
+		{
+			name:    "contains space",
+			code:    "field name",
+			wantErr: true,
+		},
+		{
+			name:    "only underscores",
+			code:    "___",
+			wantErr: true,
+		},
+		{
+			name:    "single letter",
+			code:    "a",
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			input := FieldCodeTestStruct{FieldCode: tt.code}
+			err := v.Validate(input)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
 func TestIsValidFieldCode(t *testing.T) {
 	tests := []struct {
 		name  string
