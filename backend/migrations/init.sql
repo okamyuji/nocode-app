@@ -12,6 +12,23 @@ CREATE TABLE IF NOT EXISTS users (
     INDEX idx_users_email (email)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- データソーステーブル
+CREATE TABLE IF NOT EXISTS data_sources (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    db_type ENUM('postgresql', 'mysql', 'oracle', 'sqlserver') NOT NULL,
+    host VARCHAR(255) NOT NULL,
+    port INT NOT NULL,
+    database_name VARCHAR(100) NOT NULL,
+    username VARCHAR(100) NOT NULL,
+    encrypted_password TEXT NOT NULL,
+    created_by BIGINT UNSIGNED NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_data_sources_created_by (created_by)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- アプリテーブル
 CREATE TABLE IF NOT EXISTS apps (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -19,11 +36,16 @@ CREATE TABLE IF NOT EXISTS apps (
     description TEXT,
     table_name VARCHAR(64) NOT NULL UNIQUE,
     icon VARCHAR(50) DEFAULT 'default',
+    is_external BOOLEAN DEFAULT FALSE,
+    data_source_id BIGINT UNSIGNED NULL,
+    source_table_name VARCHAR(255) NULL,
     created_by BIGINT UNSIGNED NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE,
-    INDEX idx_apps_created_by (created_by)
+    FOREIGN KEY (data_source_id) REFERENCES data_sources(id) ON DELETE SET NULL,
+    INDEX idx_apps_created_by (created_by),
+    INDEX idx_apps_data_source_id (data_source_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- アプリフィールドテーブル
@@ -33,6 +55,7 @@ CREATE TABLE IF NOT EXISTS app_fields (
     field_code VARCHAR(64) NOT NULL,
     field_name VARCHAR(100) NOT NULL,
     field_type VARCHAR(20) NOT NULL,
+    source_column_name VARCHAR(255) NULL,
     options JSON,
     required BOOLEAN DEFAULT FALSE,
     display_order INT DEFAULT 0,

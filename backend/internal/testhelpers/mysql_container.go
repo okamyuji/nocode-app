@@ -238,6 +238,7 @@ func CleanupTables(ctx context.Context) error {
 		"app_views",
 		"app_fields",
 		"apps",
+		"data_sources",
 	}
 
 	for _, table := range tables {
