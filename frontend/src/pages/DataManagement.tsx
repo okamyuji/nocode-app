@@ -1,5 +1,6 @@
 import { useApps, useAuth } from "@/hooks";
 import type { App } from "@/types";
+import { getAppIcon } from "@/utils";
 import {
   Badge,
   Box,
@@ -20,14 +21,7 @@ import {
   VStack,
 } from "@chakra-ui/react";
 import { useMemo, useState } from "react";
-import {
-  FiCalendar,
-  FiDatabase,
-  FiGrid,
-  FiList,
-  FiSearch,
-  FiSettings,
-} from "react-icons/fi";
+import { FiDatabase, FiSearch, FiSettings } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
 
 export function DataManagementPage() {
@@ -138,19 +132,6 @@ function AppDataCard({
   onSettingsClick,
   isAdmin,
 }: AppDataCardProps) {
-  const getIconForApp = (iconName: string | undefined) => {
-    switch (iconName) {
-      case "grid":
-        return FiGrid;
-      case "list":
-        return FiList;
-      case "calendar":
-        return FiCalendar;
-      default:
-        return FiDatabase;
-    }
-  };
-
   return (
     <Card
       cursor="pointer"
@@ -175,7 +156,7 @@ function AppDataCard({
             justify="center"
             flexShrink={0}
           >
-            <Icon as={getIconForApp(app.icon)} color="brand.500" boxSize={5} />
+            <Icon as={getAppIcon(app.icon)} color="brand.500" boxSize={5} />
           </Flex>
           <Box flex={1} minW={0}>
             <Flex align="center" justify="space-between" mb={1}>

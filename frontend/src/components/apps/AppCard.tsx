@@ -1,5 +1,6 @@
 import { useAuth, useDeleteApp } from "@/hooks";
 import { App } from "@/types";
+import { getAppIcon } from "@/utils";
 import {
   AlertDialog,
   AlertDialogBody,
@@ -26,13 +27,7 @@ import {
   VStack,
 } from "@chakra-ui/react";
 import { useRef } from "react";
-import {
-  FiEdit2,
-  FiGrid,
-  FiMoreVertical,
-  FiSettings,
-  FiTrash2,
-} from "react-icons/fi";
+import { FiEdit2, FiMoreVertical, FiSettings, FiTrash2 } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
 
 interface AppCardProps {
@@ -78,7 +73,7 @@ export function AppCard({ app }: AppCardProps) {
         <CardBody>
           <HStack justify="space-between" align="start">
             <HStack spacing={4}>
-              <Icon as={FiGrid} boxSize={10} color="brand.500" />
+              <Icon as={getAppIcon(app.icon)} boxSize={10} color="brand.500" />
               <VStack align="start" spacing={1}>
                 <HStack>
                   <Heading size="md">{app.name}</Heading>
