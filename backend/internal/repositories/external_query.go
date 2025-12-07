@@ -214,18 +214,20 @@ func (e *ExternalQueryExecutor) GetColumns(ctx context.Context, ds *models.DataS
 		args = []interface{}{tableName}
 
 	case models.DBTypeOracle:
+		// DATA_DEFAULTはLONG型のため、TO_CHARは使用できない
+		// 代わりに空文字を返す（デフォルト値は必須ではない）
 		query = `SELECT 
 			c.column_name,
 			c.data_type,
 			CASE WHEN c.nullable = 'Y' THEN 1 ELSE 0 END as is_nullable,
 			CASE WHEN cc.constraint_type = 'P' THEN 1 ELSE 0 END as is_primary_key,
-			NVL(TO_CHAR(c.data_default), '') as default_value
+			'' as default_value
 		FROM all_tab_columns c
 		LEFT JOIN (
 			SELECT acc.column_name, ac.constraint_type
 			FROM all_cons_columns acc
 			JOIN all_constraints ac ON acc.constraint_name = ac.constraint_name
-			WHERE ac.constraint_type = 'P' AND acc.table_name = :1
+			WHERE ac.constraint_type = 'P' AND acc.table_name = :1 AND acc.owner = USER
 		) cc ON c.column_name = cc.column_name
 		WHERE c.table_name = :2 AND c.owner = USER
 		ORDER BY c.column_id`
