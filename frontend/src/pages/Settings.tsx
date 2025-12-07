@@ -3,6 +3,7 @@ import { DataSourceList } from "@/components/datasources";
 import { useAuthStore } from "@/stores";
 import type {
   App,
+  AppListResponse,
   ChangePasswordRequest,
   CreateFieldRequest,
   CreateUserRequest,
@@ -1061,7 +1062,7 @@ function AppSettingsDetail({ app, onBack }: AppSettingsDetailProps) {
       setIcon(updatedApp.icon || "default");
 
       // キャッシュを直接更新して他の画面でも即時反映
-      queryClient.setQueriesData<{ apps: App[] }>(
+      queryClient.setQueriesData<AppListResponse>(
         { queryKey: ["apps"] },
         (oldData) => {
           if (!oldData) return oldData;
