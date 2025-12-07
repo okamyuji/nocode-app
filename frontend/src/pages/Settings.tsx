@@ -16,6 +16,7 @@ import type {
   User,
 } from "@/types";
 import { FIELD_TYPE_LABELS } from "@/types";
+import { getAppIcon } from "@/utils";
 import {
   AlertDialog,
   AlertDialogBody,
@@ -79,7 +80,6 @@ import {
   FiTrash2,
 } from "react-icons/fi";
 import { useSearchParams } from "react-router-dom";
-import { getAppIcon } from "@/utils";
 
 export function SettingsPage() {
   const { user } = useAuthStore();
@@ -968,7 +968,11 @@ function AppSettingsList({
                     justify="center"
                     flexShrink={0}
                   >
-                    <Icon as={getAppIcon(app.icon)} color="brand.500" boxSize={5} />
+                    <Icon
+                      as={getAppIcon(app.icon)}
+                      color="brand.500"
+                      boxSize={5}
+                    />
                   </Flex>
                   <Box flex={1} minW={0}>
                     <Flex align="center" gap={2} mb={1}>

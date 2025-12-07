@@ -125,9 +125,11 @@ describe("useApps hooks", () => {
   });
 
   describe("useCreateApp", () => {
-    it("should create app and invalidate queries", async () => {
-      vi.mocked(appsApi.create).mockResolvedValueOnce(mockApp);
-      const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+    it("should create app and update cache immediately", async () => {
+      const newApp = { ...mockApp, id: 2, name: "New App" };
+      vi.mocked(appsApi.create).mockResolvedValueOnce(newApp);
+      const setQueriesDataSpy = vi.spyOn(queryClient, "setQueriesData");
+      const setQueryDataSpy = vi.spyOn(queryClient, "setQueryData");
 
       const { result } = renderHook(() => useCreateApp(), { wrapper });
 
@@ -144,15 +146,19 @@ describe("useApps hooks", () => {
         description: "New description",
         fields: [],
       });
-      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["apps"] });
+
+      // キャッシュ更新メソッドが呼ばれていることを確認
+      expect(setQueriesDataSpy).toHaveBeenCalled();
+      expect(setQueryDataSpy).toHaveBeenCalledWith(["app", 2], newApp);
     });
   });
 
   describe("useUpdateApp", () => {
-    it("should update app and invalidate queries", async () => {
+    it("should update app and update cache immediately", async () => {
       const updatedApp = { ...mockApp, name: "Updated App" };
       vi.mocked(appsApi.update).mockResolvedValueOnce(updatedApp);
-      const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+      const setQueriesDataSpy = vi.spyOn(queryClient, "setQueriesData");
+      const setQueryDataSpy = vi.spyOn(queryClient, "setQueryData");
 
       const { result } = renderHook(() => useUpdateApp(), { wrapper });
 
@@ -161,15 +167,18 @@ describe("useApps hooks", () => {
       await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
       expect(appsApi.update).toHaveBeenCalledWith(1, { name: "Updated App" });
-      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["apps"] });
-      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["app", 1] });
+
+      // キャッシュ更新メソッドが呼ばれていることを確認
+      expect(setQueriesDataSpy).toHaveBeenCalled();
+      expect(setQueryDataSpy).toHaveBeenCalledWith(["app", 1], updatedApp);
     });
   });
 
   describe("useDeleteApp", () => {
-    it("should delete app and invalidate queries", async () => {
+    it("should delete app and update cache immediately", async () => {
       vi.mocked(appsApi.delete).mockResolvedValueOnce(undefined);
-      const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+      const setQueriesDataSpy = vi.spyOn(queryClient, "setQueriesData");
+      const removeQueriesSpy = vi.spyOn(queryClient, "removeQueries");
 
       const { result } = renderHook(() => useDeleteApp(), { wrapper });
 
@@ -178,7 +187,10 @@ describe("useApps hooks", () => {
       await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
       expect(appsApi.delete).toHaveBeenCalledWith(1);
-      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["apps"] });
+
+      // キャッシュ更新メソッドが呼ばれていることを確認
+      expect(setQueriesDataSpy).toHaveBeenCalled();
+      expect(removeQueriesSpy).toHaveBeenCalledWith({ queryKey: ["app", 1] });
     });
   });
 });

@@ -3,7 +3,7 @@
  */
 
 import { appsApi } from "@/api";
-import { CreateAppRequest, UpdateAppRequest } from "@/types";
+import { AppListResponse, CreateAppRequest, UpdateAppRequest } from "@/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 /**
@@ -35,8 +35,24 @@ export function useCreateApp() {
 
   return useMutation({
     mutationFn: (data: CreateAppRequest) => appsApi.create(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["apps"] });
+    onSuccess: (newApp) => {
+      // キャッシュを直接更新して即時反映
+      queryClient.setQueriesData<AppListResponse>(
+        { queryKey: ["apps"] },
+        (oldData) => {
+          if (!oldData) return oldData;
+          return {
+            ...oldData,
+            apps: [newApp, ...oldData.apps],
+            pagination: {
+              ...oldData.pagination,
+              total: oldData.pagination.total + 1,
+            },
+          };
+        }
+      );
+      // 個別アプリのキャッシュも設定
+      queryClient.setQueryData(["app", newApp.id], newApp);
     },
   });
 }
@@ -50,9 +66,22 @@ export function useUpdateApp() {
   return useMutation({
     mutationFn: ({ id, data }: { id: number; data: UpdateAppRequest }) =>
       appsApi.update(id, data),
-    onSuccess: (_, { id }) => {
-      queryClient.invalidateQueries({ queryKey: ["apps"] });
-      queryClient.invalidateQueries({ queryKey: ["app", id] });
+    onSuccess: (updatedApp, { id }) => {
+      // キャッシュを直接更新して即時反映
+      queryClient.setQueriesData<AppListResponse>(
+        { queryKey: ["apps"] },
+        (oldData) => {
+          if (!oldData) return oldData;
+          return {
+            ...oldData,
+            apps: oldData.apps.map((app) =>
+              app.id === id ? updatedApp : app
+            ),
+          };
+        }
+      );
+      // 個別アプリのキャッシュも更新
+      queryClient.setQueryData(["app", id], updatedApp);
     },
   });
 }
@@ -65,8 +94,24 @@ export function useDeleteApp() {
 
   return useMutation({
     mutationFn: (id: number) => appsApi.delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["apps"] });
+    onSuccess: (_, deletedId) => {
+      // キャッシュを直接更新して即時反映
+      queryClient.setQueriesData<AppListResponse>(
+        { queryKey: ["apps"] },
+        (oldData) => {
+          if (!oldData) return oldData;
+          return {
+            ...oldData,
+            apps: oldData.apps.filter((app) => app.id !== deletedId),
+            pagination: {
+              ...oldData.pagination,
+              total: Math.max(0, oldData.pagination.total - 1),
+            },
+          };
+        }
+      );
+      // 個別アプリのキャッシュを削除
+      queryClient.removeQueries({ queryKey: ["app", deletedId] });
     },
   });
 }

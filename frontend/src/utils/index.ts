@@ -3,4 +3,3 @@
  */
 export * from "./appIcon";
 export * from "./dateFormatter";
-

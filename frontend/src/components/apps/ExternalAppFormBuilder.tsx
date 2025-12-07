@@ -2,6 +2,7 @@
  * 外部データソース用アプリフォームビルダー
  */
 
+import type { App, AppListResponse } from "@/types";
 import type {
   CreateExternalAppRequest,
   CreateExternalFieldRequest,
@@ -40,7 +41,7 @@ import {
   useToast,
   VStack,
 } from "@chakra-ui/react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -66,6 +67,7 @@ export function ExternalAppFormBuilder({
 }: ExternalAppFormBuilderProps) {
   const toast = useToast();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const [appName, setAppName] = useState(table.name);
   const [appDescription, setAppDescription] = useState("");
@@ -103,7 +105,25 @@ export function ExternalAppFormBuilder({
       }
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (newApp: App) => {
+      // キャッシュを直接更新して即時反映
+      queryClient.setQueriesData<AppListResponse>(
+        { queryKey: ["apps"] },
+        (oldData) => {
+          if (!oldData) return oldData;
+          return {
+            ...oldData,
+            apps: [newApp, ...oldData.apps],
+            pagination: {
+              ...oldData.pagination,
+              total: oldData.pagination.total + 1,
+            },
+          };
+        }
+      );
+      // 個別アプリのキャッシュも設定
+      queryClient.setQueryData(["app", newApp.id], newApp);
+
       toast({
         title: "アプリを作成しました",
         status: "success",

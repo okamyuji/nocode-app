@@ -221,17 +221,12 @@ describe("useCharts hooks", () => {
       };
 
       // 1回目のリクエスト
-      const { rerender } = renderHook(
-        ({ req }) => useChartData(1, req),
-        {
-          wrapper,
-          initialProps: { req: request1 },
-        }
-      );
+      const { rerender } = renderHook(({ req }) => useChartData(1, req), {
+        wrapper,
+        initialProps: { req: request1 },
+      });
 
-      await waitFor(() =>
-        expect(chartsApi.getData).toHaveBeenCalledTimes(1)
-      );
+      await waitFor(() => expect(chartsApi.getData).toHaveBeenCalledTimes(1));
 
       // 2回目：主要フィールド（chart_type, x_field, y_field, y_agg）が同じなのでキャッシュを使用
       rerender({ req: request2 });
