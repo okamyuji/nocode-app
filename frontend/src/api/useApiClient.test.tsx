@@ -66,6 +66,16 @@ const mockApiClient: IApiClient = {
   dashboard: {
     getStats: vi.fn(),
   },
+  dataSources: {
+    getDataSources: vi.fn(),
+    getDataSource: vi.fn(),
+    createDataSource: vi.fn(),
+    updateDataSource: vi.fn(),
+    deleteDataSource: vi.fn(),
+    testConnection: vi.fn(),
+    getTables: vi.fn(),
+    getColumns: vi.fn(),
+  },
 };
 
 describe("useApiClient", () => {

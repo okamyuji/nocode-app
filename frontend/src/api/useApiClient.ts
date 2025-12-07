@@ -67,3 +67,8 @@ export function useProfileApi() {
 export function useDashboardApi() {
   return useApiClient().dashboard;
 }
+
+// データソースAPI
+export function useDataSourcesApi() {
+  return useApiClient().dataSources;
+}

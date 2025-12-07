@@ -36,6 +36,7 @@ export interface Field {
   field_code: string;
   field_name: string;
   field_type: FieldType;
+  source_column_name?: string;
   options?: FieldOptions;
   required: boolean;
   display_order: number;

@@ -15,12 +15,16 @@ import {
   ChartConfig,
   ChartDataRequest,
   ChartDataResponse,
+  ColumnListResponse,
   CreateAppRequest,
+  CreateDataSourceRequest,
   CreateFieldRequest,
   CreateRecordRequest,
   CreateUserRequest,
   CreateViewRequest,
   DashboardStatsResponse,
+  DataSource,
+  DataSourceListResponse,
   Field,
   LoginRequest,
   RecordItem,
@@ -28,7 +32,11 @@ import {
   RecordQueryOptions,
   RegisterRequest,
   SaveChartConfigRequest,
+  TableListResponse,
+  TestConnectionRequest,
+  TestConnectionResponse,
   UpdateAppRequest,
+  UpdateDataSourceRequest,
   UpdateFieldOrderRequest,
   UpdateFieldRequest,
   UpdateProfileRequest,
@@ -149,6 +157,29 @@ export interface IDashboardApi {
 }
 
 /**
+ * データソースAPIインターフェース
+ */
+export interface IDataSourcesApi {
+  getDataSources(
+    page?: number,
+    limit?: number
+  ): Promise<DataSourceListResponse>;
+  getDataSource(id: number): Promise<DataSource>;
+  createDataSource(data: CreateDataSourceRequest): Promise<DataSource>;
+  updateDataSource(
+    id: number,
+    data: UpdateDataSourceRequest
+  ): Promise<DataSource>;
+  deleteDataSource(id: number): Promise<void>;
+  testConnection(data: TestConnectionRequest): Promise<TestConnectionResponse>;
+  getTables(dataSourceId: number): Promise<TableListResponse>;
+  getColumns(
+    dataSourceId: number,
+    tableName: string
+  ): Promise<ColumnListResponse>;
+}
+
+/**
  * 統合APIクライアント インターフェース
  */
 export interface IApiClient {
@@ -161,4 +192,5 @@ export interface IApiClient {
   users: IUsersApi;
   profile: IProfileApi;
   dashboard: IDashboardApi;
+  dataSources: IDataSourcesApi;
 }
