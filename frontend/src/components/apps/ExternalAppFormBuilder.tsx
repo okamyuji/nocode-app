@@ -189,9 +189,13 @@ export function ExternalAppFormBuilder({
       );
     }
 
-    // フィールドエラーがあれば結合して設定
-    if (fieldErrors.length > 0 && !newErrors.fields) {
-      newErrors.fields = fieldErrors.join("。");
+    // フィールドエラーがあれば既存エラーと結合して設定
+    if (fieldErrors.length > 0) {
+      if (newErrors.fields) {
+        newErrors.fields = `${newErrors.fields}。${fieldErrors.join("。")}`;
+      } else {
+        newErrors.fields = fieldErrors.join("。");
+      }
     }
 
     setErrors(newErrors);

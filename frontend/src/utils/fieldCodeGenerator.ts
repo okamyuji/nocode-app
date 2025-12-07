@@ -54,10 +54,23 @@ export function isValidFieldCode(code: string): boolean {
  *
  * @param columns カラム名の配列
  * @returns カラム名からユニークなフィールドコードへのマッピング
+ * @throws 重複するカラム名がある場合はエラー
  */
 export function generateUniqueFieldCodes(columns: { name: string }[]): {
   [key: string]: string;
 } {
+  // 重複するカラム名をチェック
+  const columnNames = columns.map((c) => c.name);
+  const duplicateNames = columnNames.filter(
+    (name, index) => columnNames.indexOf(name) !== index
+  );
+  if (duplicateNames.length > 0) {
+    const uniqueDuplicates = [...new Set(duplicateNames)];
+    throw new Error(
+      `重複するカラム名があります: ${uniqueDuplicates.join(", ")}`
+    );
+  }
+
   const usedCodes = new Set<string>();
   const result: { [key: string]: string } = {};
 
@@ -66,7 +79,8 @@ export function generateUniqueFieldCodes(columns: { name: string }[]): {
     let uniqueCode = code;
     let suffix = 1;
 
-    // 重複している場合はサフィックスを付ける
+    // 生成されたコードが重複している場合はサフィックスを付ける
+    // （異なるカラム名から同じコードが生成される場合、例: "名前" と "氏名" → 両方 "field_N"）
     while (usedCodes.has(uniqueCode)) {
       suffix++;
       uniqueCode = `${code}_${suffix}`;

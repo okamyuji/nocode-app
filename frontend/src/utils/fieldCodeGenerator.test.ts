@@ -197,22 +197,62 @@ describe("generateUniqueFieldCodes", () => {
     });
   });
 
-  describe("重複がある場合", () => {
-    it("同じカラム名には連番サフィックスを付ける", () => {
+  describe("重複カラム名がある場合", () => {
+    it("同じカラム名がある場合はエラーを投げる", () => {
       const columns = [{ name: "name" }, { name: "name" }, { name: "name" }];
-      const result = generateUniqueFieldCodes(columns);
-
-      expect(result["name"]).toBe("name_3"); // 最後の値が格納される
+      expect(() => generateUniqueFieldCodes(columns)).toThrow(
+        "重複するカラム名があります: name"
+      );
     });
 
-    it("日本語が同名の場合も連番サフィックスを付ける", () => {
+    it("日本語が同名の場合もエラーを投げる", () => {
       const columns = [{ name: "名前" }, { name: "名前" }];
+      expect(() => generateUniqueFieldCodes(columns)).toThrow(
+        "重複するカラム名があります: 名前"
+      );
+    });
+
+    it("複数の重複カラムがある場合はすべて表示する", () => {
+      const columns = [
+        { name: "name" },
+        { name: "email" },
+        { name: "name" },
+        { name: "email" },
+      ];
+      expect(() => generateUniqueFieldCodes(columns)).toThrow(
+        "重複するカラム名があります: name, email"
+      );
+    });
+  });
+
+  describe("生成されたコードが重複する場合", () => {
+    it("異なるカラム名から同じコードが生成される場合はサフィックスを付ける", () => {
+      // "名前" と "氏名" は両方 field_N 形式になるが、indexが異なるので別の値になる
+      // "名前" (index=0) → field_1, "氏名" (index=1) → field_2
+      const columns = [{ name: "名前" }, { name: "氏名" }];
       const result = generateUniqueFieldCodes(columns);
 
-      // 両方ともfield_1になるが、2番目はfield_1_2になる
-      // ただし、同じキーなので上書きされる
-      // 実際の使用ではカラム名は一意なのでこのケースは稀
-      expect(result["名前"]).toBeDefined();
+      expect(result["名前"]).toBe("field_1");
+      expect(result["氏名"]).toBe("field_2");
+    });
+
+    it("同じbaseコードが生成される場合はサフィックスを付ける", () => {
+      // 同じindex=0のbaseコードが重複した場合のテスト
+      // "test" と "TEST" は両方 "test" になる→2番目にサフィックス
+      const columns = [{ name: "test" }, { name: "TEST" }];
+      const result = generateUniqueFieldCodes(columns);
+
+      expect(result["test"]).toBe("test");
+      expect(result["TEST"]).toBe("test_2");
+    });
+
+    it("英語変換で同じコードになる場合もサフィックスを付ける", () => {
+      // "User Name" と "user_name" は両方 "username" になる
+      const columns = [{ name: "User Name" }, { name: "user-name" }];
+      const result = generateUniqueFieldCodes(columns);
+
+      expect(result["User Name"]).toBe("username");
+      expect(result["user-name"]).toBe("username_2");
     });
   });
 
