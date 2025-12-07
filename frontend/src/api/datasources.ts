@@ -99,8 +99,10 @@ export function createDataSourceApi(client: AxiosInstance) {
       dataSourceId: number,
       tableName: string
     ): Promise<ColumnListResponse> {
+      // 日本語テーブル名などの非ASCII文字をURLエンコード
+      const encodedTableName = encodeURIComponent(tableName);
       const response = await client.get<ColumnListResponse>(
-        `/datasources/${dataSourceId}/tables/${tableName}/columns`
+        `/datasources/${dataSourceId}/tables/${encodedTableName}/columns`
       );
       return response.data;
     },

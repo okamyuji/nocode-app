@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -293,5 +294,11 @@ func extractDataSourceIDAndTableName(path string) (uint64, string, error) {
 		return 0, "", errors.New("テーブル名が指定されていません")
 	}
 
-	return id, tableName, nil
+	// URLエンコードされた日本語テーブル名などをデコード
+	decodedTableName, err := url.PathUnescape(tableName)
+	if err != nil {
+		return 0, "", errors.New("テーブル名のデコードに失敗しました")
+	}
+
+	return id, decodedTableName, nil
 }
