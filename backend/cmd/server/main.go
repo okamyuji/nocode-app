@@ -42,6 +42,12 @@ func main() {
 
 	log.Println("データベースに接続しました")
 
+	// 暗号化の初期化
+	if err := utils.InitEncryption(); err != nil {
+		log.Printf("警告: 暗号化キーの初期化に失敗しました: %v", err)
+		log.Println("外部データソース機能は利用できません。ENCRYPTION_KEY環境変数を設定してください。")
+	}
+
 	// ユーティリティの初期化
 	jwtManager := utils.NewJWTManager(cfg.JWT.Secret, cfg.JWT.ExpiryHours)
 	validator := utils.NewValidator()
@@ -53,16 +59,19 @@ func main() {
 	viewRepo := repositories.NewViewRepository(db)
 	chartRepo := repositories.NewChartRepository(db)
 	dynamicQuery := repositories.NewDynamicQueryExecutor(db)
+	dataSourceRepo := repositories.NewDataSourceRepository(db)
+	externalQuery := repositories.NewExternalQueryExecutor()
 
 	// サービスの初期化
 	authService := services.NewAuthService(userRepo, jwtManager)
-	appService := services.NewAppService(appRepo, fieldRepo, dynamicQuery)
+	appService := services.NewAppService(appRepo, fieldRepo, dynamicQuery, dataSourceRepo)
 	fieldService := services.NewFieldService(fieldRepo, appRepo, dynamicQuery)
-	recordService := services.NewRecordService(appRepo, fieldRepo, dynamicQuery)
+	recordService := services.NewRecordService(appRepo, fieldRepo, dynamicQuery, dataSourceRepo, externalQuery)
 	viewService := services.NewViewService(viewRepo, appRepo)
-	chartService := services.NewChartService(chartRepo, appRepo, dynamicQuery)
+	chartService := services.NewChartService(chartRepo, appRepo, dynamicQuery, dataSourceRepo, externalQuery)
 	userService := services.NewUserService(userRepo)
 	dashboardService := services.NewDashboardService(userRepo, appRepo, dynamicQuery)
+	dataSourceService := services.NewDataSourceService(dataSourceRepo, externalQuery)
 
 	// ハンドラーの初期化
 	authHandler := handlers.NewAuthHandler(authService, validator)
@@ -73,6 +82,7 @@ func main() {
 	chartHandler := handlers.NewChartHandler(chartService, validator)
 	userHandler := handlers.NewUserHandler(userService, validator)
 	dashboardHandler := handlers.NewDashboardHandler(dashboardService)
+	dataSourceHandler := handlers.NewDataSourceHandler(dataSourceService, validator)
 
 	// ミドルウェアの初期化
 	authMiddleware := middleware.NewAuthMiddleware(jwtManager)
@@ -95,6 +105,7 @@ func main() {
 		chartHandler,
 		userHandler,
 		dashboardHandler,
+		dataSourceHandler,
 	)
 
 	// ルートの設定
