@@ -87,6 +87,14 @@ func (m *MockAppService) DeleteApp(ctx context.Context, appID uint64) error {
 	return args.Error(0)
 }
 
+func (m *MockAppService) CreateExternalApp(ctx context.Context, userID uint64, req *models.CreateExternalAppRequest) (*models.AppResponse, error) {
+	args := m.Called(ctx, userID, req)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.AppResponse), args.Error(1)
+}
+
 // MockFieldService FieldServiceInterfaceのモック実装
 type MockFieldService struct {
 	mock.Mock
@@ -315,4 +323,75 @@ func (m *MockDashboardService) GetStats(ctx context.Context) (*models.DashboardS
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*models.DashboardStats), args.Error(1)
+}
+
+// MockDataSourceService DataSourceServiceInterfaceのモック実装
+type MockDataSourceService struct {
+	mock.Mock
+}
+
+func (m *MockDataSourceService) CreateDataSource(ctx context.Context, userID uint64, req *models.CreateDataSourceRequest) (*models.DataSourceResponse, error) {
+	args := m.Called(ctx, userID, req)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.DataSourceResponse), args.Error(1)
+}
+
+func (m *MockDataSourceService) GetDataSource(ctx context.Context, id uint64) (*models.DataSourceResponse, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.DataSourceResponse), args.Error(1)
+}
+
+func (m *MockDataSourceService) GetDataSources(ctx context.Context, page, limit int) (*models.DataSourceListResponse, error) {
+	args := m.Called(ctx, page, limit)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.DataSourceListResponse), args.Error(1)
+}
+
+func (m *MockDataSourceService) UpdateDataSource(ctx context.Context, id uint64, req *models.UpdateDataSourceRequest) (*models.DataSourceResponse, error) {
+	args := m.Called(ctx, id, req)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.DataSourceResponse), args.Error(1)
+}
+
+func (m *MockDataSourceService) DeleteDataSource(ctx context.Context, id uint64) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
+func (m *MockDataSourceService) TestConnection(ctx context.Context, req *models.TestConnectionRequest) (*models.TestConnectionResponse, error) {
+	args := m.Called(ctx, req)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.TestConnectionResponse), args.Error(1)
+}
+
+func (m *MockDataSourceService) GetTables(ctx context.Context, id uint64) (*models.TableListResponse, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.TableListResponse), args.Error(1)
+}
+
+func (m *MockDataSourceService) GetColumns(ctx context.Context, id uint64, tableName string) (*models.ColumnListResponse, error) {
+	args := m.Called(ctx, id, tableName)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.ColumnListResponse), args.Error(1)
+}
+
+func (m *MockDataSourceService) GetDecryptedPassword(ctx context.Context, id uint64) (string, error) {
+	args := m.Called(ctx, id)
+	return args.String(0), args.Error(1)
 }

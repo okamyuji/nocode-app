@@ -84,12 +84,37 @@ type DynamicQueryExecutorInterface interface {
 	CountTodaysUpdates(ctx context.Context, tableName string) (int64, error)
 }
 
+// DataSourceRepositoryInterface データソースデータベース操作のインターフェースを定義
+type DataSourceRepositoryInterface interface {
+	Create(ctx context.Context, ds *models.DataSource) error
+	GetByID(ctx context.Context, id uint64) (*models.DataSource, error)
+	GetByName(ctx context.Context, name string) (*models.DataSource, error)
+	GetAll(ctx context.Context, page, limit int) ([]models.DataSource, int64, error)
+	Update(ctx context.Context, ds *models.DataSource) error
+	Delete(ctx context.Context, id uint64) error
+	NameExists(ctx context.Context, name string) (bool, error)
+	NameExistsExcludingDataSource(ctx context.Context, name string, excludeID uint64) (bool, error)
+}
+
+// ExternalQueryExecutorInterface 外部データベースクエリ実行のインターフェースを定義
+type ExternalQueryExecutorInterface interface {
+	TestConnection(ctx context.Context, ds *models.DataSource, password string) error
+	GetTables(ctx context.Context, ds *models.DataSource, password string) ([]models.TableInfo, error)
+	GetColumns(ctx context.Context, ds *models.DataSource, password string, tableName string) ([]models.ColumnInfo, error)
+	GetRecords(ctx context.Context, ds *models.DataSource, password string, tableName string, fields []models.AppField, opts RecordQueryOptions) ([]models.RecordResponse, int64, error)
+	GetRecordByID(ctx context.Context, ds *models.DataSource, password string, tableName string, fields []models.AppField, recordID uint64) (*models.RecordResponse, error)
+	GetAggregatedData(ctx context.Context, ds *models.DataSource, password string, tableName string, req *models.ChartDataRequest) (*models.ChartDataResponse, error)
+	CountRecords(ctx context.Context, ds *models.DataSource, password string, tableName string) (int64, error)
+}
+
 // 実装がインターフェースを満たすことを確認
 var (
-	_ UserRepositoryInterface       = (*UserRepository)(nil)
-	_ AppRepositoryInterface        = (*AppRepository)(nil)
-	_ FieldRepositoryInterface      = (*FieldRepository)(nil)
-	_ ViewRepositoryInterface       = (*ViewRepository)(nil)
-	_ ChartRepositoryInterface      = (*ChartRepository)(nil)
-	_ DynamicQueryExecutorInterface = (*DynamicQueryExecutor)(nil)
+	_ UserRepositoryInterface        = (*UserRepository)(nil)
+	_ AppRepositoryInterface         = (*AppRepository)(nil)
+	_ FieldRepositoryInterface       = (*FieldRepository)(nil)
+	_ ViewRepositoryInterface        = (*ViewRepository)(nil)
+	_ ChartRepositoryInterface       = (*ChartRepository)(nil)
+	_ DynamicQueryExecutorInterface  = (*DynamicQueryExecutor)(nil)
+	_ DataSourceRepositoryInterface  = (*DataSourceRepository)(nil)
+	_ ExternalQueryExecutorInterface = (*ExternalQueryExecutor)(nil)
 )

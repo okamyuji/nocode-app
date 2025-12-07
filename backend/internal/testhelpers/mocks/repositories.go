@@ -355,3 +355,112 @@ func (m *MockDynamicQueryExecutor) CountTodaysUpdates(ctx context.Context, table
 	args := m.Called(ctx, tableName)
 	return args.Get(0).(int64), args.Error(1)
 }
+
+// MockDataSourceRepository DataSourceRepositoryInterfaceのモック実装
+type MockDataSourceRepository struct {
+	mock.Mock
+}
+
+func (m *MockDataSourceRepository) Create(ctx context.Context, ds *models.DataSource) error {
+	args := m.Called(ctx, ds)
+	return args.Error(0)
+}
+
+func (m *MockDataSourceRepository) GetByID(ctx context.Context, id uint64) (*models.DataSource, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.DataSource), args.Error(1)
+}
+
+func (m *MockDataSourceRepository) GetByName(ctx context.Context, name string) (*models.DataSource, error) {
+	args := m.Called(ctx, name)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.DataSource), args.Error(1)
+}
+
+func (m *MockDataSourceRepository) GetAll(ctx context.Context, page, limit int) ([]models.DataSource, int64, error) {
+	args := m.Called(ctx, page, limit)
+	if args.Get(0) == nil {
+		return nil, args.Get(1).(int64), args.Error(2)
+	}
+	return args.Get(0).([]models.DataSource), args.Get(1).(int64), args.Error(2)
+}
+
+func (m *MockDataSourceRepository) Update(ctx context.Context, ds *models.DataSource) error {
+	args := m.Called(ctx, ds)
+	return args.Error(0)
+}
+
+func (m *MockDataSourceRepository) Delete(ctx context.Context, id uint64) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
+func (m *MockDataSourceRepository) NameExists(ctx context.Context, name string) (bool, error) {
+	args := m.Called(ctx, name)
+	return args.Bool(0), args.Error(1)
+}
+
+func (m *MockDataSourceRepository) NameExistsExcludingDataSource(ctx context.Context, name string, excludeID uint64) (bool, error) {
+	args := m.Called(ctx, name, excludeID)
+	return args.Bool(0), args.Error(1)
+}
+
+// MockExternalQueryExecutor ExternalQueryExecutorInterfaceのモック実装
+type MockExternalQueryExecutor struct {
+	mock.Mock
+}
+
+func (m *MockExternalQueryExecutor) TestConnection(ctx context.Context, ds *models.DataSource, password string) error {
+	args := m.Called(ctx, ds, password)
+	return args.Error(0)
+}
+
+func (m *MockExternalQueryExecutor) GetTables(ctx context.Context, ds *models.DataSource, password string) ([]models.TableInfo, error) {
+	args := m.Called(ctx, ds, password)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]models.TableInfo), args.Error(1)
+}
+
+func (m *MockExternalQueryExecutor) GetColumns(ctx context.Context, ds *models.DataSource, password string, tableName string) ([]models.ColumnInfo, error) {
+	args := m.Called(ctx, ds, password, tableName)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]models.ColumnInfo), args.Error(1)
+}
+
+func (m *MockExternalQueryExecutor) GetRecords(ctx context.Context, ds *models.DataSource, password string, tableName string, fields []models.AppField, opts repositories.RecordQueryOptions) ([]models.RecordResponse, int64, error) {
+	args := m.Called(ctx, ds, password, tableName, fields, opts)
+	if args.Get(0) == nil {
+		return nil, args.Get(1).(int64), args.Error(2)
+	}
+	return args.Get(0).([]models.RecordResponse), args.Get(1).(int64), args.Error(2)
+}
+
+func (m *MockExternalQueryExecutor) GetRecordByID(ctx context.Context, ds *models.DataSource, password string, tableName string, fields []models.AppField, recordID uint64) (*models.RecordResponse, error) {
+	args := m.Called(ctx, ds, password, tableName, fields, recordID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.RecordResponse), args.Error(1)
+}
+
+func (m *MockExternalQueryExecutor) GetAggregatedData(ctx context.Context, ds *models.DataSource, password string, tableName string, req *models.ChartDataRequest) (*models.ChartDataResponse, error) {
+	args := m.Called(ctx, ds, password, tableName, req)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.ChartDataResponse), args.Error(1)
+}
+
+func (m *MockExternalQueryExecutor) CountRecords(ctx context.Context, ds *models.DataSource, password string, tableName string) (int64, error) {
+	args := m.Called(ctx, ds, password, tableName)
+	return args.Get(0).(int64), args.Error(1)
+}

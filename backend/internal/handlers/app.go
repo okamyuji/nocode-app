@@ -159,6 +159,39 @@ func (h *AppHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJSON(w, http.StatusOK, models.SuccessResponse{Message: "アプリを削除しました"})
 }
 
+// CreateExternal 外部データソースからアプリを作成する
+func (h *AppHandler) CreateExternal(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		utils.WriteErrorResponse(w, http.StatusMethodNotAllowed, "メソッドが許可されていません")
+		return
+	}
+
+	claims, ok := middleware.GetUserFromContext(r.Context())
+	if !ok {
+		utils.WriteErrorResponse(w, http.StatusUnauthorized, "認証されていません")
+		return
+	}
+
+	var req models.CreateExternalAppRequest
+	if err := h.validator.ParseAndValidate(r, &req); err != nil {
+		utils.WriteErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	resp, err := h.appService.CreateExternalApp(r.Context(), claims.UserID, &req)
+	if err != nil {
+		log.Printf("外部アプリ作成エラー: %v", err)
+		if errors.Is(err, services.ErrDataSourceNotFound) {
+			utils.WriteErrorResponse(w, http.StatusNotFound, err.Error())
+			return
+		}
+		utils.WriteErrorResponse(w, http.StatusInternalServerError, "アプリの作成に失敗しました")
+		return
+	}
+
+	utils.WriteJSON(w, http.StatusCreated, resp)
+}
+
 // extractAppID URLパスからアプリIDを抽出する
 // 期待されるパス形式: /api/v1/apps/{id}
 func extractAppID(path string) (uint64, error) {

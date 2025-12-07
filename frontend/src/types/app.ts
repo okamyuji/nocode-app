@@ -23,6 +23,9 @@ export interface App {
   description: string;
   table_name: string;
   icon: string;
+  is_external: boolean;
+  data_source_id?: number;
+  source_table_name?: string;
   created_by: number;
   created_at: string;
   updated_at: string;

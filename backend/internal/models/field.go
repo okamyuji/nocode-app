@@ -69,16 +69,17 @@ func (fo *FieldOptions) Scan(value interface{}) error {
 type AppField struct {
 	bun.BaseModel `bun:"table:app_fields,alias:af"`
 
-	ID           uint64       `bun:"id,pk,autoincrement" json:"id"`
-	AppID        uint64       `bun:"app_id,notnull" json:"app_id"`
-	FieldCode    string       `bun:"field_code,notnull" json:"field_code"`
-	FieldName    string       `bun:"field_name,notnull" json:"field_name"`
-	FieldType    string       `bun:"field_type,notnull" json:"field_type"`
-	Options      FieldOptions `bun:"options,type:json" json:"options,omitempty"`
-	Required     bool         `bun:"required,notnull,default:false" json:"required"`
-	DisplayOrder int          `bun:"display_order,notnull,default:0" json:"display_order"`
-	CreatedAt    time.Time    `bun:"created_at,notnull,default:current_timestamp" json:"created_at"`
-	UpdatedAt    time.Time    `bun:"updated_at,notnull,default:current_timestamp" json:"updated_at"`
+	ID               uint64       `bun:"id,pk,autoincrement" json:"id"`
+	AppID            uint64       `bun:"app_id,notnull" json:"app_id"`
+	FieldCode        string       `bun:"field_code,notnull" json:"field_code"`
+	FieldName        string       `bun:"field_name,notnull" json:"field_name"`
+	FieldType        string       `bun:"field_type,notnull" json:"field_type"`
+	SourceColumnName *string      `bun:"source_column_name" json:"source_column_name,omitempty"`
+	Options          FieldOptions `bun:"options,type:json" json:"options,omitempty"`
+	Required         bool         `bun:"required,notnull,default:false" json:"required"`
+	DisplayOrder     int          `bun:"display_order,notnull,default:0" json:"display_order"`
+	CreatedAt        time.Time    `bun:"created_at,notnull,default:current_timestamp" json:"created_at"`
+	UpdatedAt        time.Time    `bun:"updated_at,notnull,default:current_timestamp" json:"updated_at"`
 }
 
 // CreateFieldRequest フィールド作成リクエストの構造体
@@ -112,31 +113,33 @@ type FieldOrderItem struct {
 
 // FieldResponse フィールドデータのレスポンス構造体
 type FieldResponse struct {
-	ID           uint64       `json:"id"`
-	AppID        uint64       `json:"app_id"`
-	FieldCode    string       `json:"field_code"`
-	FieldName    string       `json:"field_name"`
-	FieldType    string       `json:"field_type"`
-	Options      FieldOptions `json:"options,omitempty"`
-	Required     bool         `json:"required"`
-	DisplayOrder int          `json:"display_order"`
-	CreatedAt    time.Time    `json:"created_at"`
-	UpdatedAt    time.Time    `json:"updated_at"`
+	ID               uint64       `json:"id"`
+	AppID            uint64       `json:"app_id"`
+	FieldCode        string       `json:"field_code"`
+	FieldName        string       `json:"field_name"`
+	FieldType        string       `json:"field_type"`
+	SourceColumnName *string      `json:"source_column_name,omitempty"`
+	Options          FieldOptions `json:"options,omitempty"`
+	Required         bool         `json:"required"`
+	DisplayOrder     int          `json:"display_order"`
+	CreatedAt        time.Time    `json:"created_at"`
+	UpdatedAt        time.Time    `json:"updated_at"`
 }
 
 // ToResponse AppFieldをFieldResponseに変換する
 func (f *AppField) ToResponse() *FieldResponse {
 	return &FieldResponse{
-		ID:           f.ID,
-		AppID:        f.AppID,
-		FieldCode:    f.FieldCode,
-		FieldName:    f.FieldName,
-		FieldType:    f.FieldType,
-		Options:      f.Options,
-		Required:     f.Required,
-		DisplayOrder: f.DisplayOrder,
-		CreatedAt:    f.CreatedAt,
-		UpdatedAt:    f.UpdatedAt,
+		ID:               f.ID,
+		AppID:            f.AppID,
+		FieldCode:        f.FieldCode,
+		FieldName:        f.FieldName,
+		FieldType:        f.FieldType,
+		SourceColumnName: f.SourceColumnName,
+		Options:          f.Options,
+		Required:         f.Required,
+		DisplayOrder:     f.DisplayOrder,
+		CreatedAt:        f.CreatedAt,
+		UpdatedAt:        f.UpdatedAt,
 	}
 }
 
