@@ -1056,7 +1056,23 @@ function AppSettingsDetail({ app, onBack }: AppSettingsDetailProps) {
       setDescription(updatedApp.description || "");
       setIcon(updatedApp.icon || "default");
 
-      queryClient.invalidateQueries({ queryKey: ["apps"] });
+      // キャッシュを直接更新して他の画面でも即時反映
+      queryClient.setQueriesData<{ apps: App[] }>(
+        { queryKey: ["apps"] },
+        (oldData) => {
+          if (!oldData) return oldData;
+          return {
+            ...oldData,
+            apps: oldData.apps.map((a) =>
+              a.id === updatedApp.id ? updatedApp : a
+            ),
+          };
+        }
+      );
+
+      // 個別アプリのキャッシュも更新
+      queryClient.setQueryData(["app", app.id], updatedApp);
+
       toast({
         title: "アプリを更新しました",
         status: "success",
