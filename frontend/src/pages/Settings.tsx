@@ -1010,6 +1010,13 @@ function AppSettingsDetail({ app, onBack }: AppSettingsDetailProps) {
   const [description, setDescription] = useState(app.description || "");
   const [icon, setIcon] = useState(app.icon || "default");
 
+  // propsのappが変更された場合にローカルstateを同期
+  useEffect(() => {
+    setName(app.name);
+    setDescription(app.description || "");
+    setIcon(app.icon || "default");
+  }, [app]);
+
   // Modal states
   const {
     isOpen: isDeleteAppOpen,
@@ -1043,7 +1050,12 @@ function AppSettingsDetail({ app, onBack }: AppSettingsDetailProps) {
   // Update app mutation
   const updateAppMutation = useMutation({
     mutationFn: (data: UpdateAppRequest) => apps.update(app.id, data),
-    onSuccess: () => {
+    onSuccess: (updatedApp) => {
+      // ローカルstateを更新してUIに即時反映
+      setName(updatedApp.name);
+      setDescription(updatedApp.description || "");
+      setIcon(updatedApp.icon || "default");
+
       queryClient.invalidateQueries({ queryKey: ["apps"] });
       toast({
         title: "アプリを更新しました",
