@@ -46,13 +46,13 @@ type CreateExternalAppRequest struct {
 }
 
 // CreateExternalFieldRequest 外部データソース用のフィールド作成リクエスト
+// 外部データソースは読み取り専用のため、Requiredフィールドは不要
 type CreateExternalFieldRequest struct {
 	SourceColumnName string                 `json:"source_column_name" validate:"required,min=1,max=100"`
 	FieldCode        string                 `json:"field_code" validate:"required,min=1,max=64,fieldcode"`
 	FieldName        string                 `json:"field_name" validate:"required,min=1,max=100"`
 	FieldType        string                 `json:"field_type" validate:"required,oneof=text textarea number date datetime select multiselect checkbox radio link attachment"`
 	Options          map[string]interface{} `json:"options"`
-	Required         bool                   `json:"required"`
 	DisplayOrder     int                    `json:"display_order"`
 }
 

@@ -74,9 +74,7 @@ export function useUpdateApp() {
           if (!oldData) return oldData;
           return {
             ...oldData,
-            apps: oldData.apps.map((app) =>
-              app.id === id ? updatedApp : app
-            ),
+            apps: oldData.apps.map((app) => (app.id === id ? updatedApp : app)),
           };
         }
       );

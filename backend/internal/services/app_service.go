@@ -256,7 +256,7 @@ func (s *AppService) CreateExternalApp(ctx context.Context, userID uint64, req *
 			FieldType:        fieldReq.FieldType,
 			SourceColumnName: &sourceColumnName,
 			Options:          fieldReq.Options,
-			Required:         fieldReq.Required,
+			Required:         false, // 外部データソースは読み取り専用のためRequiredは常にfalse
 			DisplayOrder:     fieldReq.DisplayOrder,
 			CreatedAt:        now,
 			UpdatedAt:        now,

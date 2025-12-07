@@ -115,7 +115,6 @@ export interface CreateExternalFieldRequest {
   field_name: string;
   field_type: string;
   options?: Record<string, unknown>;
-  required: boolean;
   display_order: number;
 }
 

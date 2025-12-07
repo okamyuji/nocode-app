@@ -56,7 +56,6 @@ interface FieldMapping {
   field_code: string;
   field_name: string;
   field_type: FieldType;
-  required: boolean;
   selected: boolean;
 }
 
@@ -81,7 +80,6 @@ export function ExternalAppFormBuilder({
       field_code: uniqueCodes[col.name],
       field_name: col.name,
       field_type: mapDataTypeToFieldType(col.data_type) as FieldType,
-      required: !col.is_nullable,
       selected: true,
       display_order: index,
     }));
@@ -213,7 +211,6 @@ export function ExternalAppFormBuilder({
           field_code: f.field_code,
           field_name: f.field_name,
           field_type: f.field_type,
-          required: f.required,
           display_order: index,
         })
       );
@@ -297,7 +294,6 @@ export function ExternalAppFormBuilder({
                   <Th>フィールドコード</Th>
                   <Th>表示名</Th>
                   <Th>フィールドタイプ</Th>
-                  <Th width="80px">必須</Th>
                 </Tr>
               </Thead>
               <Tbody>
@@ -372,19 +368,6 @@ export function ExternalAppFormBuilder({
                           )
                         )}
                       </Select>
-                    </Td>
-                    <Td>
-                      <Checkbox
-                        isChecked={mapping.required}
-                        onChange={(e) =>
-                          handleFieldMappingChange(
-                            index,
-                            "required",
-                            e.target.checked
-                          )
-                        }
-                        isDisabled={!mapping.selected}
-                      />
                     </Td>
                   </Tr>
                 ))}
