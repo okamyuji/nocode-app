@@ -148,7 +148,10 @@ describe("SettingsPage", () => {
       getStats: vi.fn(),
     },
     dataSources: {
-      getDataSources: vi.fn(),
+      getDataSources: vi.fn().mockResolvedValue({
+        data_sources: [],
+        pagination: { page: 1, limit: 100, total: 0, total_pages: 0 },
+      }),
       getDataSource: vi.fn(),
       createDataSource: vi.fn(),
       updateDataSource: vi.fn(),

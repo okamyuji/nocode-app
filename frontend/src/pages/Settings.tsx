@@ -1,4 +1,5 @@
 import { useApiClient } from "@/api";
+import { DataSourceList } from "@/components/datasources";
 import { useAuthStore } from "@/stores";
 import type {
   App,
@@ -89,7 +90,8 @@ export function SettingsPage() {
   const tabParam = searchParams.get("tab");
   const getInitialTabIndex = () => {
     if (isAdmin) {
-      // admin: profile(0), password(1), users(2), apps(3)
+      // admin: profile(0), password(1), users(2), apps(3), datasources(4)
+      if (tabParam === "datasources") return 4;
       if (tabParam === "apps") return 3;
       if (tabParam === "users") return 2;
       if (tabParam === "password") return 1;
@@ -104,7 +106,7 @@ export function SettingsPage() {
 
   const handleTabChange = (index: number) => {
     const tabNames = isAdmin
-      ? ["profile", "password", "users", "apps"]
+      ? ["profile", "password", "users", "apps", "datasources"]
       : ["profile", "password"];
     setSearchParams({ tab: tabNames[index] });
   };
@@ -125,6 +127,7 @@ export function SettingsPage() {
           <Tab>パスワード変更</Tab>
           {isAdmin && <Tab>ユーザー管理</Tab>}
           {isAdmin && <Tab>アプリ設定</Tab>}
+          {isAdmin && <Tab>データソース</Tab>}
         </TabList>
 
         <TabPanels>
@@ -142,6 +145,11 @@ export function SettingsPage() {
           {isAdmin && (
             <TabPanel>
               <AppSettings />
+            </TabPanel>
+          )}
+          {isAdmin && (
+            <TabPanel>
+              <DataSourceList />
             </TabPanel>
           )}
         </TabPanels>
