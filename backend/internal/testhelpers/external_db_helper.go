@@ -24,4 +24,3 @@ func openTestDB(driverName, dsn string) (*sql.DB, error) {
 
 	return db, nil
 }
-

@@ -57,7 +57,7 @@ func TestExternalQueryExecutor_PostgreSQL_Integration(t *testing.T) {
 	t.Run("GetTables", func(t *testing.T) {
 		tables, err := executor.GetTables(ctx, ds, container.Password)
 		require.NoError(t, err, "テーブル一覧の取得に失敗しました")
-		
+
 		// test_tableが存在することを確認
 		found := false
 		for _, table := range tables {
@@ -72,16 +72,16 @@ func TestExternalQueryExecutor_PostgreSQL_Integration(t *testing.T) {
 	t.Run("GetColumns", func(t *testing.T) {
 		columns, err := executor.GetColumns(ctx, ds, container.Password, "test_table")
 		require.NoError(t, err, "カラム一覧の取得に失敗しました")
-		
+
 		// カラムが存在することを確認
 		assert.GreaterOrEqual(t, len(columns), 7, "カラム数が不足しています")
-		
+
 		// 各カラムの存在を確認
 		columnNames := make(map[string]bool)
 		for _, col := range columns {
 			columnNames[col.Name] = true
 		}
-		
+
 		expectedColumns := []string{"id", "name", "email", "age", "salary", "is_active", "created_at"}
 		for _, expected := range expectedColumns {
 			assert.True(t, columnNames[expected], "カラム %s が見つかりませんでした", expected)
@@ -94,10 +94,10 @@ func TestExternalQueryExecutor_PostgreSQL_Integration(t *testing.T) {
 			Page:  1,
 			Limit: 10,
 		}
-		
+
 		records, total, err := executor.GetRecords(ctx, ds, container.Password, "test_table", fields, opts)
 		require.NoError(t, err, "レコードの取得に失敗しました")
-		
+
 		assert.Equal(t, int64(3), total, "レコード数が一致しません")
 		assert.Len(t, records, 3, "取得されたレコード数が一致しません")
 	})
@@ -105,7 +105,7 @@ func TestExternalQueryExecutor_PostgreSQL_Integration(t *testing.T) {
 	t.Run("CountRecords", func(t *testing.T) {
 		count, err := executor.CountRecords(ctx, ds, container.Password, "test_table")
 		require.NoError(t, err, "レコード数の取得に失敗しました")
-		
+
 		assert.Equal(t, int64(3), count, "レコード数が一致しません")
 	})
 }
@@ -152,7 +152,7 @@ func TestExternalQueryExecutor_MySQL_Integration(t *testing.T) {
 	t.Run("GetTables", func(t *testing.T) {
 		tables, err := executor.GetTables(ctx, ds, container.Password)
 		require.NoError(t, err, "テーブル一覧の取得に失敗しました")
-		
+
 		// test_tableが存在することを確認
 		found := false
 		for _, table := range tables {
@@ -167,16 +167,16 @@ func TestExternalQueryExecutor_MySQL_Integration(t *testing.T) {
 	t.Run("GetColumns", func(t *testing.T) {
 		columns, err := executor.GetColumns(ctx, ds, container.Password, "test_table")
 		require.NoError(t, err, "カラム一覧の取得に失敗しました")
-		
+
 		// カラムが存在することを確認
 		assert.GreaterOrEqual(t, len(columns), 7, "カラム数が不足しています")
-		
+
 		// 各カラムの存在を確認
 		columnNames := make(map[string]bool)
 		for _, col := range columns {
 			columnNames[col.Name] = true
 		}
-		
+
 		expectedColumns := []string{"id", "name", "email", "age", "salary", "is_active", "created_at"}
 		for _, expected := range expectedColumns {
 			assert.True(t, columnNames[expected], "カラム %s が見つかりませんでした", expected)
@@ -189,10 +189,10 @@ func TestExternalQueryExecutor_MySQL_Integration(t *testing.T) {
 			Page:  1,
 			Limit: 10,
 		}
-		
+
 		records, total, err := executor.GetRecords(ctx, ds, container.Password, "test_table", fields, opts)
 		require.NoError(t, err, "レコードの取得に失敗しました")
-		
+
 		assert.Equal(t, int64(3), total, "レコード数が一致しません")
 		assert.Len(t, records, 3, "取得されたレコード数が一致しません")
 	})
@@ -200,7 +200,7 @@ func TestExternalQueryExecutor_MySQL_Integration(t *testing.T) {
 	t.Run("CountRecords", func(t *testing.T) {
 		count, err := executor.CountRecords(ctx, ds, container.Password, "test_table")
 		require.NoError(t, err, "レコード数の取得に失敗しました")
-		
+
 		assert.Equal(t, int64(3), count, "レコード数が一致しません")
 	})
 }
@@ -247,7 +247,7 @@ func TestExternalQueryExecutor_SQLServer_Integration(t *testing.T) {
 	t.Run("GetTables", func(t *testing.T) {
 		tables, err := executor.GetTables(ctx, ds, container.Password)
 		require.NoError(t, err, "テーブル一覧の取得に失敗しました")
-		
+
 		// test_tableが存在することを確認
 		found := false
 		for _, table := range tables {
@@ -262,16 +262,16 @@ func TestExternalQueryExecutor_SQLServer_Integration(t *testing.T) {
 	t.Run("GetColumns", func(t *testing.T) {
 		columns, err := executor.GetColumns(ctx, ds, container.Password, "test_table")
 		require.NoError(t, err, "カラム一覧の取得に失敗しました")
-		
+
 		// カラムが存在することを確認
 		assert.GreaterOrEqual(t, len(columns), 7, "カラム数が不足しています")
-		
+
 		// 各カラムの存在を確認
 		columnNames := make(map[string]bool)
 		for _, col := range columns {
 			columnNames[col.Name] = true
 		}
-		
+
 		expectedColumns := []string{"id", "name", "email", "age", "salary", "is_active", "created_at"}
 		for _, expected := range expectedColumns {
 			assert.True(t, columnNames[expected], "カラム %s が見つかりませんでした", expected)
@@ -286,10 +286,10 @@ func TestExternalQueryExecutor_SQLServer_Integration(t *testing.T) {
 			Sort:  "id",
 			Order: "asc",
 		}
-		
+
 		records, total, err := executor.GetRecords(ctx, ds, container.Password, "test_table", fields, opts)
 		require.NoError(t, err, "レコードの取得に失敗しました")
-		
+
 		assert.Equal(t, int64(3), total, "レコード数が一致しません")
 		assert.Len(t, records, 3, "取得されたレコード数が一致しません")
 	})
@@ -297,7 +297,7 @@ func TestExternalQueryExecutor_SQLServer_Integration(t *testing.T) {
 	t.Run("CountRecords", func(t *testing.T) {
 		count, err := executor.CountRecords(ctx, ds, container.Password, "test_table")
 		require.NoError(t, err, "レコード数の取得に失敗しました")
-		
+
 		assert.Equal(t, int64(3), count, "レコード数が一致しません")
 	})
 }
@@ -344,7 +344,7 @@ func TestExternalQueryExecutor_Oracle_Integration(t *testing.T) {
 	t.Run("GetTables", func(t *testing.T) {
 		tables, err := executor.GetTables(ctx, ds, container.Password)
 		require.NoError(t, err, "テーブル一覧の取得に失敗しました")
-		
+
 		// TEST_TABLEが存在することを確認（Oracleは大文字）
 		found := false
 		for _, table := range tables {
@@ -359,16 +359,16 @@ func TestExternalQueryExecutor_Oracle_Integration(t *testing.T) {
 	t.Run("GetColumns", func(t *testing.T) {
 		columns, err := executor.GetColumns(ctx, ds, container.Password, "TEST_TABLE")
 		require.NoError(t, err, "カラム一覧の取得に失敗しました")
-		
+
 		// カラムが存在することを確認
 		assert.GreaterOrEqual(t, len(columns), 7, "カラム数が不足しています")
-		
+
 		// 各カラムの存在を確認（Oracleは大文字）
 		columnNames := make(map[string]bool)
 		for _, col := range columns {
 			columnNames[col.Name] = true
 		}
-		
+
 		expectedColumns := []string{"ID", "NAME", "EMAIL", "AGE", "SALARY", "IS_ACTIVE", "CREATED_AT"}
 		for _, expected := range expectedColumns {
 			assert.True(t, columnNames[expected], "カラム %s が見つかりませんでした", expected)
@@ -381,10 +381,10 @@ func TestExternalQueryExecutor_Oracle_Integration(t *testing.T) {
 			Page:  1,
 			Limit: 10,
 		}
-		
+
 		records, total, err := executor.GetRecords(ctx, ds, container.Password, "TEST_TABLE", fields, opts)
 		require.NoError(t, err, "レコードの取得に失敗しました")
-		
+
 		assert.Equal(t, int64(3), total, "レコード数が一致しません")
 		assert.Len(t, records, 3, "取得されたレコード数が一致しません")
 	})
@@ -392,7 +392,7 @@ func TestExternalQueryExecutor_Oracle_Integration(t *testing.T) {
 	t.Run("CountRecords", func(t *testing.T) {
 		count, err := executor.CountRecords(ctx, ds, container.Password, "TEST_TABLE")
 		require.NoError(t, err, "レコード数の取得に失敗しました")
-		
+
 		assert.Equal(t, int64(3), count, "レコード数が一致しません")
 	})
 }
@@ -438,4 +438,3 @@ func createOracleTestFields() []models.AppField {
 		{FieldCode: "created_at", FieldName: "作成日時", FieldType: "datetime", SourceColumnName: &createdAtCol},
 	}
 }
-

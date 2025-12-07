@@ -81,22 +81,22 @@ export function ExternalAppFormBuilder({
   );
 
   const createMutation = useMutation({
-    mutationFn: (data: CreateExternalAppRequest) => {
-      // appsApiにexternal用のメソッドを追加する必要がありますが、
-      // 既存のcreateメソッドを拡張するか、新しいエンドポイントを使用
-      // ここでは簡略化のためにfetchを直接使用
+    mutationFn: async (data: CreateExternalAppRequest) => {
+      const API_URL = import.meta.env.VITE_API_URL || "/api/v1";
       const token = localStorage.getItem("token");
-      return fetch(`${import.meta.env.VITE_API_URL}/apps/external`, {
+      const response = await fetch(`${API_URL}/apps/external`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(data),
-      }).then((res) => {
-        if (!res.ok) throw new Error("アプリの作成に失敗しました");
-        return res.json();
       });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || "アプリの作成に失敗しました");
+      }
+      return response.json();
     },
     onSuccess: () => {
       toast({

@@ -118,4 +118,3 @@ func (m *MySQLExternalTestContainer) CreateTestTable(ctx context.Context) error 
 
 	return nil
 }
-

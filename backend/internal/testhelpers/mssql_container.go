@@ -144,4 +144,3 @@ func (m *MSSQLTestContainer) CreateTestTable(ctx context.Context) error {
 
 	return nil
 }
-

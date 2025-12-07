@@ -108,4 +108,3 @@ func (p *PostgresTestContainer) CreateTestTable(ctx context.Context) error {
 
 	return nil
 }
-

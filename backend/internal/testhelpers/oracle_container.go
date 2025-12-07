@@ -127,4 +127,3 @@ func (o *OracleTestContainer) CreateTestTable(ctx context.Context) error {
 
 	return nil
 }
-
