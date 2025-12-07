@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -27,29 +28,49 @@ func NewExternalQueryExecutor() *ExternalQueryExecutor {
 func buildDSN(ds *models.DataSource, password string) (string, string, error) {
 	switch ds.DBType {
 	case models.DBTypePostgreSQL:
+		// PostgreSQLはキーワード形式を使用（特殊文字のエスケープが不要）
 		dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
-			ds.Host, ds.Port, ds.Username, password, ds.DatabaseName)
+			ds.Host, ds.Port, ds.Username, escapePostgresPassword(password), ds.DatabaseName)
 		return "postgres", dsn, nil
 
 	case models.DBTypeMySQL:
+		// MySQLはDSN形式を使用
 		dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true",
 			ds.Username, password, ds.Host, ds.Port, ds.DatabaseName)
 		return "mysql", dsn, nil
 
 	case models.DBTypeOracle:
-		// go-ora format: oracle://user:pass@host:port/service_name
+		// go-ora v2 format: oracle://user:pass@host:port/service_name
+		// パスワードとユーザー名はURLエンコードが必要
 		dsn := fmt.Sprintf("oracle://%s:%s@%s:%d/%s",
-			ds.Username, password, ds.Host, ds.Port, ds.DatabaseName)
+			url.QueryEscape(ds.Username),
+			url.QueryEscape(password),
+			ds.Host,
+			ds.Port,
+			ds.DatabaseName)
 		return "oracle", dsn, nil
 
 	case models.DBTypeSQLServer:
+		// SQL ServerはURLエンコードが必要
 		dsn := fmt.Sprintf("sqlserver://%s:%s@%s:%d?database=%s",
-			ds.Username, password, ds.Host, ds.Port, ds.DatabaseName)
+			url.QueryEscape(ds.Username),
+			url.QueryEscape(password),
+			ds.Host,
+			ds.Port,
+			ds.DatabaseName)
 		return "sqlserver", dsn, nil
 
 	default:
 		return "", "", fmt.Errorf("サポートされていないデータベースタイプ: %s", ds.DBType)
 	}
+}
+
+// escapePostgresPassword PostgreSQLのパスワードをエスケープする
+func escapePostgresPassword(password string) string {
+	// PostgreSQLのキーワード形式では、シングルクォートとバックスラッシュをエスケープ
+	escaped := strings.ReplaceAll(password, `\`, `\\`)
+	escaped = strings.ReplaceAll(escaped, `'`, `\'`)
+	return escaped
 }
 
 // openConnection 外部データベースへの接続を開く
