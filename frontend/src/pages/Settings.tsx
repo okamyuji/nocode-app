@@ -3,6 +3,7 @@ import { DataSourceList } from "@/components/datasources";
 import { useAuthStore } from "@/stores";
 import type {
   App,
+  AppListResponse,
   ChangePasswordRequest,
   CreateFieldRequest,
   CreateUserRequest,
@@ -16,6 +17,7 @@ import type {
   User,
 } from "@/types";
 import { FIELD_TYPE_LABELS } from "@/types";
+import { getAppIcon } from "@/utils";
 import {
   AlertDialog,
   AlertDialogBody,
@@ -76,7 +78,6 @@ import {
   FiEdit2,
   FiPlus,
   FiSearch,
-  FiSettings,
   FiTrash2,
 } from "react-icons/fi";
 import { useSearchParams } from "react-router-dom";
@@ -968,7 +969,11 @@ function AppSettingsList({
                     justify="center"
                     flexShrink={0}
                   >
-                    <Icon as={FiSettings} color="brand.500" boxSize={5} />
+                    <Icon
+                      as={getAppIcon(app.icon)}
+                      color="brand.500"
+                      boxSize={5}
+                    />
                   </Flex>
                   <Box flex={1} minW={0}>
                     <Flex align="center" gap={2} mb={1}>
@@ -1010,6 +1015,13 @@ function AppSettingsDetail({ app, onBack }: AppSettingsDetailProps) {
   const [description, setDescription] = useState(app.description || "");
   const [icon, setIcon] = useState(app.icon || "default");
 
+  // propsのappが変更された場合にローカルstateを同期
+  useEffect(() => {
+    setName(app.name);
+    setDescription(app.description || "");
+    setIcon(app.icon || "default");
+  }, [app]);
+
   // Modal states
   const {
     isOpen: isDeleteAppOpen,
@@ -1043,8 +1055,29 @@ function AppSettingsDetail({ app, onBack }: AppSettingsDetailProps) {
   // Update app mutation
   const updateAppMutation = useMutation({
     mutationFn: (data: UpdateAppRequest) => apps.update(app.id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["apps"] });
+    onSuccess: (updatedApp) => {
+      // ローカルstateを更新してUIに即時反映
+      setName(updatedApp.name);
+      setDescription(updatedApp.description || "");
+      setIcon(updatedApp.icon || "default");
+
+      // キャッシュを直接更新して他の画面でも即時反映
+      queryClient.setQueriesData<AppListResponse>(
+        { queryKey: ["apps"] },
+        (oldData) => {
+          if (!oldData) return oldData;
+          return {
+            ...oldData,
+            apps: oldData.apps.map((a) =>
+              a.id === updatedApp.id ? updatedApp : a
+            ),
+          };
+        }
+      );
+
+      // 個別アプリのキャッシュも更新
+      queryClient.setQueryData(["app", app.id], updatedApp);
+
       toast({
         title: "アプリを更新しました",
         status: "success",

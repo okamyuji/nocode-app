@@ -103,7 +103,7 @@ type ExternalQueryExecutorInterface interface {
 	GetColumns(ctx context.Context, ds *models.DataSource, password string, tableName string) ([]models.ColumnInfo, error)
 	GetRecords(ctx context.Context, ds *models.DataSource, password string, tableName string, fields []models.AppField, opts RecordQueryOptions) ([]models.RecordResponse, int64, error)
 	GetRecordByID(ctx context.Context, ds *models.DataSource, password string, tableName string, fields []models.AppField, recordID uint64) (*models.RecordResponse, error)
-	GetAggregatedData(ctx context.Context, ds *models.DataSource, password string, tableName string, req *models.ChartDataRequest) (*models.ChartDataResponse, error)
+	GetAggregatedData(ctx context.Context, ds *models.DataSource, password string, tableName string, fields []models.AppField, req *models.ChartDataRequest) (*models.ChartDataResponse, error)
 	CountRecords(ctx context.Context, ds *models.DataSource, password string, tableName string) (int64, error)
 }
 

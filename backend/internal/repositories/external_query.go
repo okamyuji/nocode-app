@@ -425,21 +425,42 @@ func (e *ExternalQueryExecutor) GetRecordByID(ctx context.Context, ds *models.Da
 }
 
 // GetAggregatedData 外部テーブルから集計データを取得する
-func (e *ExternalQueryExecutor) GetAggregatedData(ctx context.Context, ds *models.DataSource, password string, tableName string, req *models.ChartDataRequest) (*models.ChartDataResponse, error) {
+func (e *ExternalQueryExecutor) GetAggregatedData(ctx context.Context, ds *models.DataSource, password string, tableName string, fields []models.AppField, req *models.ChartDataRequest) (*models.ChartDataResponse, error) {
 	db, err := openConnection(ctx, ds, password)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { _ = db.Close() }()
 
-	xField := quoteIdentifierForDB(ds.DBType, req.XAxis.Field)
+	// field_codeからsource_column_nameへのマッピングを構築
+	fieldCodeToColumn := make(map[string]string)
+	for _, f := range fields {
+		if f.SourceColumnName != nil {
+			fieldCodeToColumn[f.FieldCode] = *f.SourceColumnName
+		} else {
+			// source_column_nameがない場合はfield_codeをそのまま使用
+			fieldCodeToColumn[f.FieldCode] = f.FieldCode
+		}
+	}
+
+	// X軸のカラム名を取得
+	xColumnName, ok := fieldCodeToColumn[req.XAxis.Field]
+	if !ok {
+		return nil, fmt.Errorf("x-axis field '%s' not found", req.XAxis.Field)
+	}
+	xField := quoteIdentifierForDB(ds.DBType, xColumnName)
 
 	var selectClause string
 	switch req.YAxis.Aggregation {
 	case "count":
 		selectClause = fmt.Sprintf("%s, COUNT(*) as value", xField)
 	case "sum", "avg", "min", "max":
-		yField := quoteIdentifierForDB(ds.DBType, req.YAxis.Field)
+		// Y軸のカラム名を取得
+		yColumnName, ok := fieldCodeToColumn[req.YAxis.Field]
+		if !ok {
+			return nil, fmt.Errorf("y-axis field '%s' not found", req.YAxis.Field)
+		}
+		yField := quoteIdentifierForDB(ds.DBType, yColumnName)
 		selectClause = fmt.Sprintf("%s, %s(%s) as value", xField, strings.ToUpper(req.YAxis.Aggregation), yField)
 	default:
 		selectClause = fmt.Sprintf("%s, COUNT(*) as value", xField)

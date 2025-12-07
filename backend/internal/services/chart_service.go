@@ -20,6 +20,7 @@ var (
 type ChartService struct {
 	chartRepo     repositories.ChartRepositoryInterface
 	appRepo       repositories.AppRepositoryInterface
+	fieldRepo     repositories.FieldRepositoryInterface
 	dynamicQuery  repositories.DynamicQueryExecutorInterface
 	dsRepo        repositories.DataSourceRepositoryInterface
 	externalQuery repositories.ExternalQueryExecutorInterface
@@ -29,6 +30,7 @@ type ChartService struct {
 func NewChartService(
 	chartRepo repositories.ChartRepositoryInterface,
 	appRepo repositories.AppRepositoryInterface,
+	fieldRepo repositories.FieldRepositoryInterface,
 	dynamicQuery repositories.DynamicQueryExecutorInterface,
 	dsRepo repositories.DataSourceRepositoryInterface,
 	externalQuery repositories.ExternalQueryExecutorInterface,
@@ -36,6 +38,7 @@ func NewChartService(
 	return &ChartService{
 		chartRepo:     chartRepo,
 		appRepo:       appRepo,
+		fieldRepo:     fieldRepo,
 		dynamicQuery:  dynamicQuery,
 		dsRepo:        dsRepo,
 		externalQuery: externalQuery,
@@ -73,7 +76,13 @@ func (s *ChartService) GetChartData(ctx context.Context, appID uint64, req *mode
 			return nil, err
 		}
 
-		return s.externalQuery.GetAggregatedData(ctx, ds, password, *app.SourceTableName, req)
+		// フィールド情報を取得（field_codeからsource_column_nameへのマッピング用）
+		fields, err := s.fieldRepo.GetByAppID(ctx, appID)
+		if err != nil {
+			return nil, err
+		}
+
+		return s.externalQuery.GetAggregatedData(ctx, ds, password, *app.SourceTableName, fields, req)
 	}
 
 	// 内部アプリの場合は動的クエリを使用

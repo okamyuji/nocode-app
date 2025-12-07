@@ -10,10 +10,25 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
  * チャートデータを取得するフック
  */
 export function useChartData(appId: number, request: ChartDataRequest | null) {
+  // queryKeyの安定化のため、requestの主要フィールドのみを使用
+  const queryKeyRequest = request
+    ? {
+        chart_type: request.chart_type,
+        x_field: request.x_axis?.field,
+        y_field: request.y_axis?.field,
+        y_agg: request.y_axis?.aggregation,
+      }
+    : null;
+
   return useQuery({
-    queryKey: ["chartData", appId, request],
+    queryKey: ["chartData", appId, queryKeyRequest],
     queryFn: () => chartsApi.getData(appId, request!),
-    enabled: !!appId && !!request,
+    // x_axis.fieldが空の場合はリクエストを送信しない
+    enabled: !!appId && !!request && !!request.x_axis?.field,
+    // 不要な再フェッチ・リトライを防ぐ
+    staleTime: 30000, // 30秒間はキャッシュを使用
+    refetchOnWindowFocus: false,
+    retry: false, // エラー時のリトライを無効化
   });
 }
 

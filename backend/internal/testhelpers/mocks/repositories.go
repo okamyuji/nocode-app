@@ -452,8 +452,8 @@ func (m *MockExternalQueryExecutor) GetRecordByID(ctx context.Context, ds *model
 	return args.Get(0).(*models.RecordResponse), args.Error(1)
 }
 
-func (m *MockExternalQueryExecutor) GetAggregatedData(ctx context.Context, ds *models.DataSource, password string, tableName string, req *models.ChartDataRequest) (*models.ChartDataResponse, error) {
-	args := m.Called(ctx, ds, password, tableName, req)
+func (m *MockExternalQueryExecutor) GetAggregatedData(ctx context.Context, ds *models.DataSource, password string, tableName string, fields []models.AppField, req *models.ChartDataRequest) (*models.ChartDataResponse, error) {
+	args := m.Called(ctx, ds, password, tableName, fields, req)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}

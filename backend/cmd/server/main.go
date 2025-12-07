@@ -68,7 +68,7 @@ func main() {
 	fieldService := services.NewFieldService(fieldRepo, appRepo, dynamicQuery)
 	recordService := services.NewRecordService(appRepo, fieldRepo, dynamicQuery, dataSourceRepo, externalQuery)
 	viewService := services.NewViewService(viewRepo, appRepo)
-	chartService := services.NewChartService(chartRepo, appRepo, dynamicQuery, dataSourceRepo, externalQuery)
+	chartService := services.NewChartService(chartRepo, appRepo, fieldRepo, dynamicQuery, dataSourceRepo, externalQuery)
 	userService := services.NewUserService(userRepo)
 	dashboardService := services.NewDashboardService(userRepo, appRepo, dynamicQuery)
 	dataSourceService := services.NewDataSourceService(dataSourceRepo, externalQuery)
