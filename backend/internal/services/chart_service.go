@@ -8,6 +8,7 @@ import (
 
 	"nocode-app/backend/internal/models"
 	"nocode-app/backend/internal/repositories"
+	"nocode-app/backend/internal/utils"
 )
 
 // チャート関連エラー
@@ -17,9 +18,11 @@ var (
 
 // ChartService チャート操作を処理する構造体
 type ChartService struct {
-	chartRepo    repositories.ChartRepositoryInterface
-	appRepo      repositories.AppRepositoryInterface
-	dynamicQuery repositories.DynamicQueryExecutorInterface
+	chartRepo     repositories.ChartRepositoryInterface
+	appRepo       repositories.AppRepositoryInterface
+	dynamicQuery  repositories.DynamicQueryExecutorInterface
+	dsRepo        repositories.DataSourceRepositoryInterface
+	externalQuery repositories.ExternalQueryExecutorInterface
 }
 
 // NewChartService 新しいChartServiceを作成する
@@ -27,26 +30,54 @@ func NewChartService(
 	chartRepo repositories.ChartRepositoryInterface,
 	appRepo repositories.AppRepositoryInterface,
 	dynamicQuery repositories.DynamicQueryExecutorInterface,
+	dsRepo repositories.DataSourceRepositoryInterface,
+	externalQuery repositories.ExternalQueryExecutorInterface,
 ) *ChartService {
 	return &ChartService{
-		chartRepo:    chartRepo,
-		appRepo:      appRepo,
-		dynamicQuery: dynamicQuery,
+		chartRepo:     chartRepo,
+		appRepo:       appRepo,
+		dynamicQuery:  dynamicQuery,
+		dsRepo:        dsRepo,
+		externalQuery: externalQuery,
 	}
 }
 
 // GetChartData チャート用の集計データを取得する
 func (s *ChartService) GetChartData(ctx context.Context, appID uint64, req *models.ChartDataRequest) (*models.ChartDataResponse, error) {
 	// アプリ情報を取得
-	tableName, err := s.appRepo.GetTableName(ctx, appID)
+	app, err := s.appRepo.GetByID(ctx, appID)
 	if err != nil {
 		return nil, err
 	}
-	if tableName == "" {
+	if app == nil {
 		return nil, ErrAppNotFound
 	}
 
-	return s.dynamicQuery.GetAggregatedData(ctx, tableName, req)
+	// 外部データソースの場合は外部クエリを使用
+	if app.IsExternal && app.DataSourceID != nil && app.SourceTableName != nil {
+		// 暗号化が初期化されているか確認
+		if !utils.IsEncryptionInitialized() {
+			return nil, ErrEncryptionNotInitialized
+		}
+
+		ds, err := s.dsRepo.GetByID(ctx, *app.DataSourceID)
+		if err != nil {
+			return nil, err
+		}
+		if ds == nil {
+			return nil, ErrDataSourceNotFound
+		}
+
+		password, err := utils.Decrypt(ds.EncryptedPassword)
+		if err != nil {
+			return nil, err
+		}
+
+		return s.externalQuery.GetAggregatedData(ctx, ds, password, *app.SourceTableName, req)
+	}
+
+	// 内部アプリの場合は動的クエリを使用
+	return s.dynamicQuery.GetAggregatedData(ctx, app.TableName, req)
 }
 
 // GetChartConfigs アプリの全チャート設定を取得する

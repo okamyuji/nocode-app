@@ -22,6 +22,7 @@ func TestAppService_CreateApp(t *testing.T) {
 		mockAppRepo := new(mocks.MockAppRepository)
 		mockFieldRepo := new(mocks.MockFieldRepository)
 		mockDynamicQuery := new(mocks.MockDynamicQueryExecutor)
+		mockDataSourceRepo := new(mocks.MockDataSourceRepository)
 
 		createdApp := &models.App{
 			ID:          1,
@@ -46,7 +47,7 @@ func TestAppService_CreateApp(t *testing.T) {
 		mockDynamicQuery.On("CreateTable", ctx, "app_data_1", mock.AnythingOfType("[]models.AppField")).Return(nil)
 		mockAppRepo.On("GetByIDWithFields", ctx, uint64(1)).Return(createdApp, nil)
 
-		service := services.NewAppService(mockAppRepo, mockFieldRepo, mockDynamicQuery)
+		service := services.NewAppService(mockAppRepo, mockFieldRepo, mockDynamicQuery, mockDataSourceRepo)
 
 		req := &models.CreateAppRequest{
 			Name:        "Test App",
@@ -71,10 +72,11 @@ func TestAppService_CreateApp(t *testing.T) {
 		mockAppRepo := new(mocks.MockAppRepository)
 		mockFieldRepo := new(mocks.MockFieldRepository)
 		mockDynamicQuery := new(mocks.MockDynamicQueryExecutor)
+		mockDataSourceRepo := new(mocks.MockDataSourceRepository)
 
 		mockAppRepo.On("Create", ctx, mock.AnythingOfType("*models.App")).Return(errors.New("db error"))
 
-		service := services.NewAppService(mockAppRepo, mockFieldRepo, mockDynamicQuery)
+		service := services.NewAppService(mockAppRepo, mockFieldRepo, mockDynamicQuery, mockDataSourceRepo)
 
 		req := &models.CreateAppRequest{
 			Name:        "Test App",
@@ -95,6 +97,7 @@ func TestAppService_GetApp(t *testing.T) {
 		mockAppRepo := new(mocks.MockAppRepository)
 		mockFieldRepo := new(mocks.MockFieldRepository)
 		mockDynamicQuery := new(mocks.MockDynamicQueryExecutor)
+		mockDataSourceRepo := new(mocks.MockDataSourceRepository)
 
 		app := &models.App{
 			ID:          1,
@@ -112,7 +115,7 @@ func TestAppService_GetApp(t *testing.T) {
 
 		mockAppRepo.On("GetByIDWithFields", ctx, uint64(1)).Return(app, nil)
 
-		service := services.NewAppService(mockAppRepo, mockFieldRepo, mockDynamicQuery)
+		service := services.NewAppService(mockAppRepo, mockFieldRepo, mockDynamicQuery, mockDataSourceRepo)
 
 		resp, err := service.GetApp(ctx, 1)
 		require.NoError(t, err)
@@ -126,10 +129,11 @@ func TestAppService_GetApp(t *testing.T) {
 		mockAppRepo := new(mocks.MockAppRepository)
 		mockFieldRepo := new(mocks.MockFieldRepository)
 		mockDynamicQuery := new(mocks.MockDynamicQueryExecutor)
+		mockDataSourceRepo := new(mocks.MockDataSourceRepository)
 
 		mockAppRepo.On("GetByIDWithFields", ctx, uint64(999)).Return(nil, nil)
 
-		service := services.NewAppService(mockAppRepo, mockFieldRepo, mockDynamicQuery)
+		service := services.NewAppService(mockAppRepo, mockFieldRepo, mockDynamicQuery, mockDataSourceRepo)
 
 		_, err := service.GetApp(ctx, 999)
 		assert.ErrorIs(t, err, services.ErrAppNotFound)
@@ -145,6 +149,7 @@ func TestAppService_GetApps(t *testing.T) {
 		mockAppRepo := new(mocks.MockAppRepository)
 		mockFieldRepo := new(mocks.MockFieldRepository)
 		mockDynamicQuery := new(mocks.MockDynamicQueryExecutor)
+		mockDataSourceRepo := new(mocks.MockDataSourceRepository)
 
 		apps := []models.App{
 			{ID: 1, Name: "App 1", CreatedAt: time.Now(), UpdatedAt: time.Now()},
@@ -161,7 +166,7 @@ func TestAppService_GetApps(t *testing.T) {
 			{ID: 3, AppID: 2, FieldCode: "f3"},
 		}, nil)
 
-		service := services.NewAppService(mockAppRepo, mockFieldRepo, mockDynamicQuery)
+		service := services.NewAppService(mockAppRepo, mockFieldRepo, mockDynamicQuery, mockDataSourceRepo)
 
 		resp, err := service.GetApps(ctx, 1, 10)
 		require.NoError(t, err)
@@ -178,12 +183,13 @@ func TestAppService_GetApps(t *testing.T) {
 		mockAppRepo := new(mocks.MockAppRepository)
 		mockFieldRepo := new(mocks.MockFieldRepository)
 		mockDynamicQuery := new(mocks.MockDynamicQueryExecutor)
+		mockDataSourceRepo := new(mocks.MockDataSourceRepository)
 
 		apps := []models.App{}
 
 		mockAppRepo.On("GetAll", ctx, 1, 10).Return(apps, int64(0), nil)
 
-		service := services.NewAppService(mockAppRepo, mockFieldRepo, mockDynamicQuery)
+		service := services.NewAppService(mockAppRepo, mockFieldRepo, mockDynamicQuery, mockDataSourceRepo)
 
 		resp, err := service.GetApps(ctx, 1, 10)
 		require.NoError(t, err)
@@ -202,6 +208,7 @@ func TestAppService_UpdateApp(t *testing.T) {
 		mockAppRepo := new(mocks.MockAppRepository)
 		mockFieldRepo := new(mocks.MockFieldRepository)
 		mockDynamicQuery := new(mocks.MockDynamicQueryExecutor)
+		mockDataSourceRepo := new(mocks.MockDataSourceRepository)
 
 		existingApp := &models.App{
 			ID:          1,
@@ -217,7 +224,7 @@ func TestAppService_UpdateApp(t *testing.T) {
 		mockAppRepo.On("GetByID", ctx, uint64(1)).Return(existingApp, nil)
 		mockAppRepo.On("Update", ctx, mock.AnythingOfType("*models.App")).Return(nil)
 
-		service := services.NewAppService(mockAppRepo, mockFieldRepo, mockDynamicQuery)
+		service := services.NewAppService(mockAppRepo, mockFieldRepo, mockDynamicQuery, mockDataSourceRepo)
 
 		req := &models.UpdateAppRequest{
 			Name:        "Updated Name",
@@ -238,10 +245,11 @@ func TestAppService_UpdateApp(t *testing.T) {
 		mockAppRepo := new(mocks.MockAppRepository)
 		mockFieldRepo := new(mocks.MockFieldRepository)
 		mockDynamicQuery := new(mocks.MockDynamicQueryExecutor)
+		mockDataSourceRepo := new(mocks.MockDataSourceRepository)
 
 		mockAppRepo.On("GetByID", ctx, uint64(999)).Return(nil, nil)
 
-		service := services.NewAppService(mockAppRepo, mockFieldRepo, mockDynamicQuery)
+		service := services.NewAppService(mockAppRepo, mockFieldRepo, mockDynamicQuery, mockDataSourceRepo)
 
 		req := &models.UpdateAppRequest{}
 
@@ -259,6 +267,7 @@ func TestAppService_DeleteApp(t *testing.T) {
 		mockAppRepo := new(mocks.MockAppRepository)
 		mockFieldRepo := new(mocks.MockFieldRepository)
 		mockDynamicQuery := new(mocks.MockDynamicQueryExecutor)
+		mockDataSourceRepo := new(mocks.MockDataSourceRepository)
 
 		app := &models.App{
 			ID:        1,
@@ -270,7 +279,7 @@ func TestAppService_DeleteApp(t *testing.T) {
 		mockDynamicQuery.On("DropTable", ctx, "app_data_1").Return(nil)
 		mockAppRepo.On("Delete", ctx, uint64(1)).Return(nil)
 
-		service := services.NewAppService(mockAppRepo, mockFieldRepo, mockDynamicQuery)
+		service := services.NewAppService(mockAppRepo, mockFieldRepo, mockDynamicQuery, mockDataSourceRepo)
 
 		err := service.DeleteApp(ctx, 1)
 		require.NoError(t, err)
@@ -283,14 +292,135 @@ func TestAppService_DeleteApp(t *testing.T) {
 		mockAppRepo := new(mocks.MockAppRepository)
 		mockFieldRepo := new(mocks.MockFieldRepository)
 		mockDynamicQuery := new(mocks.MockDynamicQueryExecutor)
+		mockDataSourceRepo := new(mocks.MockDataSourceRepository)
 
 		mockAppRepo.On("GetByID", ctx, uint64(999)).Return(nil, nil)
 
-		service := services.NewAppService(mockAppRepo, mockFieldRepo, mockDynamicQuery)
+		service := services.NewAppService(mockAppRepo, mockFieldRepo, mockDynamicQuery, mockDataSourceRepo)
 
 		err := service.DeleteApp(ctx, 999)
 		assert.ErrorIs(t, err, services.ErrAppNotFound)
 
 		mockAppRepo.AssertExpectations(t)
+	})
+}
+
+func TestAppService_CreateExternalApp(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("successful creation", func(t *testing.T) {
+		mockAppRepo := new(mocks.MockAppRepository)
+		mockFieldRepo := new(mocks.MockFieldRepository)
+		mockDynamicQuery := new(mocks.MockDynamicQueryExecutor)
+		mockDataSourceRepo := new(mocks.MockDataSourceRepository)
+
+		dataSource := &models.DataSource{
+			ID:     1,
+			Name:   "Test DB",
+			DBType: "postgresql",
+		}
+
+		dataSourceID := uint64(1)
+		sourceTableName := "users"
+		sourceColumnName := "id"
+		createdApp := &models.App{
+			ID:              1,
+			Name:            "External App",
+			Description:     "An external app",
+			Icon:            "database",
+			TableName:       "external_1",
+			IsExternal:      true,
+			DataSourceID:    &dataSourceID,
+			SourceTableName: &sourceTableName,
+			CreatedBy:       1,
+			CreatedAt:       time.Now(),
+			UpdatedAt:       time.Now(),
+			Fields: []models.AppField{
+				{ID: 1, FieldCode: "user_id", FieldName: "User ID", FieldType: "NUMBER", SourceColumnName: &sourceColumnName},
+			},
+		}
+
+		mockDataSourceRepo.On("GetByID", ctx, uint64(1)).Return(dataSource, nil)
+		mockAppRepo.On("Create", ctx, mock.AnythingOfType("*models.App")).Return(nil).Run(func(args mock.Arguments) {
+			app := args.Get(1).(*models.App)
+			app.ID = 1
+		})
+		mockAppRepo.On("Update", ctx, mock.AnythingOfType("*models.App")).Return(nil)
+		mockFieldRepo.On("CreateBatch", ctx, mock.AnythingOfType("[]models.AppField")).Return(nil)
+		mockAppRepo.On("GetByIDWithFields", ctx, uint64(1)).Return(createdApp, nil)
+
+		service := services.NewAppService(mockAppRepo, mockFieldRepo, mockDynamicQuery, mockDataSourceRepo)
+
+		req := &models.CreateExternalAppRequest{
+			Name:            "External App",
+			Description:     "An external app",
+			DataSourceID:    1,
+			SourceTableName: "users",
+			Fields: []models.CreateExternalFieldRequest{
+				{SourceColumnName: "id", FieldCode: "user_id", FieldName: "User ID", FieldType: "NUMBER"},
+			},
+		}
+
+		resp, err := service.CreateExternalApp(ctx, 1, req)
+		require.NoError(t, err)
+		assert.NotZero(t, resp.ID)
+		assert.Equal(t, "External App", resp.Name)
+		assert.True(t, resp.IsExternal)
+
+		mockDataSourceRepo.AssertExpectations(t)
+		mockAppRepo.AssertExpectations(t)
+		mockFieldRepo.AssertExpectations(t)
+	})
+
+	t.Run("datasource not found", func(t *testing.T) {
+		mockAppRepo := new(mocks.MockAppRepository)
+		mockFieldRepo := new(mocks.MockFieldRepository)
+		mockDynamicQuery := new(mocks.MockDynamicQueryExecutor)
+		mockDataSourceRepo := new(mocks.MockDataSourceRepository)
+
+		mockDataSourceRepo.On("GetByID", ctx, uint64(999)).Return(nil, nil)
+
+		service := services.NewAppService(mockAppRepo, mockFieldRepo, mockDynamicQuery, mockDataSourceRepo)
+
+		req := &models.CreateExternalAppRequest{
+			Name:            "External App",
+			Description:     "An external app",
+			DataSourceID:    999,
+			SourceTableName: "users",
+			Fields: []models.CreateExternalFieldRequest{
+				{SourceColumnName: "id", FieldCode: "user_id", FieldName: "User ID", FieldType: "NUMBER"},
+			},
+		}
+
+		_, err := service.CreateExternalApp(ctx, 1, req)
+		assert.ErrorIs(t, err, services.ErrDataSourceNotFound)
+
+		mockDataSourceRepo.AssertExpectations(t)
+	})
+
+	t.Run("datasource repository error", func(t *testing.T) {
+		mockAppRepo := new(mocks.MockAppRepository)
+		mockFieldRepo := new(mocks.MockFieldRepository)
+		mockDynamicQuery := new(mocks.MockDynamicQueryExecutor)
+		mockDataSourceRepo := new(mocks.MockDataSourceRepository)
+
+		mockDataSourceRepo.On("GetByID", ctx, uint64(1)).Return(nil, errors.New("db error"))
+
+		service := services.NewAppService(mockAppRepo, mockFieldRepo, mockDynamicQuery, mockDataSourceRepo)
+
+		req := &models.CreateExternalAppRequest{
+			Name:            "External App",
+			Description:     "An external app",
+			DataSourceID:    1,
+			SourceTableName: "users",
+			Fields: []models.CreateExternalFieldRequest{
+				{SourceColumnName: "id", FieldCode: "user_id", FieldName: "User ID", FieldType: "NUMBER"},
+			},
+		}
+
+		_, err := service.CreateExternalApp(ctx, 1, req)
+		assert.Error(t, err)
+
+		mockDataSourceRepo.AssertExpectations(t)
 	})
 }

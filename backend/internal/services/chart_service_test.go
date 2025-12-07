@@ -21,7 +21,14 @@ func TestChartService_GetChartData(t *testing.T) {
 		mockChartRepo := new(mocks.MockChartRepository)
 		mockAppRepo := new(mocks.MockAppRepository)
 		mockDynamicQuery := new(mocks.MockDynamicQueryExecutor)
+		mockDSRepo := new(mocks.MockDataSourceRepository)
+		mockExternalQuery := new(mocks.MockExternalQueryExecutor)
 
+		app := &models.App{
+			ID:         1,
+			TableName:  "app_data_1",
+			IsExternal: false,
+		}
 		chartData := &models.ChartDataResponse{
 			Labels: []string{"A", "B", "C"},
 			Datasets: []models.ChartDataset{
@@ -29,10 +36,10 @@ func TestChartService_GetChartData(t *testing.T) {
 			},
 		}
 
-		mockAppRepo.On("GetTableName", ctx, uint64(1)).Return("app_data_1", nil)
+		mockAppRepo.On("GetByID", ctx, uint64(1)).Return(app, nil)
 		mockDynamicQuery.On("GetAggregatedData", ctx, "app_data_1", mock.AnythingOfType("*models.ChartDataRequest")).Return(chartData, nil)
 
-		service := services.NewChartService(mockChartRepo, mockAppRepo, mockDynamicQuery)
+		service := services.NewChartService(mockChartRepo, mockAppRepo, mockDynamicQuery, mockDSRepo, mockExternalQuery)
 
 		req := &models.ChartDataRequest{
 			ChartType: "bar",
@@ -53,10 +60,12 @@ func TestChartService_GetChartData(t *testing.T) {
 		mockChartRepo := new(mocks.MockChartRepository)
 		mockAppRepo := new(mocks.MockAppRepository)
 		mockDynamicQuery := new(mocks.MockDynamicQueryExecutor)
+		mockDSRepo := new(mocks.MockDataSourceRepository)
+		mockExternalQuery := new(mocks.MockExternalQueryExecutor)
 
-		mockAppRepo.On("GetTableName", ctx, uint64(999)).Return("", nil)
+		mockAppRepo.On("GetByID", ctx, uint64(999)).Return(nil, nil)
 
-		service := services.NewChartService(mockChartRepo, mockAppRepo, mockDynamicQuery)
+		service := services.NewChartService(mockChartRepo, mockAppRepo, mockDynamicQuery, mockDSRepo, mockExternalQuery)
 
 		req := &models.ChartDataRequest{}
 
@@ -74,6 +83,8 @@ func TestChartService_GetChartConfigs(t *testing.T) {
 		mockChartRepo := new(mocks.MockChartRepository)
 		mockAppRepo := new(mocks.MockAppRepository)
 		mockDynamicQuery := new(mocks.MockDynamicQueryExecutor)
+		mockDSRepo := new(mocks.MockDataSourceRepository)
+		mockExternalQuery := new(mocks.MockExternalQueryExecutor)
 
 		configs := []models.ChartConfig{
 			{ID: 1, AppID: 1, Name: "Chart 1", ChartType: "bar", CreatedAt: time.Now(), UpdatedAt: time.Now()},
@@ -82,7 +93,7 @@ func TestChartService_GetChartConfigs(t *testing.T) {
 
 		mockChartRepo.On("GetByAppID", ctx, uint64(1)).Return(configs, nil)
 
-		service := services.NewChartService(mockChartRepo, mockAppRepo, mockDynamicQuery)
+		service := services.NewChartService(mockChartRepo, mockAppRepo, mockDynamicQuery, mockDSRepo, mockExternalQuery)
 
 		resp, err := service.GetChartConfigs(ctx, 1)
 		require.NoError(t, err)
@@ -99,6 +110,8 @@ func TestChartService_SaveChartConfig(t *testing.T) {
 		mockChartRepo := new(mocks.MockChartRepository)
 		mockAppRepo := new(mocks.MockAppRepository)
 		mockDynamicQuery := new(mocks.MockDynamicQueryExecutor)
+		mockDSRepo := new(mocks.MockDataSourceRepository)
+		mockExternalQuery := new(mocks.MockExternalQueryExecutor)
 
 		app := &models.App{ID: 1}
 
@@ -108,7 +121,7 @@ func TestChartService_SaveChartConfig(t *testing.T) {
 			config.ID = 1
 		})
 
-		service := services.NewChartService(mockChartRepo, mockAppRepo, mockDynamicQuery)
+		service := services.NewChartService(mockChartRepo, mockAppRepo, mockDynamicQuery, mockDSRepo, mockExternalQuery)
 
 		req := &models.SaveChartConfigRequest{
 			Name:      "New Chart",
@@ -132,10 +145,12 @@ func TestChartService_SaveChartConfig(t *testing.T) {
 		mockChartRepo := new(mocks.MockChartRepository)
 		mockAppRepo := new(mocks.MockAppRepository)
 		mockDynamicQuery := new(mocks.MockDynamicQueryExecutor)
+		mockDSRepo := new(mocks.MockDataSourceRepository)
+		mockExternalQuery := new(mocks.MockExternalQueryExecutor)
 
 		mockAppRepo.On("GetByID", ctx, uint64(999)).Return(nil, nil)
 
-		service := services.NewChartService(mockChartRepo, mockAppRepo, mockDynamicQuery)
+		service := services.NewChartService(mockChartRepo, mockAppRepo, mockDynamicQuery, mockDSRepo, mockExternalQuery)
 
 		req := &models.SaveChartConfigRequest{
 			Name:      "Test",
@@ -156,13 +171,15 @@ func TestChartService_DeleteChartConfig(t *testing.T) {
 		mockChartRepo := new(mocks.MockChartRepository)
 		mockAppRepo := new(mocks.MockAppRepository)
 		mockDynamicQuery := new(mocks.MockDynamicQueryExecutor)
+		mockDSRepo := new(mocks.MockDataSourceRepository)
+		mockExternalQuery := new(mocks.MockExternalQueryExecutor)
 
 		config := &models.ChartConfig{ID: 1, AppID: 1}
 
 		mockChartRepo.On("GetByID", ctx, uint64(1)).Return(config, nil)
 		mockChartRepo.On("Delete", ctx, uint64(1)).Return(nil)
 
-		service := services.NewChartService(mockChartRepo, mockAppRepo, mockDynamicQuery)
+		service := services.NewChartService(mockChartRepo, mockAppRepo, mockDynamicQuery, mockDSRepo, mockExternalQuery)
 
 		err := service.DeleteChartConfig(ctx, 1)
 		require.NoError(t, err)
@@ -174,10 +191,12 @@ func TestChartService_DeleteChartConfig(t *testing.T) {
 		mockChartRepo := new(mocks.MockChartRepository)
 		mockAppRepo := new(mocks.MockAppRepository)
 		mockDynamicQuery := new(mocks.MockDynamicQueryExecutor)
+		mockDSRepo := new(mocks.MockDataSourceRepository)
+		mockExternalQuery := new(mocks.MockExternalQueryExecutor)
 
 		mockChartRepo.On("GetByID", ctx, uint64(999)).Return(nil, nil)
 
-		service := services.NewChartService(mockChartRepo, mockAppRepo, mockDynamicQuery)
+		service := services.NewChartService(mockChartRepo, mockAppRepo, mockDynamicQuery, mockDSRepo, mockExternalQuery)
 
 		err := service.DeleteChartConfig(ctx, 999)
 		assert.ErrorIs(t, err, services.ErrChartConfigNotFound)

@@ -20,6 +20,7 @@ type AuthServiceInterface interface {
 // AppServiceInterface アプリ操作のインターフェースを定義
 type AppServiceInterface interface {
 	CreateApp(ctx context.Context, userID uint64, req *models.CreateAppRequest) (*models.AppResponse, error)
+	CreateExternalApp(ctx context.Context, userID uint64, req *models.CreateExternalAppRequest) (*models.AppResponse, error)
 	GetApp(ctx context.Context, appID uint64) (*models.AppResponse, error)
 	GetApps(ctx context.Context, page, limit int) (*models.AppListResponse, error)
 	UpdateApp(ctx context.Context, appID uint64, req *models.UpdateAppRequest) (*models.AppResponse, error)
@@ -73,13 +74,26 @@ type UserServiceInterface interface {
 	ChangePassword(ctx context.Context, userID uint64, req *models.ChangePasswordRequest) error
 }
 
+// DataSourceServiceInterface データソース操作のインターフェースを定義
+type DataSourceServiceInterface interface {
+	CreateDataSource(ctx context.Context, userID uint64, req *models.CreateDataSourceRequest) (*models.DataSourceResponse, error)
+	GetDataSource(ctx context.Context, id uint64) (*models.DataSourceResponse, error)
+	GetDataSources(ctx context.Context, page, limit int) (*models.DataSourceListResponse, error)
+	UpdateDataSource(ctx context.Context, id uint64, req *models.UpdateDataSourceRequest) (*models.DataSourceResponse, error)
+	DeleteDataSource(ctx context.Context, id uint64) error
+	TestConnection(ctx context.Context, req *models.TestConnectionRequest) (*models.TestConnectionResponse, error)
+	GetTables(ctx context.Context, id uint64) (*models.TableListResponse, error)
+	GetColumns(ctx context.Context, id uint64, tableName string) (*models.ColumnListResponse, error)
+}
+
 // 実装がインターフェースを満たすことを確認
 var (
-	_ AuthServiceInterface   = (*AuthService)(nil)
-	_ AppServiceInterface    = (*AppService)(nil)
-	_ FieldServiceInterface  = (*FieldService)(nil)
-	_ RecordServiceInterface = (*RecordService)(nil)
-	_ ViewServiceInterface   = (*ViewService)(nil)
-	_ ChartServiceInterface  = (*ChartService)(nil)
-	_ UserServiceInterface   = (*UserService)(nil)
+	_ AuthServiceInterface       = (*AuthService)(nil)
+	_ AppServiceInterface        = (*AppService)(nil)
+	_ FieldServiceInterface      = (*FieldService)(nil)
+	_ RecordServiceInterface     = (*RecordService)(nil)
+	_ ViewServiceInterface       = (*ViewService)(nil)
+	_ ChartServiceInterface      = (*ChartService)(nil)
+	_ UserServiceInterface       = (*UserService)(nil)
+	_ DataSourceServiceInterface = (*DataSourceService)(nil)
 )
