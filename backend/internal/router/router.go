@@ -15,14 +15,15 @@ type Router struct {
 	corsConfig     *middleware.CORSConfig
 
 	// ハンドラー
-	authHandler      *handlers.AuthHandler
-	appHandler       *handlers.AppHandler
-	fieldHandler     *handlers.FieldHandler
-	recordHandler    *handlers.RecordHandler
-	viewHandler      *handlers.ViewHandler
-	chartHandler     *handlers.ChartHandler
-	userHandler      *handlers.UserHandler
-	dashboardHandler *handlers.DashboardHandler
+	authHandler       *handlers.AuthHandler
+	appHandler        *handlers.AppHandler
+	fieldHandler      *handlers.FieldHandler
+	recordHandler     *handlers.RecordHandler
+	viewHandler       *handlers.ViewHandler
+	chartHandler      *handlers.ChartHandler
+	userHandler       *handlers.UserHandler
+	dashboardHandler  *handlers.DashboardHandler
+	dataSourceHandler *handlers.DataSourceHandler
 }
 
 // NewRouter 新しいRouterを作成する
@@ -37,19 +38,21 @@ func NewRouter(
 	chartHandler *handlers.ChartHandler,
 	userHandler *handlers.UserHandler,
 	dashboardHandler *handlers.DashboardHandler,
+	dataSourceHandler *handlers.DataSourceHandler,
 ) *Router {
 	return &Router{
-		mux:              http.NewServeMux(),
-		authMiddleware:   authMiddleware,
-		corsConfig:       corsConfig,
-		authHandler:      authHandler,
-		appHandler:       appHandler,
-		fieldHandler:     fieldHandler,
-		recordHandler:    recordHandler,
-		viewHandler:      viewHandler,
-		chartHandler:     chartHandler,
-		userHandler:      userHandler,
-		dashboardHandler: dashboardHandler,
+		mux:               http.NewServeMux(),
+		authMiddleware:    authMiddleware,
+		corsConfig:        corsConfig,
+		authHandler:       authHandler,
+		appHandler:        appHandler,
+		fieldHandler:      fieldHandler,
+		recordHandler:     recordHandler,
+		viewHandler:       viewHandler,
+		chartHandler:      chartHandler,
+		userHandler:       userHandler,
+		dashboardHandler:  dashboardHandler,
+		dataSourceHandler: dataSourceHandler,
 	}
 }
 
@@ -138,6 +141,12 @@ func (r *Router) routeProtected(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	// データソースルート（管理者専用）
+	if strings.HasPrefix(path, "/api/v1/datasources") {
+		r.routeDataSources(w, req)
+		return
+	}
+
 	http.NotFound(w, req)
 }
 
@@ -181,6 +190,17 @@ func (r *Router) routeUsers(w http.ResponseWriter, req *http.Request) {
 func (r *Router) routeApps(w http.ResponseWriter, req *http.Request) {
 	path := req.URL.Path
 	parts := strings.Split(strings.Trim(path, "/"), "/")
+
+	// /api/v1/apps/external
+	if len(parts) == 4 && parts[3] == "external" {
+		if req.Method == http.MethodPost {
+			// 管理者専用: 外部データソースからアプリ作成
+			middleware.RequireAdmin(r.appHandler.CreateExternal)(w, req)
+			return
+		}
+		http.Error(w, "メソッドが許可されていません", http.StatusMethodNotAllowed)
+		return
+	}
 
 	// /api/v1/apps
 	if len(parts) == 3 {
@@ -396,6 +416,72 @@ func (r *Router) routeCharts(w http.ResponseWriter, req *http.Request, parts []s
 		if req.Method == http.MethodDelete {
 			// 管理者専用: チャート設定削除
 			middleware.RequireAdmin(r.chartHandler.DeleteConfig)(w, req)
+			return
+		}
+		http.Error(w, "メソッドが許可されていません", http.StatusMethodNotAllowed)
+		return
+	}
+
+	http.NotFound(w, req)
+}
+
+// routeDataSources データソースエンドポイントをルーティングする
+func (r *Router) routeDataSources(w http.ResponseWriter, req *http.Request) {
+	path := req.URL.Path
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+
+	// /api/v1/datasources/test（テスト接続）
+	if len(parts) == 4 && parts[3] == "test" {
+		if req.Method == http.MethodPost {
+			middleware.RequireAdmin(r.dataSourceHandler.TestConnection)(w, req)
+			return
+		}
+		http.Error(w, "メソッドが許可されていません", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// /api/v1/datasources
+	if len(parts) == 3 {
+		switch req.Method {
+		case http.MethodGet:
+			middleware.RequireAdmin(r.dataSourceHandler.List)(w, req)
+		case http.MethodPost:
+			middleware.RequireAdmin(r.dataSourceHandler.Create)(w, req)
+		default:
+			http.Error(w, "メソッドが許可されていません", http.StatusMethodNotAllowed)
+		}
+		return
+	}
+
+	// /api/v1/datasources/{id}
+	if len(parts) == 4 {
+		switch req.Method {
+		case http.MethodGet:
+			middleware.RequireAdmin(r.dataSourceHandler.Get)(w, req)
+		case http.MethodPut:
+			middleware.RequireAdmin(r.dataSourceHandler.Update)(w, req)
+		case http.MethodDelete:
+			middleware.RequireAdmin(r.dataSourceHandler.Delete)(w, req)
+		default:
+			http.Error(w, "メソッドが許可されていません", http.StatusMethodNotAllowed)
+		}
+		return
+	}
+
+	// /api/v1/datasources/{id}/tables
+	if len(parts) == 5 && parts[4] == "tables" {
+		if req.Method == http.MethodGet {
+			middleware.RequireAdmin(r.dataSourceHandler.GetTables)(w, req)
+			return
+		}
+		http.Error(w, "メソッドが許可されていません", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// /api/v1/datasources/{id}/tables/{tableName}/columns
+	if len(parts) == 7 && parts[4] == "tables" && parts[6] == "columns" {
+		if req.Method == http.MethodGet {
+			middleware.RequireAdmin(r.dataSourceHandler.GetColumns)(w, req)
 			return
 		}
 		http.Error(w, "メソッドが許可されていません", http.StatusMethodNotAllowed)

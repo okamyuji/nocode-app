@@ -55,6 +55,10 @@ func (h *RecordHandler) List(w http.ResponseWriter, r *http.Request) {
 			utils.WriteErrorResponse(w, http.StatusNotFound, err.Error())
 			return
 		}
+		if errors.Is(err, services.ErrEncryptionNotInitialized) {
+			utils.WriteErrorResponse(w, http.StatusServiceUnavailable, err.Error())
+			return
+		}
 		utils.WriteErrorResponse(w, http.StatusInternalServerError, "レコードの取得に失敗しました")
 		return
 	}
@@ -93,6 +97,10 @@ func (h *RecordHandler) Create(w http.ResponseWriter, r *http.Request) {
 			utils.WriteErrorResponse(w, http.StatusNotFound, err.Error())
 			return
 		}
+		if errors.Is(err, services.ErrExternalAppReadOnly) {
+			utils.WriteErrorResponse(w, http.StatusForbidden, err.Error())
+			return
+		}
 		utils.WriteErrorResponse(w, http.StatusInternalServerError, "レコードの作成に失敗しました")
 		return
 	}
@@ -121,6 +129,10 @@ func (h *RecordHandler) Get(w http.ResponseWriter, r *http.Request) {
 		}
 		if errors.Is(err, services.ErrAppNotFound) {
 			utils.WriteErrorResponse(w, http.StatusNotFound, err.Error())
+			return
+		}
+		if errors.Is(err, services.ErrEncryptionNotInitialized) {
+			utils.WriteErrorResponse(w, http.StatusServiceUnavailable, err.Error())
 			return
 		}
 		utils.WriteErrorResponse(w, http.StatusInternalServerError, "レコードの取得に失敗しました")
@@ -155,6 +167,10 @@ func (h *RecordHandler) Update(w http.ResponseWriter, r *http.Request) {
 			utils.WriteErrorResponse(w, http.StatusNotFound, err.Error())
 			return
 		}
+		if errors.Is(err, services.ErrExternalAppReadOnly) {
+			utils.WriteErrorResponse(w, http.StatusForbidden, err.Error())
+			return
+		}
 		utils.WriteErrorResponse(w, http.StatusInternalServerError, "レコードの更新に失敗しました")
 		return
 	}
@@ -178,6 +194,10 @@ func (h *RecordHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	if err := h.recordService.DeleteRecord(r.Context(), appID, recordID); err != nil {
 		if errors.Is(err, services.ErrAppNotFound) {
 			utils.WriteErrorResponse(w, http.StatusNotFound, err.Error())
+			return
+		}
+		if errors.Is(err, services.ErrExternalAppReadOnly) {
+			utils.WriteErrorResponse(w, http.StatusForbidden, err.Error())
 			return
 		}
 		utils.WriteErrorResponse(w, http.StatusInternalServerError, "レコードの削除に失敗しました")
@@ -218,6 +238,10 @@ func (h *RecordHandler) BulkCreate(w http.ResponseWriter, r *http.Request) {
 			utils.WriteErrorResponse(w, http.StatusNotFound, err.Error())
 			return
 		}
+		if errors.Is(err, services.ErrExternalAppReadOnly) {
+			utils.WriteErrorResponse(w, http.StatusForbidden, err.Error())
+			return
+		}
 		utils.WriteErrorResponse(w, http.StatusInternalServerError, "レコードの作成に失敗しました")
 		return
 	}
@@ -247,6 +271,10 @@ func (h *RecordHandler) BulkDelete(w http.ResponseWriter, r *http.Request) {
 	if err := h.recordService.BulkDeleteRecords(r.Context(), appID, &req); err != nil {
 		if errors.Is(err, services.ErrAppNotFound) {
 			utils.WriteErrorResponse(w, http.StatusNotFound, err.Error())
+			return
+		}
+		if errors.Is(err, services.ErrExternalAppReadOnly) {
+			utils.WriteErrorResponse(w, http.StatusForbidden, err.Error())
 			return
 		}
 		utils.WriteErrorResponse(w, http.StatusInternalServerError, "レコードの削除に失敗しました")

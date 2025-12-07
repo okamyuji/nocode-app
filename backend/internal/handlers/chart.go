@@ -63,6 +63,10 @@ func (h *ChartHandler) GetData(w http.ResponseWriter, r *http.Request) {
 			utils.WriteErrorResponse(w, http.StatusNotFound, err.Error())
 			return
 		}
+		if errors.Is(err, services.ErrEncryptionNotInitialized) {
+			utils.WriteErrorResponse(w, http.StatusServiceUnavailable, err.Error())
+			return
+		}
 		utils.WriteErrorResponse(w, http.StatusInternalServerError, "failed to get chart data")
 		return
 	}
