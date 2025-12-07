@@ -50,9 +50,10 @@ describe("generateFieldCode", () => {
   });
 
   describe("混合カラム名（英語+日本語）", () => {
-    it("英数字部分のみを抽出する", () => {
-      expect(generateFieldCode("SPR2_プロセスマスタ", 0)).toBe("spr2_");
-      expect(generateFieldCode("user_名前", 1)).toBe("user_");
+    it("英数字部分のみを抽出し、末尾アンダースコアは除去する", () => {
+      expect(generateFieldCode("SPR2_プロセスマスタ", 0)).toBe("spr2");
+      expect(generateFieldCode("user_名前", 1)).toBe("user");
+      expect(generateFieldCode("spr2_プロセス_マスタ", 2)).toBe("spr2");
     });
 
     it("全角数字は除去される", () => {
@@ -96,8 +97,14 @@ describe("generateFieldCode", () => {
       expect(generateFieldCode("!!!!", 1)).toBe("field_2");
     });
 
-    it("アンダースコアのみの場合", () => {
-      expect(generateFieldCode("___", 0)).toBe("___");
+    it("アンダースコアのみの場合はfield_{index}形式を返す", () => {
+      expect(generateFieldCode("___", 0)).toBe("field_1");
+      expect(generateFieldCode("_", 1)).toBe("field_2");
+    });
+
+    it("末尾アンダースコアは除去される", () => {
+      expect(generateFieldCode("test_", 0)).toBe("test");
+      expect(generateFieldCode("test___", 1)).toBe("test");
     });
   });
 });
@@ -225,15 +232,15 @@ describe("generateUniqueFieldCodes", () => {
       expect(result["プロセス名"]).toBe("field_4");
     });
 
-    it("Oracle形式の混合名（英語+日本語）", () => {
+    it("Oracle形式の混合名（英語+日本語）末尾アンダースコアは除去", () => {
       const columns = [
         { name: "SPR2_プロセスマスタ" },
         { name: "CODE_コード" },
       ];
       const result = generateUniqueFieldCodes(columns);
 
-      expect(result["SPR2_プロセスマスタ"]).toBe("spr2_");
-      expect(result["CODE_コード"]).toBe("code_");
+      expect(result["SPR2_プロセスマスタ"]).toBe("spr2");
+      expect(result["CODE_コード"]).toBe("code");
     });
   });
 

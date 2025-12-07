@@ -112,9 +112,15 @@ func TestQuoteIdentifierForDB(t *testing.T) {
 			expected: `"プロセス名"`,
 		},
 		{
-			name:     "Oracle: 混合（英語+日本語）",
+			name:     "Oracle: 混合（大文字英語+日本語）",
 			dbType:   models.DBTypeOracle,
 			input:    "SPR2_プロセスマスタ",
+			expected: `"SPR2_プロセスマスタ"`,
+		},
+		{
+			name:     "Oracle: 混合（小文字英語+日本語）大文字変換を確認",
+			dbType:   models.DBTypeOracle,
+			input:    "spr2_プロセスマスタ",
 			expected: `"SPR2_プロセスマスタ"`,
 		},
 		{

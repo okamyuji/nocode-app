@@ -15,15 +15,18 @@
  */
 export function generateFieldCode(columnName: string, index: number): string {
   // 小文字に変換して、英数字とアンダースコア以外を除去
-  const sanitized = columnName.toLowerCase().replace(/[^a-z0-9_]/g, "");
+  let sanitized = columnName.toLowerCase().replace(/[^a-z0-9_]/g, "");
 
-  // 空文字になった場合（全て日本語等）はインデックスベースの名前を生成
-  if (sanitized === "") {
+  // 末尾のアンダースコアを除去（"SPR2_プロセス" → "spr2_" → "spr2"）
+  sanitized = sanitized.replace(/_+$/, "");
+
+  // 空文字またはアンダースコアのみの場合はインデックスベースの名前を生成
+  if (sanitized === "" || /^_+$/.test(sanitized)) {
     return `field_${index + 1}`;
   }
 
-  // 数字で始まる場合はプレフィックスを付ける
-  if (/^[0-9]/.test(sanitized)) {
+  // 数字またはアンダースコアで始まる場合はプレフィックスを付ける
+  if (/^[0-9_]/.test(sanitized)) {
     return `f_${sanitized}`;
   }
 
@@ -32,6 +35,11 @@ export function generateFieldCode(columnName: string, index: number): string {
 
 /**
  * フィールドコードが有効かどうかを検証する
+ *
+ * 検証ルール:
+ * - 英字（a-z, A-Z）で始まること
+ * - 英数字とアンダースコアのみ使用可能
+ * - 最大64文字（データベースカラム名の一般的な制限に準拠）
  *
  * @param code フィールドコード
  * @returns 有効な場合はtrue
