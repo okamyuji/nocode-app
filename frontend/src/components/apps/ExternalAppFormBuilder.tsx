@@ -14,6 +14,10 @@ import {
 } from "@/types/datasource";
 import { FIELD_TYPE_LABELS, type FieldType } from "@/types/field";
 import {
+  generateUniqueFieldCodes,
+  isValidFieldCode,
+} from "@/utils/fieldCodeGenerator";
+import {
   Box,
   Button,
   Card,
@@ -67,18 +71,19 @@ export function ExternalAppFormBuilder({
   const [appDescription, setAppDescription] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // カラムからフィールドマッピングを初期化
-  const [fieldMappings, setFieldMappings] = useState<FieldMapping[]>(() =>
-    columns.map((col, index) => ({
+  // カラムからフィールドマッピングを初期化（重複を避ける）
+  const [fieldMappings, setFieldMappings] = useState<FieldMapping[]>(() => {
+    const uniqueCodes = generateUniqueFieldCodes(columns);
+    return columns.map((col, index) => ({
       source_column_name: col.name,
-      field_code: col.name.toLowerCase().replace(/[^a-z0-9_]/g, "_"),
+      field_code: uniqueCodes[col.name],
       field_name: col.name,
       field_type: mapDataTypeToFieldType(col.data_type) as FieldType,
       required: !col.is_nullable,
       selected: true,
       display_order: index,
-    }))
-  );
+    }));
+  });
 
   const createMutation = useMutation({
     mutationFn: async (data: CreateExternalAppRequest) => {
@@ -140,11 +145,33 @@ export function ExternalAppFormBuilder({
       newErrors.fields = "少なくとも1つのフィールドを選択してください";
     }
 
+    // フィールドコードのエラーを収集
+    const fieldErrors: string[] = [];
+
+    // フィールドコードのフォーマットチェック
+    const invalidCodes = selectedFields
+      .filter((f) => !isValidFieldCode(f.field_code))
+      .map((f) => f.field_code || "(空)");
+    if (invalidCodes.length > 0) {
+      fieldErrors.push(
+        `無効なフィールドコード: ${invalidCodes.join(", ")}（英字で始まり、英数字とアンダースコアのみ使用可）`
+      );
+    }
+
     // フィールドコードの重複チェック
     const codes = selectedFields.map((f) => f.field_code);
-    const duplicates = codes.filter((code, i) => codes.indexOf(code) !== i);
+    const duplicates = [
+      ...new Set(codes.filter((code, i) => codes.indexOf(code) !== i)),
+    ];
     if (duplicates.length > 0) {
-      newErrors.fields = `フィールドコードが重複しています: ${duplicates.join(", ")}`;
+      fieldErrors.push(
+        `重複しているフィールドコード: ${duplicates.join(", ")}`
+      );
+    }
+
+    // フィールドエラーがあれば結合して設定
+    if (fieldErrors.length > 0 && !newErrors.fields) {
+      newErrors.fields = fieldErrors.join("。");
     }
 
     setErrors(newErrors);

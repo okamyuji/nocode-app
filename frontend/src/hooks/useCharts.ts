@@ -13,7 +13,8 @@ export function useChartData(appId: number, request: ChartDataRequest | null) {
   return useQuery({
     queryKey: ["chartData", appId, request],
     queryFn: () => chartsApi.getData(appId, request!),
-    enabled: !!appId && !!request,
+    // x_axis.fieldが空の場合はリクエストを送信しない
+    enabled: !!appId && !!request && !!request.x_axis?.field,
   });
 }
 
