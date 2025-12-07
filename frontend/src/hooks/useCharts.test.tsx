@@ -109,6 +109,77 @@ describe("useCharts hooks", () => {
       expect(result.current.isFetching).toBe(false);
       expect(chartsApi.getData).not.toHaveBeenCalled();
     });
+
+    it("should not fetch when x_axis.field is empty", () => {
+      const request = {
+        chart_type: "bar" as const,
+        x_axis: { field: "" }, // 空のフィールド
+        y_axis: { field: "amount", aggregation: "sum" as const },
+      };
+
+      const { result } = renderHook(() => useChartData(1, request), {
+        wrapper,
+      });
+
+      expect(result.current.isFetching).toBe(false);
+      expect(chartsApi.getData).not.toHaveBeenCalled();
+    });
+
+    it("should fetch chart data with Japanese field names", async () => {
+      const mockJapaneseChartData: ChartDataResponse = {
+        labels: ["初期活動", "提案・見積", "クローズ"],
+        datasets: [{ label: "件数", data: [5, 10, 3] }],
+      };
+      vi.mocked(chartsApi.getData).mockResolvedValueOnce(mockJapaneseChartData);
+
+      const request = {
+        chart_type: "bar" as const,
+        x_axis: { field: "field_1", label: "プロセス名" },
+        y_axis: { field: "", aggregation: "count" as const, label: "件数" },
+      };
+
+      const { result } = renderHook(() => useChartData(1, request), {
+        wrapper,
+      });
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+      expect(chartsApi.getData).toHaveBeenCalledWith(1, request);
+      expect(result.current.data?.labels).toEqual([
+        "初期活動",
+        "提案・見積",
+        "クローズ",
+      ]);
+      expect(result.current.data?.datasets[0].label).toBe("件数");
+    });
+
+    it("should handle Japanese labels in response correctly", async () => {
+      const mockData: ChartDataResponse = {
+        labels: ["カテゴリA", "カテゴリB", "カテゴリC"],
+        datasets: [{ label: "売上金額", data: [100000, 200000, 150000] }],
+      };
+      vi.mocked(chartsApi.getData).mockResolvedValueOnce(mockData);
+
+      const request = {
+        chart_type: "pie" as const,
+        x_axis: { field: "category", label: "商品カテゴリ" },
+        y_axis: {
+          field: "amount",
+          aggregation: "sum" as const,
+          label: "売上金額",
+        },
+      };
+
+      const { result } = renderHook(() => useChartData(1, request), {
+        wrapper,
+      });
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+      expect(result.current.data?.labels).toHaveLength(3);
+      expect(result.current.data?.labels).toContain("カテゴリA");
+      expect(result.current.data?.datasets[0].label).toBe("売上金額");
+    });
   });
 
   describe("useChartConfigs", () => {
