@@ -119,21 +119,21 @@ export function RecordTable({
                         詳細
                       </MenuItem>
                       {isAdmin && onEdit && (
-                        <MenuItem
-                          icon={<FiEdit2 />}
-                          onClick={() => onEdit(record)}
-                        >
-                          編集
-                        </MenuItem>
+                          <MenuItem
+                            icon={<FiEdit2 />}
+                            onClick={() => onEdit(record)}
+                          >
+                            編集
+                          </MenuItem>
                       )}
                       {isAdmin && onDelete && (
-                        <MenuItem
-                          icon={<FiTrash2 />}
-                          color="red.500"
-                          onClick={() => onDelete(record)}
-                        >
-                          削除
-                        </MenuItem>
+                          <MenuItem
+                            icon={<FiTrash2 />}
+                            color="red.500"
+                            onClick={() => onDelete(record)}
+                          >
+                            削除
+                          </MenuItem>
                       )}
                     </MenuList>
                   </Menu>

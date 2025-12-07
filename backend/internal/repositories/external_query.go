@@ -265,8 +265,12 @@ func (e *ExternalQueryExecutor) GetColumns(ctx context.Context, ds *models.DataS
 	var columns []models.ColumnInfo
 	for rows.Next() {
 		var col models.ColumnInfo
-		if err := rows.Scan(&col.Name, &col.DataType, &col.IsNullable, &col.IsPrimaryKey, &col.DefaultValue); err != nil {
+		var defaultValue sql.NullString
+		if err := rows.Scan(&col.Name, &col.DataType, &col.IsNullable, &col.IsPrimaryKey, &defaultValue); err != nil {
 			return nil, fmt.Errorf("カラム情報のスキャンに失敗しました: %w", err)
+		}
+		if defaultValue.Valid {
+			col.DefaultValue = defaultValue.String
 		}
 		columns = append(columns, col)
 	}
