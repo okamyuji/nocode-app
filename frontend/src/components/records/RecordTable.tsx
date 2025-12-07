@@ -25,8 +25,8 @@ interface RecordTableProps {
   onSelectRecord: (id: number) => void;
   onSelectAll: () => void;
   onView: (record: RecordItem) => void;
-  onEdit: (record: RecordItem) => void;
-  onDelete: (record: RecordItem) => void;
+  onEdit?: (record: RecordItem) => void;
+  onDelete?: (record: RecordItem) => void;
   isAdmin?: boolean;
 }
 
@@ -118,22 +118,22 @@ export function RecordTable({
                       <MenuItem icon={<FiEye />} onClick={() => onView(record)}>
                         詳細
                       </MenuItem>
-                      {isAdmin && (
-                        <>
-                          <MenuItem
-                            icon={<FiEdit2 />}
-                            onClick={() => onEdit(record)}
-                          >
-                            編集
-                          </MenuItem>
-                          <MenuItem
-                            icon={<FiTrash2 />}
-                            color="red.500"
-                            onClick={() => onDelete(record)}
-                          >
-                            削除
-                          </MenuItem>
-                        </>
+                      {isAdmin && onEdit && (
+                        <MenuItem
+                          icon={<FiEdit2 />}
+                          onClick={() => onEdit(record)}
+                        >
+                          編集
+                        </MenuItem>
+                      )}
+                      {isAdmin && onDelete && (
+                        <MenuItem
+                          icon={<FiTrash2 />}
+                          color="red.500"
+                          onClick={() => onDelete(record)}
+                        >
+                          削除
+                        </MenuItem>
                       )}
                     </MenuList>
                   </Menu>

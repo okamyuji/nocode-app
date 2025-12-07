@@ -7,6 +7,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogOverlay,
+  Badge,
   Button,
   Card,
   CardBody,
@@ -79,7 +80,14 @@ export function AppCard({ app }: AppCardProps) {
             <HStack spacing={4}>
               <Icon as={FiGrid} boxSize={10} color="brand.500" />
               <VStack align="start" spacing={1}>
-                <Heading size="md">{app.name}</Heading>
+                <HStack>
+                  <Heading size="md">{app.name}</Heading>
+                  {app.is_external && (
+                    <Badge colorScheme="purple" fontSize="xs">
+                      外部
+                    </Badge>
+                  )}
+                </HStack>
                 <Text fontSize="sm" color="gray.500" noOfLines={2}>
                   {app.description || "説明なし"}
                 </Text>

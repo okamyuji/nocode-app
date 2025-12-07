@@ -103,6 +103,9 @@ export function RecordListPage() {
   const deleteRecord = useDeleteRecord();
   const bulkDeleteRecords = useBulkDeleteRecords();
 
+  // 外部データソースからのアプリかどうか
+  const isExternalApp = app?.is_external === true;
+
   // Chart data hook (only fetch when in chart view and config is set)
   const { data: chartData, refetch: refetchChartData } = useChartData(
     numericAppId,
@@ -282,18 +285,21 @@ export function RecordListPage() {
             onViewChange={setCurrentView}
             hasDateField={hasDateField}
           />
-          {isAdmin && selectedIds.length > 0 && currentView === "table" && (
-            <Tooltip label={`${selectedIds.length}件を削除`}>
-              <IconButton
-                icon={<DeleteIcon />}
-                aria-label="一括削除"
-                colorScheme="red"
-                variant="outline"
-                onClick={onBulkDeleteOpen}
-              />
-            </Tooltip>
-          )}
-          {isAdmin && currentView !== "chart" && (
+          {isAdmin &&
+            selectedIds.length > 0 &&
+            currentView === "table" &&
+            !isExternalApp && (
+              <Tooltip label={`${selectedIds.length}件を削除`}>
+                <IconButton
+                  icon={<DeleteIcon />}
+                  aria-label="一括削除"
+                  colorScheme="red"
+                  variant="outline"
+                  onClick={onBulkDeleteOpen}
+                />
+              </Tooltip>
+            )}
+          {isAdmin && currentView !== "chart" && !isExternalApp && (
             <Button
               leftIcon={<AddIcon />}
               colorScheme="brand"
@@ -321,9 +327,9 @@ export function RecordListPage() {
                     onSelectRecord={handleSelectRecord}
                     onSelectAll={handleSelectAll}
                     onView={handleView}
-                    onEdit={handleEdit}
-                    onDelete={handleDelete}
-                    isAdmin={isAdmin}
+                    onEdit={isExternalApp ? undefined : handleEdit}
+                    onDelete={isExternalApp ? undefined : handleDelete}
+                    isAdmin={isAdmin && !isExternalApp}
                   />
                   <Box px={4}>
                     <RecordPagination
@@ -346,9 +352,9 @@ export function RecordListPage() {
                     records={records}
                     fields={fields}
                     onView={handleView}
-                    onEdit={handleEdit}
-                    onDelete={handleDelete}
-                    isAdmin={isAdmin}
+                    onEdit={isExternalApp ? undefined : handleEdit}
+                    onDelete={isExternalApp ? undefined : handleDelete}
+                    isAdmin={isAdmin && !isExternalApp}
                   />
                   <Box px={4}>
                     <RecordPagination
