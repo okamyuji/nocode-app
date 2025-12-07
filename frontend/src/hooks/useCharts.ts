@@ -25,9 +25,10 @@ export function useChartData(appId: number, request: ChartDataRequest | null) {
     queryFn: () => chartsApi.getData(appId, request!),
     // x_axis.fieldが空の場合はリクエストを送信しない
     enabled: !!appId && !!request && !!request.x_axis?.field,
-    // 不要な再フェッチを防ぐ
+    // 不要な再フェッチ・リトライを防ぐ
     staleTime: 30000, // 30秒間はキャッシュを使用
     refetchOnWindowFocus: false,
+    retry: false, // エラー時のリトライを無効化
   });
 }
 

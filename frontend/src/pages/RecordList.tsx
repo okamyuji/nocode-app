@@ -107,7 +107,7 @@ export function RecordListPage() {
   const isExternalApp = app?.is_external === true;
 
   // Chart data hook (only fetch when in chart view and config is set)
-  const { data: chartData, refetch: refetchChartData } = useChartData(
+  const { data: chartData } = useChartData(
     numericAppId,
     currentView === "chart" ? chartConfig : null
   );
@@ -387,10 +387,7 @@ export function RecordListPage() {
                   <ChartBuilder
                     fields={fields}
                     config={chartConfig || undefined}
-                    onConfigChange={(config) => {
-                      setChartConfig(config);
-                      refetchChartData();
-                    }}
+                    onConfigChange={setChartConfig}
                   />
                   {chartConfig && chartData && (
                     <Box mt={6} h="400px">

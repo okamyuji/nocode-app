@@ -180,6 +180,65 @@ describe("useCharts hooks", () => {
       expect(result.current.data?.labels).toContain("カテゴリA");
       expect(result.current.data?.datasets[0].label).toBe("売上金額");
     });
+
+    it("should not retry on error (prevent infinite loop)", async () => {
+      const mockError = new Error("Server error");
+      vi.mocked(chartsApi.getData).mockRejectedValue(mockError);
+
+      const request = {
+        chart_type: "bar" as const,
+        x_axis: { field: "category" },
+        y_axis: { field: "amount", aggregation: "sum" as const },
+      };
+
+      const { result } = renderHook(() => useChartData(1, request), {
+        wrapper,
+      });
+
+      await waitFor(() => expect(result.current.isError).toBe(true));
+
+      // APIは1回だけ呼ばれる（リトライなし）
+      expect(chartsApi.getData).toHaveBeenCalledTimes(1);
+    });
+
+    it("should use stable queryKey to prevent unnecessary refetches", async () => {
+      vi.mocked(chartsApi.getData).mockResolvedValue(mockChartDataResponse);
+
+      const request1 = {
+        chart_type: "bar" as const,
+        x_axis: { field: "category", label: "Label 1" },
+        y_axis: { field: "amount", aggregation: "sum" as const, label: "Y1" },
+      };
+
+      const request2 = {
+        chart_type: "bar" as const,
+        x_axis: { field: "category", label: "Different Label" }, // labelが違う
+        y_axis: {
+          field: "amount",
+          aggregation: "sum" as const,
+          label: "Different Y",
+        },
+      };
+
+      // 1回目のリクエスト
+      const { rerender } = renderHook(
+        ({ req }) => useChartData(1, req),
+        {
+          wrapper,
+          initialProps: { req: request1 },
+        }
+      );
+
+      await waitFor(() =>
+        expect(chartsApi.getData).toHaveBeenCalledTimes(1)
+      );
+
+      // 2回目：主要フィールド（chart_type, x_field, y_field, y_agg）が同じなのでキャッシュを使用
+      rerender({ req: request2 });
+
+      // staleTime内なので再フェッチされない（1回のまま）
+      expect(chartsApi.getData).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe("useChartConfigs", () => {
