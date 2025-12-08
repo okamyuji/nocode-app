@@ -153,11 +153,11 @@ export function DataSourceSelector({
         </Card>
       )}
 
-      {/* テーブル選択 */}
+      {/* テーブル/ビュー選択 */}
       {dataSourceId && (
         <FormControl>
           <HStack justify="space-between" mb={2}>
-            <FormLabel mb={0}>テーブル</FormLabel>
+            <FormLabel mb={0}>テーブル / ビュー</FormLabel>
             <Button
               size="xs"
               variant="ghost"
@@ -172,12 +172,13 @@ export function DataSourceSelector({
             <Skeleton height="40px" />
           ) : (
             <Select
-              placeholder="テーブルを選択"
+              placeholder="テーブル/ビューを選択"
               value={tableName || ""}
               onChange={(e) => setTableName(e.target.value || null)}
             >
               {tables.map((table) => (
                 <option key={table.name} value={table.name}>
+                  [{table.type}]{" "}
                   {table.schema ? `${table.schema}.${table.name}` : table.name}
                 </option>
               ))}

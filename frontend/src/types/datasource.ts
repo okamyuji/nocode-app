@@ -83,10 +83,14 @@ export interface DataSourceListResponse {
   };
 }
 
+/** テーブルタイプ */
+export type TableType = "TABLE" | "VIEW";
+
 /** テーブル情報 */
 export interface TableInfo {
   name: string;
   schema?: string;
+  type: TableType;
 }
 
 /** テーブル一覧レスポンス */

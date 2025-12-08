@@ -119,10 +119,19 @@ type DataSourceListResponse struct {
 	Pagination  *Pagination          `json:"pagination"`
 }
 
+// TableType テーブルタイプの定数
+type TableType string
+
+const (
+	TableTypeTable TableType = "TABLE"
+	TableTypeView  TableType = "VIEW"
+)
+
 // TableInfo テーブル情報の構造体
 type TableInfo struct {
-	Name   string `json:"name"`
-	Schema string `json:"schema,omitempty"`
+	Name   string    `json:"name"`
+	Schema string    `json:"schema,omitempty"`
+	Type   TableType `json:"type"`
 }
 
 // TableListResponse テーブル一覧のレスポンス構造体

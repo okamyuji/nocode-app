@@ -109,7 +109,7 @@ func (e *ExternalQueryExecutor) TestConnection(ctx context.Context, ds *models.D
 	return nil
 }
 
-// GetTables データベースのテーブル一覧を取得する
+// GetTables データベースのテーブル一覧を取得する（テーブルとViewの両方を含む）
 func (e *ExternalQueryExecutor) GetTables(ctx context.Context, ds *models.DataSource, password string) ([]models.TableInfo, error) {
 	db, err := openConnection(ctx, ds, password)
 	if err != nil {
@@ -120,29 +120,37 @@ func (e *ExternalQueryExecutor) GetTables(ctx context.Context, ds *models.DataSo
 	var query string
 	switch ds.DBType {
 	case models.DBTypePostgreSQL:
-		query = `SELECT table_name, table_schema 
+		query = `SELECT table_name, table_schema,
+			CASE WHEN table_type = 'BASE TABLE' THEN 'TABLE' ELSE 'VIEW' END as table_type
 			FROM information_schema.tables 
 			WHERE table_schema NOT IN ('pg_catalog', 'information_schema') 
-			AND table_type = 'BASE TABLE'
+			AND table_type IN ('BASE TABLE', 'VIEW')
 			ORDER BY table_schema, table_name`
 
 	case models.DBTypeMySQL:
-		query = `SELECT table_name, table_schema 
+		query = `SELECT table_name, table_schema,
+			CASE WHEN table_type = 'BASE TABLE' THEN 'TABLE' ELSE 'VIEW' END as table_type
 			FROM information_schema.tables 
 			WHERE table_schema = DATABASE() 
-			AND table_type = 'BASE TABLE'
+			AND table_type IN ('BASE TABLE', 'VIEW')
 			ORDER BY table_name`
 
 	case models.DBTypeOracle:
-		query = `SELECT table_name, owner as table_schema 
+		// OracleはUNION ALLでテーブルとViewを結合
+		query = `SELECT table_name, owner as table_schema, 'TABLE' as table_type
 			FROM all_tables 
 			WHERE owner = USER
-			ORDER BY table_name`
+			UNION ALL
+			SELECT view_name as table_name, owner as table_schema, 'VIEW' as table_type
+			FROM all_views
+			WHERE owner = USER
+			ORDER BY 1`
 
 	case models.DBTypeSQLServer:
-		query = `SELECT table_name, table_schema 
+		query = `SELECT table_name, table_schema,
+			CASE WHEN table_type = 'BASE TABLE' THEN 'TABLE' ELSE 'VIEW' END as table_type
 			FROM information_schema.tables 
-			WHERE table_type = 'BASE TABLE'
+			WHERE table_type IN ('BASE TABLE', 'VIEW')
 			ORDER BY table_schema, table_name`
 
 	default:
@@ -158,9 +166,11 @@ func (e *ExternalQueryExecutor) GetTables(ctx context.Context, ds *models.DataSo
 	var tables []models.TableInfo
 	for rows.Next() {
 		var table models.TableInfo
-		if err := rows.Scan(&table.Name, &table.Schema); err != nil {
+		var tableType string
+		if err := rows.Scan(&table.Name, &table.Schema, &tableType); err != nil {
 			return nil, fmt.Errorf("テーブル情報のスキャンに失敗しました: %w", err)
 		}
+		table.Type = models.TableType(tableType)
 		tables = append(tables, table)
 	}
 

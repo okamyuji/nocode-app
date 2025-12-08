@@ -144,3 +144,40 @@ func (m *MSSQLTestContainer) CreateTestTable(ctx context.Context) error {
 
 	return nil
 }
+
+// CreateTestView テスト用のビューを作成する
+func (m *MSSQLTestContainer) CreateTestView(ctx context.Context) error {
+	// testdbに接続
+	connStr := fmt.Sprintf("sqlserver://%s:%s@%s:%d?database=%s",
+		url.QueryEscape(m.Username), url.QueryEscape(m.Password), m.Host, m.Port, m.Database)
+
+	db, err := openTestDB("sqlserver", connStr)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = db.Close() }()
+
+	// 既存のビューを削除して新規作成
+	_, err = db.ExecContext(ctx, `
+		IF EXISTS (SELECT * FROM sys.views WHERE name = 'test_view')
+		BEGIN
+			DROP VIEW test_view
+		END
+	`)
+	if err != nil {
+		return fmt.Errorf("既存ビューの削除に失敗しました: %w", err)
+	}
+
+	// テストビューを作成（アクティブなユーザーのみを表示）
+	_, err = db.ExecContext(ctx, `
+		CREATE VIEW test_view AS
+		SELECT id, name, email, age, salary
+		FROM test_table
+		WHERE is_active = 1
+	`)
+	if err != nil {
+		return fmt.Errorf("テストビューの作成に失敗しました: %w", err)
+	}
+
+	return nil
+}

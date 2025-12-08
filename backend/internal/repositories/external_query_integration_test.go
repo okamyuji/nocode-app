@@ -63,10 +63,56 @@ func TestExternalQueryExecutor_PostgreSQL_Integration(t *testing.T) {
 		for _, table := range tables {
 			if table.Name == "test_table" {
 				found = true
+				assert.Equal(t, models.TableTypeTable, table.Type, "test_tableのタイプがTABLEではありません")
 				break
 			}
 		}
 		assert.True(t, found, "test_tableが見つかりませんでした")
+	})
+
+	t.Run("GetTablesIncludingViews", func(t *testing.T) {
+		// テストビューを作成
+		err := container.CreateTestView(ctx)
+		require.NoError(t, err, "テストビューの作成に失敗しました")
+
+		tables, err := executor.GetTables(ctx, ds, container.Password)
+		require.NoError(t, err, "テーブル一覧の取得に失敗しました")
+
+		// test_viewが存在することを確認
+		foundView := false
+		foundTable := false
+		for _, table := range tables {
+			if table.Name == "test_view" {
+				foundView = true
+				assert.Equal(t, models.TableTypeView, table.Type, "test_viewのタイプがVIEWではありません")
+			}
+			if table.Name == "test_table" {
+				foundTable = true
+				assert.Equal(t, models.TableTypeTable, table.Type, "test_tableのタイプがTABLEではありません")
+			}
+		}
+		assert.True(t, foundView, "test_viewが見つかりませんでした")
+		assert.True(t, foundTable, "test_tableが見つかりませんでした")
+	})
+
+	t.Run("GetViewColumns", func(t *testing.T) {
+		// ビューのカラム一覧を取得
+		columns, err := executor.GetColumns(ctx, ds, container.Password, "test_view")
+		require.NoError(t, err, "ビューのカラム一覧の取得に失敗しました")
+
+		// カラムが存在することを確認（ビューはid, name, email, age, salaryの5カラム）
+		assert.GreaterOrEqual(t, len(columns), 5, "ビューのカラム数が不足しています")
+
+		// 各カラムの存在を確認
+		columnNames := make(map[string]bool)
+		for _, col := range columns {
+			columnNames[col.Name] = true
+		}
+
+		expectedColumns := []string{"id", "name", "email", "age", "salary"}
+		for _, expected := range expectedColumns {
+			assert.True(t, columnNames[expected], "カラム %s が見つかりませんでした", expected)
+		}
 	})
 
 	t.Run("GetColumns", func(t *testing.T) {
@@ -158,10 +204,56 @@ func TestExternalQueryExecutor_MySQL_Integration(t *testing.T) {
 		for _, table := range tables {
 			if table.Name == "test_table" {
 				found = true
+				assert.Equal(t, models.TableTypeTable, table.Type, "test_tableのタイプがTABLEではありません")
 				break
 			}
 		}
 		assert.True(t, found, "test_tableが見つかりませんでした")
+	})
+
+	t.Run("GetTablesIncludingViews", func(t *testing.T) {
+		// テストビューを作成
+		err := container.CreateTestView(ctx)
+		require.NoError(t, err, "テストビューの作成に失敗しました")
+
+		tables, err := executor.GetTables(ctx, ds, container.Password)
+		require.NoError(t, err, "テーブル一覧の取得に失敗しました")
+
+		// test_viewが存在することを確認
+		foundView := false
+		foundTable := false
+		for _, table := range tables {
+			if table.Name == "test_view" {
+				foundView = true
+				assert.Equal(t, models.TableTypeView, table.Type, "test_viewのタイプがVIEWではありません")
+			}
+			if table.Name == "test_table" {
+				foundTable = true
+				assert.Equal(t, models.TableTypeTable, table.Type, "test_tableのタイプがTABLEではありません")
+			}
+		}
+		assert.True(t, foundView, "test_viewが見つかりませんでした")
+		assert.True(t, foundTable, "test_tableが見つかりませんでした")
+	})
+
+	t.Run("GetViewColumns", func(t *testing.T) {
+		// ビューのカラム一覧を取得
+		columns, err := executor.GetColumns(ctx, ds, container.Password, "test_view")
+		require.NoError(t, err, "ビューのカラム一覧の取得に失敗しました")
+
+		// カラムが存在することを確認（ビューはid, name, email, age, salaryの5カラム）
+		assert.GreaterOrEqual(t, len(columns), 5, "ビューのカラム数が不足しています")
+
+		// 各カラムの存在を確認
+		columnNames := make(map[string]bool)
+		for _, col := range columns {
+			columnNames[col.Name] = true
+		}
+
+		expectedColumns := []string{"id", "name", "email", "age", "salary"}
+		for _, expected := range expectedColumns {
+			assert.True(t, columnNames[expected], "カラム %s が見つかりませんでした", expected)
+		}
 	})
 
 	t.Run("GetColumns", func(t *testing.T) {
@@ -253,10 +345,56 @@ func TestExternalQueryExecutor_SQLServer_Integration(t *testing.T) {
 		for _, table := range tables {
 			if table.Name == "test_table" {
 				found = true
+				assert.Equal(t, models.TableTypeTable, table.Type, "test_tableのタイプがTABLEではありません")
 				break
 			}
 		}
 		assert.True(t, found, "test_tableが見つかりませんでした")
+	})
+
+	t.Run("GetTablesIncludingViews", func(t *testing.T) {
+		// テストビューを作成
+		err := container.CreateTestView(ctx)
+		require.NoError(t, err, "テストビューの作成に失敗しました")
+
+		tables, err := executor.GetTables(ctx, ds, container.Password)
+		require.NoError(t, err, "テーブル一覧の取得に失敗しました")
+
+		// test_viewが存在することを確認
+		foundView := false
+		foundTable := false
+		for _, table := range tables {
+			if table.Name == "test_view" {
+				foundView = true
+				assert.Equal(t, models.TableTypeView, table.Type, "test_viewのタイプがVIEWではありません")
+			}
+			if table.Name == "test_table" {
+				foundTable = true
+				assert.Equal(t, models.TableTypeTable, table.Type, "test_tableのタイプがTABLEではありません")
+			}
+		}
+		assert.True(t, foundView, "test_viewが見つかりませんでした")
+		assert.True(t, foundTable, "test_tableが見つかりませんでした")
+	})
+
+	t.Run("GetViewColumns", func(t *testing.T) {
+		// ビューのカラム一覧を取得
+		columns, err := executor.GetColumns(ctx, ds, container.Password, "test_view")
+		require.NoError(t, err, "ビューのカラム一覧の取得に失敗しました")
+
+		// カラムが存在することを確認（ビューはid, name, email, age, salaryの5カラム）
+		assert.GreaterOrEqual(t, len(columns), 5, "ビューのカラム数が不足しています")
+
+		// 各カラムの存在を確認
+		columnNames := make(map[string]bool)
+		for _, col := range columns {
+			columnNames[col.Name] = true
+		}
+
+		expectedColumns := []string{"id", "name", "email", "age", "salary"}
+		for _, expected := range expectedColumns {
+			assert.True(t, columnNames[expected], "カラム %s が見つかりませんでした", expected)
+		}
 	})
 
 	t.Run("GetColumns", func(t *testing.T) {
@@ -350,10 +488,56 @@ func TestExternalQueryExecutor_Oracle_Integration(t *testing.T) {
 		for _, table := range tables {
 			if table.Name == "TEST_TABLE" {
 				found = true
+				assert.Equal(t, models.TableTypeTable, table.Type, "TEST_TABLEのタイプがTABLEではありません")
 				break
 			}
 		}
 		assert.True(t, found, "TEST_TABLEが見つかりませんでした")
+	})
+
+	t.Run("GetTablesIncludingViews", func(t *testing.T) {
+		// テストビューを作成
+		err := container.CreateTestView(ctx)
+		require.NoError(t, err, "テストビューの作成に失敗しました")
+
+		tables, err := executor.GetTables(ctx, ds, container.Password)
+		require.NoError(t, err, "テーブル一覧の取得に失敗しました")
+
+		// TEST_VIEWが存在することを確認（Oracleは大文字）
+		foundView := false
+		foundTable := false
+		for _, table := range tables {
+			if table.Name == "TEST_VIEW" {
+				foundView = true
+				assert.Equal(t, models.TableTypeView, table.Type, "TEST_VIEWのタイプがVIEWではありません")
+			}
+			if table.Name == "TEST_TABLE" {
+				foundTable = true
+				assert.Equal(t, models.TableTypeTable, table.Type, "TEST_TABLEのタイプがTABLEではありません")
+			}
+		}
+		assert.True(t, foundView, "TEST_VIEWが見つかりませんでした")
+		assert.True(t, foundTable, "TEST_TABLEが見つかりませんでした")
+	})
+
+	t.Run("GetViewColumns", func(t *testing.T) {
+		// ビューのカラム一覧を取得（Oracleは大文字）
+		columns, err := executor.GetColumns(ctx, ds, container.Password, "TEST_VIEW")
+		require.NoError(t, err, "ビューのカラム一覧の取得に失敗しました")
+
+		// カラムが存在することを確認（ビューはID, NAME, EMAIL, AGE, SALARYの5カラム）
+		assert.GreaterOrEqual(t, len(columns), 5, "ビューのカラム数が不足しています")
+
+		// 各カラムの存在を確認（Oracleは大文字）
+		columnNames := make(map[string]bool)
+		for _, col := range columns {
+			columnNames[col.Name] = true
+		}
+
+		expectedColumns := []string{"ID", "NAME", "EMAIL", "AGE", "SALARY"}
+		for _, expected := range expectedColumns {
+			assert.True(t, columnNames[expected], "カラム %s が見つかりませんでした", expected)
+		}
 	})
 
 	t.Run("GetColumns", func(t *testing.T) {
