@@ -464,3 +464,83 @@ func (m *MockExternalQueryExecutor) CountRecords(ctx context.Context, ds *models
 	args := m.Called(ctx, ds, password, tableName)
 	return args.Get(0).(int64), args.Error(1)
 }
+
+// MockDashboardWidgetRepository DashboardWidgetRepositoryInterfaceのモック実装
+type MockDashboardWidgetRepository struct {
+	mock.Mock
+}
+
+func (m *MockDashboardWidgetRepository) Create(ctx context.Context, widget *models.DashboardWidget) error {
+	args := m.Called(ctx, widget)
+	return args.Error(0)
+}
+
+func (m *MockDashboardWidgetRepository) GetByID(ctx context.Context, id uint64) (*models.DashboardWidget, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.DashboardWidget), args.Error(1)
+}
+
+func (m *MockDashboardWidgetRepository) GetByUserID(ctx context.Context, userID uint64) ([]models.DashboardWidget, error) {
+	args := m.Called(ctx, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]models.DashboardWidget), args.Error(1)
+}
+
+func (m *MockDashboardWidgetRepository) GetByUserIDWithApps(ctx context.Context, userID uint64) ([]models.DashboardWidget, error) {
+	args := m.Called(ctx, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]models.DashboardWidget), args.Error(1)
+}
+
+func (m *MockDashboardWidgetRepository) GetByUserIDAndAppID(ctx context.Context, userID, appID uint64) (*models.DashboardWidget, error) {
+	args := m.Called(ctx, userID, appID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.DashboardWidget), args.Error(1)
+}
+
+func (m *MockDashboardWidgetRepository) GetVisibleByUserID(ctx context.Context, userID uint64) ([]models.DashboardWidget, error) {
+	args := m.Called(ctx, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]models.DashboardWidget), args.Error(1)
+}
+
+func (m *MockDashboardWidgetRepository) Update(ctx context.Context, widget *models.DashboardWidget) error {
+	args := m.Called(ctx, widget)
+	return args.Error(0)
+}
+
+func (m *MockDashboardWidgetRepository) Delete(ctx context.Context, id uint64) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
+func (m *MockDashboardWidgetRepository) DeleteByUserIDAndAppID(ctx context.Context, userID, appID uint64) error {
+	args := m.Called(ctx, userID, appID)
+	return args.Error(0)
+}
+
+func (m *MockDashboardWidgetRepository) UpdateDisplayOrders(ctx context.Context, userID uint64, widgetIDs []uint64) error {
+	args := m.Called(ctx, userID, widgetIDs)
+	return args.Error(0)
+}
+
+func (m *MockDashboardWidgetRepository) GetMaxDisplayOrder(ctx context.Context, userID uint64) (int, error) {
+	args := m.Called(ctx, userID)
+	return args.Int(0), args.Error(1)
+}
+
+func (m *MockDashboardWidgetRepository) Exists(ctx context.Context, userID, appID uint64) (bool, error) {
+	args := m.Called(ctx, userID, appID)
+	return args.Bool(0), args.Error(1)
+}

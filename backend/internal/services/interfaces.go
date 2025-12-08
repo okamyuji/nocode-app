@@ -86,14 +86,26 @@ type DataSourceServiceInterface interface {
 	GetColumns(ctx context.Context, id uint64, tableName string) (*models.ColumnListResponse, error)
 }
 
+// DashboardWidgetServiceInterface ダッシュボードウィジェット操作のインターフェースを定義
+type DashboardWidgetServiceInterface interface {
+	GetWidgets(ctx context.Context, userID uint64) (*models.DashboardWidgetListResponse, error)
+	GetVisibleWidgets(ctx context.Context, userID uint64) (*models.DashboardWidgetListResponse, error)
+	CreateWidget(ctx context.Context, userID uint64, req *models.CreateDashboardWidgetRequest) (*models.DashboardWidgetResponse, error)
+	UpdateWidget(ctx context.Context, userID, widgetID uint64, req *models.UpdateDashboardWidgetRequest) (*models.DashboardWidgetResponse, error)
+	DeleteWidget(ctx context.Context, userID, widgetID uint64) error
+	ReorderWidgets(ctx context.Context, userID uint64, req *models.ReorderWidgetsRequest) error
+	ToggleVisibility(ctx context.Context, userID, widgetID uint64) (*models.DashboardWidgetResponse, error)
+}
+
 // 実装がインターフェースを満たすことを確認
 var (
-	_ AuthServiceInterface       = (*AuthService)(nil)
-	_ AppServiceInterface        = (*AppService)(nil)
-	_ FieldServiceInterface      = (*FieldService)(nil)
-	_ RecordServiceInterface     = (*RecordService)(nil)
-	_ ViewServiceInterface       = (*ViewService)(nil)
-	_ ChartServiceInterface      = (*ChartService)(nil)
-	_ UserServiceInterface       = (*UserService)(nil)
-	_ DataSourceServiceInterface = (*DataSourceService)(nil)
+	_ AuthServiceInterface            = (*AuthService)(nil)
+	_ AppServiceInterface             = (*AppService)(nil)
+	_ FieldServiceInterface           = (*FieldService)(nil)
+	_ RecordServiceInterface          = (*RecordService)(nil)
+	_ ViewServiceInterface            = (*ViewService)(nil)
+	_ ChartServiceInterface           = (*ChartService)(nil)
+	_ UserServiceInterface            = (*UserService)(nil)
+	_ DataSourceServiceInterface      = (*DataSourceService)(nil)
+	_ DashboardWidgetServiceInterface = (*DashboardWidgetService)(nil)
 )

@@ -107,14 +107,31 @@ type ExternalQueryExecutorInterface interface {
 	CountRecords(ctx context.Context, ds *models.DataSource, password string, tableName string) (int64, error)
 }
 
+// DashboardWidgetRepositoryInterface ダッシュボードウィジェットデータベース操作のインターフェースを定義
+type DashboardWidgetRepositoryInterface interface {
+	Create(ctx context.Context, widget *models.DashboardWidget) error
+	GetByID(ctx context.Context, id uint64) (*models.DashboardWidget, error)
+	GetByUserID(ctx context.Context, userID uint64) ([]models.DashboardWidget, error)
+	GetByUserIDWithApps(ctx context.Context, userID uint64) ([]models.DashboardWidget, error)
+	GetByUserIDAndAppID(ctx context.Context, userID, appID uint64) (*models.DashboardWidget, error)
+	GetVisibleByUserID(ctx context.Context, userID uint64) ([]models.DashboardWidget, error)
+	Update(ctx context.Context, widget *models.DashboardWidget) error
+	Delete(ctx context.Context, id uint64) error
+	DeleteByUserIDAndAppID(ctx context.Context, userID, appID uint64) error
+	UpdateDisplayOrders(ctx context.Context, userID uint64, widgetIDs []uint64) error
+	GetMaxDisplayOrder(ctx context.Context, userID uint64) (int, error)
+	Exists(ctx context.Context, userID, appID uint64) (bool, error)
+}
+
 // 実装がインターフェースを満たすことを確認
 var (
-	_ UserRepositoryInterface        = (*UserRepository)(nil)
-	_ AppRepositoryInterface         = (*AppRepository)(nil)
-	_ FieldRepositoryInterface       = (*FieldRepository)(nil)
-	_ ViewRepositoryInterface        = (*ViewRepository)(nil)
-	_ ChartRepositoryInterface       = (*ChartRepository)(nil)
-	_ DynamicQueryExecutorInterface  = (*DynamicQueryExecutor)(nil)
-	_ DataSourceRepositoryInterface  = (*DataSourceRepository)(nil)
-	_ ExternalQueryExecutorInterface = (*ExternalQueryExecutor)(nil)
+	_ UserRepositoryInterface            = (*UserRepository)(nil)
+	_ AppRepositoryInterface             = (*AppRepository)(nil)
+	_ FieldRepositoryInterface           = (*FieldRepository)(nil)
+	_ ViewRepositoryInterface            = (*ViewRepository)(nil)
+	_ ChartRepositoryInterface           = (*ChartRepository)(nil)
+	_ DynamicQueryExecutorInterface      = (*DynamicQueryExecutor)(nil)
+	_ DataSourceRepositoryInterface      = (*DataSourceRepository)(nil)
+	_ ExternalQueryExecutorInterface     = (*ExternalQueryExecutor)(nil)
+	_ DashboardWidgetRepositoryInterface = (*DashboardWidgetRepository)(nil)
 )

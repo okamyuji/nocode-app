@@ -61,6 +61,7 @@ func main() {
 	dynamicQuery := repositories.NewDynamicQueryExecutor(db)
 	dataSourceRepo := repositories.NewDataSourceRepository(db)
 	externalQuery := repositories.NewExternalQueryExecutor()
+	dashboardWidgetRepo := repositories.NewDashboardWidgetRepository(db)
 
 	// サービスの初期化
 	authService := services.NewAuthService(userRepo, jwtManager)
@@ -71,6 +72,7 @@ func main() {
 	chartService := services.NewChartService(chartRepo, appRepo, fieldRepo, dynamicQuery, dataSourceRepo, externalQuery)
 	userService := services.NewUserService(userRepo)
 	dashboardService := services.NewDashboardService(userRepo, appRepo, dynamicQuery)
+	dashboardWidgetService := services.NewDashboardWidgetService(dashboardWidgetRepo, appRepo)
 	dataSourceService := services.NewDataSourceService(dataSourceRepo, externalQuery)
 
 	// ハンドラーの初期化
@@ -82,6 +84,7 @@ func main() {
 	chartHandler := handlers.NewChartHandler(chartService, validator)
 	userHandler := handlers.NewUserHandler(userService, validator)
 	dashboardHandler := handlers.NewDashboardHandler(dashboardService)
+	dashboardWidgetHandler := handlers.NewDashboardWidgetHandler(dashboardWidgetService, validator)
 	dataSourceHandler := handlers.NewDataSourceHandler(dataSourceService, validator)
 
 	// ミドルウェアの初期化
@@ -105,6 +108,7 @@ func main() {
 		chartHandler,
 		userHandler,
 		dashboardHandler,
+		dashboardWidgetHandler,
 		dataSourceHandler,
 	)
 
