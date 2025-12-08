@@ -34,12 +34,9 @@ export function DashboardPage() {
     staleTime: 30000, // 30 seconds
   });
 
-  // ウィジェットデータの取得（表示中のもののみ）
+  // ウィジェットデータの取得（全ウィジェット）
   const { data: widgetsData, isLoading: widgetsLoading } =
     useDashboardWidgets(false);
-
-  // 全ウィジェットデータの取得（追加モーダル用）
-  const { data: allWidgetsData } = useDashboardWidgets(false);
 
   const stats = [
     {
@@ -132,7 +129,7 @@ export function DashboardPage() {
       <AddWidgetModal
         isOpen={isOpen}
         onClose={onClose}
-        existingWidgets={allWidgetsData?.widgets || []}
+        existingWidgets={widgetsData?.widgets || []}
       />
     </Box>
   );

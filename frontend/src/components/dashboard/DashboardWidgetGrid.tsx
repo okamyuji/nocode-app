@@ -101,6 +101,7 @@ export function DashboardWidgetGrid({ widgets }: DashboardWidgetGridProps) {
 
   const handleDragCancel = () => {
     setActiveId(null);
+    setDraggedItems(null);
   };
 
   const activeWidget = activeId

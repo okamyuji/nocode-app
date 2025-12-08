@@ -14,12 +14,17 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 /**
  * レコード一覧を取得するフック
+ * @param appId - アプリID（undefinedの場合はクエリ無効化）
+ * @param options - クエリオプション
  */
-export function useRecords(appId: number, options: RecordQueryOptions = {}) {
+export function useRecords(
+  appId: number | undefined,
+  options: RecordQueryOptions = {}
+) {
   return useQuery({
     queryKey: ["records", appId, options],
-    queryFn: () => recordsApi.getAll(appId, options),
-    enabled: !!appId,
+    queryFn: () => recordsApi.getAll(appId!, options),
+    enabled: appId !== undefined && appId > 0,
   });
 }
 

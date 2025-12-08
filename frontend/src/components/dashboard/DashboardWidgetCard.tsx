@@ -101,7 +101,7 @@ export function DashboardWidgetCard({
 
   // レコードデータの取得（chartビュー以外の場合のみ）
   const { data: recordsData, isLoading: isRecordsLoading } = useRecords(
-    widget.view_type !== "chart" ? widget.app_id : 0,
+    widget.view_type !== "chart" ? widget.app_id : undefined,
     { page: 1, limit: getRecordLimit(widget.widget_size) }
   );
 
