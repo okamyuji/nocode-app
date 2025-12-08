@@ -1,7 +1,11 @@
 import { useDashboardApi } from "@/api";
-import { useApps } from "@/hooks";
+import { Loading } from "@/components/common";
+import { AddWidgetModal, DashboardWidgetGrid } from "@/components/dashboard";
+import { useDashboardWidgets } from "@/hooks";
+import { AddIcon } from "@chakra-ui/icons";
 import {
   Box,
+  Button,
   Card,
   CardBody,
   Heading,
@@ -14,28 +18,33 @@ import {
   StatLabel,
   StatNumber,
   Text,
-  VStack,
+  useDisclosure,
 } from "@chakra-ui/react";
 import { useQuery } from "@tanstack/react-query";
 import { FiActivity, FiDatabase, FiGrid, FiUsers } from "react-icons/fi";
-import { Link as RouterLink } from "react-router-dom";
 
 export function DashboardPage() {
-  const { data: appsData } = useApps();
   const dashboardApi = useDashboardApi();
+  const { isOpen, onOpen, onClose } = useDisclosure();
 
+  // 統計データの取得
   const { data: statsData, isLoading: statsLoading } = useQuery({
     queryKey: ["dashboard", "stats"],
     queryFn: () => dashboardApi.getStats(),
     staleTime: 30000, // 30 seconds
   });
 
+  // ウィジェットデータの取得（表示中のもののみ）
+  const { data: widgetsData, isLoading: widgetsLoading } =
+    useDashboardWidgets(false);
+
+  // 全ウィジェットデータの取得（追加モーダル用）
+  const { data: allWidgetsData } = useDashboardWidgets(false);
+
   const stats = [
     {
       label: "アプリ数",
-      value: statsLoading
-        ? null
-        : (statsData?.stats.app_count ?? appsData?.apps.length ?? 0),
+      value: statsLoading ? null : (statsData?.stats.app_count ?? 0),
       icon: FiGrid,
       color: "brand.500",
     },
@@ -59,12 +68,18 @@ export function DashboardPage() {
     },
   ];
 
+  const visibleWidgets = widgetsData?.widgets.filter((w) => w.is_visible) || [];
+
   return (
     <Box>
-      <Heading size="lg" mb={6}>
-        ダッシュボード
-      </Heading>
+      <HStack justify="space-between" mb={6}>
+        <Heading size="lg">ダッシュボード</Heading>
+        <Button leftIcon={<AddIcon />} colorScheme="brand" onClick={onOpen}>
+          ウィジェットを追加
+        </Button>
+      </HStack>
 
+      {/* 統計カード */}
       <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={4} mb={8}>
         {stats.map((stat) => (
           <Card key={stat.label}>
@@ -90,49 +105,35 @@ export function DashboardPage() {
         ))}
       </SimpleGrid>
 
-      <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={6}>
-        <Card>
-          <CardBody>
-            <Heading size="md" mb={4}>
-              最近のアプリ
-            </Heading>
-            {appsData?.apps.length === 0 ? (
-              <Text color="gray.500">アプリがありません</Text>
-            ) : (
-              <VStack align="stretch" spacing={2}>
-                {appsData?.apps.slice(0, 5).map((app) => (
-                  <HStack
-                    key={app.id}
-                    as={RouterLink}
-                    to={`/apps/${app.id}/records`}
-                    p={3}
-                    borderRadius="md"
-                    _hover={{ bg: "gray.50" }}
-                    justify="space-between"
-                  >
-                    <HStack>
-                      <Icon as={FiGrid} color="brand.500" />
-                      <Text fontWeight="medium">{app.name}</Text>
-                    </HStack>
-                    <Text fontSize="sm" color="gray.500">
-                      {new Date(app.updated_at).toLocaleDateString("ja-JP")}
-                    </Text>
-                  </HStack>
-                ))}
-              </VStack>
-            )}
-          </CardBody>
-        </Card>
+      {/* ウィジェットグリッド */}
+      <Box>
+        <Heading size="md" mb={4}>
+          アプリウィジェット
+        </Heading>
 
-        <Card>
-          <CardBody>
-            <Heading size="md" mb={4}>
-              アクティビティ
-            </Heading>
-            <Text color="gray.500">まだアクティビティがありません</Text>
-          </CardBody>
-        </Card>
-      </SimpleGrid>
+        {widgetsLoading ? (
+          <Loading message="ウィジェットを読み込み中..." />
+        ) : visibleWidgets.length === 0 ? (
+          <Card>
+            <CardBody>
+              <Text color="gray.500" textAlign="center" py={8}>
+                表示中のウィジェットがありません。
+                <br />
+                「ウィジェットを追加」ボタンからアプリを追加してください。
+              </Text>
+            </CardBody>
+          </Card>
+        ) : (
+          <DashboardWidgetGrid widgets={visibleWidgets} />
+        )}
+      </Box>
+
+      {/* ウィジェット追加モーダル */}
+      <AddWidgetModal
+        isOpen={isOpen}
+        onClose={onClose}
+        existingWidgets={allWidgetsData?.widgets || []}
+      />
     </Box>
   );
 }
