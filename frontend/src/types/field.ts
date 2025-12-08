@@ -51,6 +51,7 @@ export interface CreateFieldRequest {
   field_code: string;
   field_name: string;
   field_type: FieldType;
+  source_column_name?: string; // 外部データソースのカラム名（外部アプリの場合のみ使用）
   options?: FieldOptions;
   required?: boolean;
   display_order?: number;

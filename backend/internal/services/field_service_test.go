@@ -64,7 +64,13 @@ func TestFieldService_CreateField(t *testing.T) {
 		mockAppRepo := new(mocks.MockAppRepository)
 		mockDynamicQuery := new(mocks.MockDynamicQueryExecutor)
 
-		mockAppRepo.On("GetTableName", ctx, uint64(1)).Return("app_data_1", nil)
+		// 通常のアプリ（外部データソースでない）
+		mockApp := &models.App{
+			ID:         1,
+			TableName:  "app_data_1",
+			IsExternal: false,
+		}
+		mockAppRepo.On("GetByID", ctx, uint64(1)).Return(mockApp, nil)
 		mockFieldRepo.On("FieldCodeExists", ctx, uint64(1), "new_field").Return(false, nil)
 		mockFieldRepo.On("GetMaxDisplayOrder", ctx, uint64(1)).Return(5, nil)
 		mockFieldRepo.On("Create", ctx, mock.AnythingOfType("*models.AppField")).Return(nil).Run(func(args mock.Arguments) {
@@ -97,7 +103,12 @@ func TestFieldService_CreateField(t *testing.T) {
 		mockAppRepo := new(mocks.MockAppRepository)
 		mockDynamicQuery := new(mocks.MockDynamicQueryExecutor)
 
-		mockAppRepo.On("GetTableName", ctx, uint64(1)).Return("app_data_1", nil)
+		mockApp := &models.App{
+			ID:         1,
+			TableName:  "app_data_1",
+			IsExternal: false,
+		}
+		mockAppRepo.On("GetByID", ctx, uint64(1)).Return(mockApp, nil)
 		mockFieldRepo.On("FieldCodeExists", ctx, uint64(1), "existing_field").Return(true, nil)
 
 		service := services.NewFieldService(mockFieldRepo, mockAppRepo, mockDynamicQuery)
@@ -120,7 +131,7 @@ func TestFieldService_CreateField(t *testing.T) {
 		mockAppRepo := new(mocks.MockAppRepository)
 		mockDynamicQuery := new(mocks.MockDynamicQueryExecutor)
 
-		mockAppRepo.On("GetTableName", ctx, uint64(999)).Return("", nil)
+		mockAppRepo.On("GetByID", ctx, uint64(999)).Return(nil, nil)
 
 		service := services.NewFieldService(mockFieldRepo, mockAppRepo, mockDynamicQuery)
 
@@ -135,6 +146,55 @@ func TestFieldService_CreateField(t *testing.T) {
 
 		mockAppRepo.AssertExpectations(t)
 	})
+
+	t.Run("external app creation without AddColumn", func(t *testing.T) {
+		mockFieldRepo := new(mocks.MockFieldRepository)
+		mockAppRepo := new(mocks.MockAppRepository)
+		mockDynamicQuery := new(mocks.MockDynamicQueryExecutor)
+
+		// 外部データソースのアプリ
+		mockApp := &models.App{
+			ID:              1,
+			TableName:       "external_table",
+			IsExternal:      true,
+			DataSourceID:    ptr(uint64(10)),
+			SourceTableName: ptr("customers"),
+		}
+		mockAppRepo.On("GetByID", ctx, uint64(1)).Return(mockApp, nil)
+		mockFieldRepo.On("FieldCodeExists", ctx, uint64(1), "customer_id").Return(false, nil)
+		mockFieldRepo.On("GetMaxDisplayOrder", ctx, uint64(1)).Return(0, nil)
+		mockFieldRepo.On("Create", ctx, mock.AnythingOfType("*models.AppField")).Return(nil).Run(func(args mock.Arguments) {
+			field := args.Get(1).(*models.AppField)
+			field.ID = 1
+			// 外部データソースの場合はSourceColumnNameが設定されることを確認
+			assert.NotNil(t, field.SourceColumnName)
+			assert.Equal(t, "customer_id", *field.SourceColumnName)
+		})
+		// AddColumnは呼ばれない（外部データソースの場合）
+
+		service := services.NewFieldService(mockFieldRepo, mockAppRepo, mockDynamicQuery)
+
+		req := &models.CreateFieldRequest{
+			FieldCode:        "customer_id",
+			FieldName:        "顧客ID",
+			FieldType:        "number",
+			SourceColumnName: "customer_id",
+			Required:         true,
+		}
+
+		resp, err := service.CreateField(ctx, 1, req)
+		require.NoError(t, err)
+		assert.Equal(t, "customer_id", resp.FieldCode)
+
+		mockFieldRepo.AssertExpectations(t)
+		mockAppRepo.AssertExpectations(t)
+		mockDynamicQuery.AssertNotCalled(t, "AddColumn")
+	})
+}
+
+// ptr はポインタ型を返すヘルパー関数
+func ptr[T any](v T) *T {
+	return &v
 }
 
 func TestFieldService_UpdateField(t *testing.T) {

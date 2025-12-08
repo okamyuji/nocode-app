@@ -24,6 +24,7 @@ import type {
 } from "@/types";
 import { FIELD_TYPE_LABELS, mapDataTypeToFieldType } from "@/types";
 import { getAppIcon } from "@/utils";
+import { generateFieldCode } from "@/utils/fieldCodeGenerator";
 import {
   AlertDialog,
   AlertDialogBody,
@@ -1700,16 +1701,38 @@ function AddFieldModal({
   // 外部データソース用の一括作成ミューテーション
   const bulkCreateMutation = useMutation({
     mutationFn: async (columnNames: string[]) => {
+      // 使用済みフィールドコードを追跡（既存 + 新規追加分）
+      const usedFieldCodes = new Set(existingFieldCodes);
+      // 現在のカラム一覧からインデックスを取得
+      const allColumns = columnsData?.columns || [];
+
       // 選択されたカラムを順番に追加
       for (const colName of columnNames) {
-        const column = columnsData?.columns.find(
+        const columnIndex = allColumns.findIndex(
           (c: ColumnInfo) => c.name === colName
         );
+        const column = allColumns[columnIndex];
+
         if (column) {
+          // フィールドコードを生成（日本語を含む場合は英数字に変換）
+          let fieldCode = generateFieldCode(
+            colName,
+            existingFieldCodes.length + columnIndex
+          );
+          // 重複を避けるためにサフィックスを付ける
+          let suffix = 1;
+          const baseCode = fieldCode;
+          while (usedFieldCodes.has(fieldCode)) {
+            suffix++;
+            fieldCode = `${baseCode}_${suffix}`;
+          }
+          usedFieldCodes.add(fieldCode);
+
           await fields.create(app.id, {
-            field_code: colName,
-            field_name: colName,
+            field_code: fieldCode,
+            field_name: colName, // 表示名はカラム名をそのまま使用
             field_type: mapDataTypeToFieldType(column.data_type) as FieldType,
+            source_column_name: colName, // 外部データソースのカラム名を設定
             required: !column.is_nullable,
           });
         }

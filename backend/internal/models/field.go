@@ -84,12 +84,13 @@ type AppField struct {
 
 // CreateFieldRequest フィールド作成リクエストの構造体
 type CreateFieldRequest struct {
-	FieldCode    string       `json:"field_code" validate:"required,min=1,max=64,fieldcode"`
-	FieldName    string       `json:"field_name" validate:"required,min=1,max=100"`
-	FieldType    string       `json:"field_type" validate:"required,oneof=text textarea number date datetime select multiselect checkbox radio link attachment"`
-	Options      FieldOptions `json:"options"`
-	Required     bool         `json:"required"`
-	DisplayOrder int          `json:"display_order"`
+	FieldCode        string       `json:"field_code" validate:"required,min=1,max=64,fieldcode"`
+	FieldName        string       `json:"field_name" validate:"required,min=1,max=100"`
+	FieldType        string       `json:"field_type" validate:"required,oneof=text textarea number date datetime select multiselect checkbox radio link attachment"`
+	SourceColumnName string       `json:"source_column_name"` // 外部データソースのカラム名（外部アプリの場合のみ使用）
+	Options          FieldOptions `json:"options"`
+	Required         bool         `json:"required"`
+	DisplayOrder     int          `json:"display_order"`
 }
 
 // UpdateFieldRequest フィールド更新リクエストの構造体

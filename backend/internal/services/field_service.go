@@ -53,12 +53,12 @@ func (s *FieldService) GetFields(ctx context.Context, appID uint64) ([]models.Fi
 
 // CreateField 新しいフィールドを作成し動的テーブルにカラムを追加する
 func (s *FieldService) CreateField(ctx context.Context, appID uint64, req *models.CreateFieldRequest) (*models.FieldResponse, error) {
-	// テーブル名を取得するためにアプリを取得
-	tableName, err := s.appRepo.GetTableName(ctx, appID)
+	// アプリを取得（外部データソースかどうかを判定するため）
+	app, err := s.appRepo.GetByID(ctx, appID)
 	if err != nil {
 		return nil, err
 	}
-	if tableName == "" {
+	if app == nil {
 		return nil, ErrAppNotFound
 	}
 
@@ -94,16 +94,23 @@ func (s *FieldService) CreateField(ctx context.Context, appID uint64, req *model
 		UpdatedAt:    now,
 	}
 
+	// 外部データソースの場合はSourceColumnNameを設定
+	if app.IsExternal && req.SourceColumnName != "" {
+		field.SourceColumnName = &req.SourceColumnName
+	}
+
 	// データベースにフィールドを作成
 	if err := s.fieldRepo.Create(ctx, field); err != nil {
 		return nil, err
 	}
 
-	// 動的テーブルにカラムを追加
-	if err := s.dynamicQuery.AddColumn(ctx, tableName, field); err != nil {
-		// フィールド作成をロールバック
-		_ = s.fieldRepo.Delete(ctx, field.ID)
-		return nil, err
+	// 外部データソースでない場合のみ、動的テーブルにカラムを追加
+	if !app.IsExternal {
+		if err := s.dynamicQuery.AddColumn(ctx, app.TableName, field); err != nil {
+			// フィールド作成をロールバック
+			_ = s.fieldRepo.Delete(ctx, field.ID)
+			return nil, err
+		}
 	}
 
 	return field.ToResponse(), nil
