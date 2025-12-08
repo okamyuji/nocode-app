@@ -1,20 +1,25 @@
-import { useApiClient } from "@/api";
+import { useApiClient, useDashboardWidgetsApi } from "@/api";
 import { DataSourceList } from "@/components/datasources";
+import { useDashboardWidgets } from "@/hooks";
 import { useAuthStore } from "@/stores";
 import type {
   App,
   AppListResponse,
   ChangePasswordRequest,
+  CreateDashboardWidgetRequest,
   CreateFieldRequest,
   CreateUserRequest,
   Field,
   FieldOptions,
   FieldType,
   UpdateAppRequest,
+  UpdateDashboardWidgetRequest,
   UpdateFieldRequest,
   UpdateProfileRequest,
   UpdateUserRequest,
   User,
+  WidgetSize,
+  WidgetViewType,
 } from "@/types";
 import { FIELD_TYPE_LABELS } from "@/types";
 import { getAppIcon } from "@/utils";
@@ -74,8 +79,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   FiArrowLeft,
+  FiBarChart2,
   FiDatabase,
   FiEdit2,
+  FiGrid,
+  FiList,
   FiPlus,
   FiSearch,
   FiTrash2,
@@ -1006,6 +1014,7 @@ interface AppSettingsDetailProps {
 
 function AppSettingsDetail({ app, onBack }: AppSettingsDetailProps) {
   const { apps, fields } = useApiClient();
+  const dashboardWidgetsApi = useDashboardWidgetsApi();
   const queryClient = useQueryClient();
   const toast = useToast();
   const cancelRef = useRef<HTMLButtonElement>(null);
@@ -1014,6 +1023,28 @@ function AppSettingsDetail({ app, onBack }: AppSettingsDetailProps) {
   const [name, setName] = useState(app.name);
   const [description, setDescription] = useState(app.description || "");
   const [icon, setIcon] = useState(app.icon || "default");
+
+  // ダッシュボードウィジェットの取得
+  const { data: widgetsData } = useDashboardWidgets(false);
+  const existingWidget = widgetsData?.widgets.find((w) => w.app_id === app.id);
+
+  // ダッシュボード表示設定のステート
+  const [showOnDashboard, setShowOnDashboard] = useState(false);
+  const [viewType, setViewType] = useState<WidgetViewType>("table");
+  const [widgetSize, setWidgetSize] = useState<WidgetSize>("medium");
+
+  // 既存のウィジェット設定をステートに反映
+  useEffect(() => {
+    if (existingWidget) {
+      setShowOnDashboard(existingWidget.is_visible);
+      setViewType(existingWidget.view_type);
+      setWidgetSize(existingWidget.widget_size);
+    } else {
+      setShowOnDashboard(false);
+      setViewType("table");
+      setWidgetSize("medium");
+    }
+  }, [existingWidget]);
 
   // propsのappが変更された場合にローカルstateを同期
   useEffect(() => {
@@ -1114,6 +1145,73 @@ function AppSettingsDetail({ app, onBack }: AppSettingsDetailProps) {
     },
   });
 
+  // ダッシュボードウィジェット作成
+  const createWidgetMutation = useMutation({
+    mutationFn: (data: CreateDashboardWidgetRequest) =>
+      dashboardWidgetsApi.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["dashboard", "widgets"] });
+      toast({
+        title: "ダッシュボード設定を保存しました",
+        status: "success",
+        duration: 3000,
+      });
+    },
+    onError: () => {
+      toast({
+        title: "ダッシュボード設定の保存に失敗しました",
+        status: "error",
+        duration: 3000,
+      });
+    },
+  });
+
+  // ダッシュボードウィジェット更新
+  const updateWidgetMutation = useMutation({
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: number;
+      data: UpdateDashboardWidgetRequest;
+    }) => dashboardWidgetsApi.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["dashboard", "widgets"] });
+      toast({
+        title: "ダッシュボード設定を保存しました",
+        status: "success",
+        duration: 3000,
+      });
+    },
+    onError: () => {
+      toast({
+        title: "ダッシュボード設定の保存に失敗しました",
+        status: "error",
+        duration: 3000,
+      });
+    },
+  });
+
+  // ダッシュボードウィジェット削除
+  const deleteWidgetMutation = useMutation({
+    mutationFn: (id: number) => dashboardWidgetsApi.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["dashboard", "widgets"] });
+      toast({
+        title: "ダッシュボードから削除しました",
+        status: "success",
+        duration: 3000,
+      });
+    },
+    onError: () => {
+      toast({
+        title: "削除に失敗しました",
+        status: "error",
+        duration: 3000,
+      });
+    },
+  });
+
   // Delete field mutation
   const deleteFieldMutation = useMutation({
     mutationFn: (fieldId: number) => fields.delete(app.id, fieldId),
@@ -1166,6 +1264,44 @@ function AppSettingsDetail({ app, onBack }: AppSettingsDetailProps) {
   const confirmDeleteApp = () => {
     deleteAppMutation.mutate();
   };
+
+  // ダッシュボード設定を保存
+  const handleSaveDashboardSettings = () => {
+    if (showOnDashboard) {
+      if (existingWidget) {
+        // 既存のウィジェットを更新
+        updateWidgetMutation.mutate({
+          id: existingWidget.id,
+          data: {
+            view_type: viewType,
+            widget_size: widgetSize,
+            is_visible: true,
+          },
+        });
+      } else {
+        // 新規ウィジェットを作成
+        createWidgetMutation.mutate({
+          app_id: app.id,
+          view_type: viewType,
+          widget_size: widgetSize,
+          is_visible: true,
+        });
+      }
+    } else {
+      if (existingWidget) {
+        // ウィジェットを非表示に
+        updateWidgetMutation.mutate({
+          id: existingWidget.id,
+          data: { is_visible: false },
+        });
+      }
+    }
+  };
+
+  const isDashboardSaving =
+    createWidgetMutation.isPending ||
+    updateWidgetMutation.isPending ||
+    deleteWidgetMutation.isPending;
 
   return (
     <Box>
@@ -1234,6 +1370,84 @@ function AppSettingsDetail({ app, onBack }: AppSettingsDetailProps) {
                 isLoading={updateAppMutation.isPending}
               >
                 保存
+              </Button>
+            </VStack>
+          </CardBody>
+        </Card>
+
+        {/* Dashboard Settings Card */}
+        <Card>
+          <CardHeader>
+            <Heading size="sm">ダッシュボード表示設定</Heading>
+          </CardHeader>
+          <CardBody>
+            <VStack spacing={4} align="stretch">
+              <FormControl display="flex" alignItems="center">
+                <FormLabel mb="0">ダッシュボードに表示</FormLabel>
+                <Switch
+                  isChecked={showOnDashboard}
+                  onChange={(e) => setShowOnDashboard(e.target.checked)}
+                />
+              </FormControl>
+
+              {showOnDashboard && (
+                <>
+                  <FormControl>
+                    <FormLabel>表示形式</FormLabel>
+                    <Grid templateColumns="repeat(3, 1fr)" gap={2}>
+                      <Button
+                        variant={viewType === "table" ? "solid" : "outline"}
+                        colorScheme={viewType === "table" ? "brand" : "gray"}
+                        onClick={() => setViewType("table")}
+                        leftIcon={<Icon as={FiGrid} />}
+                        size="sm"
+                      >
+                        テーブル
+                      </Button>
+                      <Button
+                        variant={viewType === "list" ? "solid" : "outline"}
+                        colorScheme={viewType === "list" ? "brand" : "gray"}
+                        onClick={() => setViewType("list")}
+                        leftIcon={<Icon as={FiList} />}
+                        size="sm"
+                      >
+                        リスト
+                      </Button>
+                      <Button
+                        variant={viewType === "chart" ? "solid" : "outline"}
+                        colorScheme={viewType === "chart" ? "brand" : "gray"}
+                        onClick={() => setViewType("chart")}
+                        leftIcon={<Icon as={FiBarChart2} />}
+                        size="sm"
+                      >
+                        グラフ
+                      </Button>
+                    </Grid>
+                  </FormControl>
+
+                  <FormControl>
+                    <FormLabel>ウィジェットサイズ</FormLabel>
+                    <Select
+                      value={widgetSize}
+                      onChange={(e) =>
+                        setWidgetSize(e.target.value as WidgetSize)
+                      }
+                    >
+                      <option value="small">小</option>
+                      <option value="medium">中</option>
+                      <option value="large">大</option>
+                    </Select>
+                  </FormControl>
+                </>
+              )}
+
+              <Button
+                colorScheme="brand"
+                w="full"
+                onClick={handleSaveDashboardSettings}
+                isLoading={isDashboardSaving}
+              >
+                ダッシュボード設定を保存
               </Button>
             </VStack>
           </CardBody>
