@@ -8,6 +8,7 @@ import { authApi } from "./auth";
 import { chartsApi } from "./charts";
 import client from "./client";
 import { dashboardApi } from "./dashboard";
+import { dashboardWidgetsApi } from "./dashboardWidgets";
 import { createDataSourceApi } from "./datasources";
 import { fieldsApi } from "./fields";
 import type { IApiClient } from "./interfaces";
@@ -25,5 +26,6 @@ export const apiClient: IApiClient = {
   users: usersApi,
   profile: profileApi,
   dashboard: dashboardApi,
+  dashboardWidgets: dashboardWidgetsApi,
   dataSources: createDataSourceApi(client),
 };

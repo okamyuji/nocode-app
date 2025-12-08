@@ -395,3 +395,58 @@ func (m *MockDataSourceService) GetDecryptedPassword(ctx context.Context, id uin
 	args := m.Called(ctx, id)
 	return args.String(0), args.Error(1)
 }
+
+// MockDashboardWidgetService DashboardWidgetServiceInterfaceのモック実装
+type MockDashboardWidgetService struct {
+	mock.Mock
+}
+
+func (m *MockDashboardWidgetService) GetWidgets(ctx context.Context, userID uint64) (*models.DashboardWidgetListResponse, error) {
+	args := m.Called(ctx, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.DashboardWidgetListResponse), args.Error(1)
+}
+
+func (m *MockDashboardWidgetService) GetVisibleWidgets(ctx context.Context, userID uint64) (*models.DashboardWidgetListResponse, error) {
+	args := m.Called(ctx, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.DashboardWidgetListResponse), args.Error(1)
+}
+
+func (m *MockDashboardWidgetService) CreateWidget(ctx context.Context, userID uint64, req *models.CreateDashboardWidgetRequest) (*models.DashboardWidgetResponse, error) {
+	args := m.Called(ctx, userID, req)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.DashboardWidgetResponse), args.Error(1)
+}
+
+func (m *MockDashboardWidgetService) UpdateWidget(ctx context.Context, userID, widgetID uint64, req *models.UpdateDashboardWidgetRequest) (*models.DashboardWidgetResponse, error) {
+	args := m.Called(ctx, userID, widgetID, req)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.DashboardWidgetResponse), args.Error(1)
+}
+
+func (m *MockDashboardWidgetService) DeleteWidget(ctx context.Context, userID, widgetID uint64) error {
+	args := m.Called(ctx, userID, widgetID)
+	return args.Error(0)
+}
+
+func (m *MockDashboardWidgetService) ReorderWidgets(ctx context.Context, userID uint64, req *models.ReorderWidgetsRequest) error {
+	args := m.Called(ctx, userID, req)
+	return args.Error(0)
+}
+
+func (m *MockDashboardWidgetService) ToggleVisibility(ctx context.Context, userID, widgetID uint64) (*models.DashboardWidgetResponse, error) {
+	args := m.Called(ctx, userID, widgetID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.DashboardWidgetResponse), args.Error(1)
+}

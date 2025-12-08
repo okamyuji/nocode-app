@@ -147,6 +147,14 @@ describe("SettingsPage", () => {
     dashboard: {
       getStats: vi.fn(),
     },
+    dashboardWidgets: {
+      getAll: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+      reorder: vi.fn(),
+      toggleVisibility: vi.fn(),
+    },
     dataSources: {
       getDataSources: vi.fn().mockResolvedValue({
         data_sources: [],

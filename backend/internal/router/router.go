@@ -15,15 +15,16 @@ type Router struct {
 	corsConfig     *middleware.CORSConfig
 
 	// ハンドラー
-	authHandler       *handlers.AuthHandler
-	appHandler        *handlers.AppHandler
-	fieldHandler      *handlers.FieldHandler
-	recordHandler     *handlers.RecordHandler
-	viewHandler       *handlers.ViewHandler
-	chartHandler      *handlers.ChartHandler
-	userHandler       *handlers.UserHandler
-	dashboardHandler  *handlers.DashboardHandler
-	dataSourceHandler *handlers.DataSourceHandler
+	authHandler            *handlers.AuthHandler
+	appHandler             *handlers.AppHandler
+	fieldHandler           *handlers.FieldHandler
+	recordHandler          *handlers.RecordHandler
+	viewHandler            *handlers.ViewHandler
+	chartHandler           *handlers.ChartHandler
+	userHandler            *handlers.UserHandler
+	dashboardHandler       *handlers.DashboardHandler
+	dashboardWidgetHandler *handlers.DashboardWidgetHandler
+	dataSourceHandler      *handlers.DataSourceHandler
 }
 
 // NewRouter 新しいRouterを作成する
@@ -38,21 +39,23 @@ func NewRouter(
 	chartHandler *handlers.ChartHandler,
 	userHandler *handlers.UserHandler,
 	dashboardHandler *handlers.DashboardHandler,
+	dashboardWidgetHandler *handlers.DashboardWidgetHandler,
 	dataSourceHandler *handlers.DataSourceHandler,
 ) *Router {
 	return &Router{
-		mux:               http.NewServeMux(),
-		authMiddleware:    authMiddleware,
-		corsConfig:        corsConfig,
-		authHandler:       authHandler,
-		appHandler:        appHandler,
-		fieldHandler:      fieldHandler,
-		recordHandler:     recordHandler,
-		viewHandler:       viewHandler,
-		chartHandler:      chartHandler,
-		userHandler:       userHandler,
-		dashboardHandler:  dashboardHandler,
-		dataSourceHandler: dataSourceHandler,
+		mux:                    http.NewServeMux(),
+		authMiddleware:         authMiddleware,
+		corsConfig:             corsConfig,
+		authHandler:            authHandler,
+		appHandler:             appHandler,
+		fieldHandler:           fieldHandler,
+		recordHandler:          recordHandler,
+		viewHandler:            viewHandler,
+		chartHandler:           chartHandler,
+		userHandler:            userHandler,
+		dashboardHandler:       dashboardHandler,
+		dashboardWidgetHandler: dashboardWidgetHandler,
+		dataSourceHandler:      dataSourceHandler,
 	}
 }
 
@@ -126,6 +129,12 @@ func (r *Router) routeProtected(w http.ResponseWriter, req *http.Request) {
 	// ダッシュボードルート
 	if path == "/api/v1/dashboard/stats" {
 		r.dashboardHandler.GetStats(w, req)
+		return
+	}
+
+	// ダッシュボードウィジェットルート
+	if strings.HasPrefix(path, "/api/v1/dashboard/widgets") {
+		r.routeDashboardWidgets(w, req)
 		return
 	}
 
@@ -485,6 +494,60 @@ func (r *Router) routeDataSources(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 		http.Error(w, "メソッドが許可されていません", http.StatusMethodNotAllowed)
+		return
+	}
+
+	http.NotFound(w, req)
+}
+
+// routeDashboardWidgets ダッシュボードウィジェットエンドポイントをルーティングする
+func (r *Router) routeDashboardWidgets(w http.ResponseWriter, req *http.Request) {
+	path := req.URL.Path
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+
+	// /api/v1/dashboard/widgets/reorder
+	if len(parts) == 5 && parts[4] == "reorder" {
+		if req.Method == http.MethodPut {
+			r.dashboardWidgetHandler.Reorder(w, req)
+			return
+		}
+		http.Error(w, "メソッドが許可されていません", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// /api/v1/dashboard/widgets
+	if len(parts) == 4 {
+		switch req.Method {
+		case http.MethodGet:
+			r.dashboardWidgetHandler.List(w, req)
+		case http.MethodPost:
+			r.dashboardWidgetHandler.Create(w, req)
+		default:
+			http.Error(w, "メソッドが許可されていません", http.StatusMethodNotAllowed)
+		}
+		return
+	}
+
+	// /api/v1/dashboard/widgets/{id}/toggle
+	if len(parts) == 6 && parts[5] == "toggle" {
+		if req.Method == http.MethodPost {
+			r.dashboardWidgetHandler.ToggleVisibility(w, req)
+			return
+		}
+		http.Error(w, "メソッドが許可されていません", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// /api/v1/dashboard/widgets/{id}
+	if len(parts) == 5 {
+		switch req.Method {
+		case http.MethodPut:
+			r.dashboardWidgetHandler.Update(w, req)
+		case http.MethodDelete:
+			r.dashboardWidgetHandler.Delete(w, req)
+		default:
+			http.Error(w, "メソッドが許可されていません", http.StatusMethodNotAllowed)
+		}
 		return
 	}
 
