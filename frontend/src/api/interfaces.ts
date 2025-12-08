@@ -17,12 +17,15 @@ import {
   ChartDataResponse,
   ColumnListResponse,
   CreateAppRequest,
+  CreateDashboardWidgetRequest,
   CreateDataSourceRequest,
   CreateFieldRequest,
   CreateRecordRequest,
   CreateUserRequest,
   CreateViewRequest,
   DashboardStatsResponse,
+  DashboardWidget,
+  DashboardWidgetListResponse,
   DataSource,
   DataSourceListResponse,
   Field,
@@ -31,11 +34,13 @@ import {
   RecordListResponse,
   RecordQueryOptions,
   RegisterRequest,
+  ReorderWidgetsRequest,
   SaveChartConfigRequest,
   TableListResponse,
   TestConnectionRequest,
   TestConnectionResponse,
   UpdateAppRequest,
+  UpdateDashboardWidgetRequest,
   UpdateDataSourceRequest,
   UpdateFieldOrderRequest,
   UpdateFieldRequest,
@@ -157,6 +162,21 @@ export interface IDashboardApi {
 }
 
 /**
+ * ダッシュボードウィジェットAPIインターフェース
+ */
+export interface IDashboardWidgetsApi {
+  getAll(visibleOnly?: boolean): Promise<DashboardWidgetListResponse>;
+  create(data: CreateDashboardWidgetRequest): Promise<DashboardWidget>;
+  update(
+    widgetId: number,
+    data: UpdateDashboardWidgetRequest
+  ): Promise<DashboardWidget>;
+  delete(widgetId: number): Promise<void>;
+  reorder(data: ReorderWidgetsRequest): Promise<{ message: string }>;
+  toggleVisibility(widgetId: number): Promise<DashboardWidget>;
+}
+
+/**
  * データソースAPIインターフェース
  */
 export interface IDataSourcesApi {
@@ -192,5 +212,6 @@ export interface IApiClient {
   users: IUsersApi;
   profile: IProfileApi;
   dashboard: IDashboardApi;
+  dashboardWidgets: IDashboardWidgetsApi;
   dataSources: IDataSourcesApi;
 }

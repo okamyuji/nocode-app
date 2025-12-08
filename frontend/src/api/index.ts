@@ -8,6 +8,7 @@ export { authApi } from "./auth";
 export { chartsApi } from "./charts";
 export { default as client } from "./client";
 export { dashboardApi } from "./dashboard";
+export { dashboardWidgetsApi } from "./dashboardWidgets";
 export { createDataSourceApi } from "./datasources";
 export type { DataSourceApi } from "./datasources";
 export { fieldsApi } from "./fields";
@@ -22,6 +23,7 @@ export type {
   IAuthApi,
   IChartsApi,
   IDashboardApi,
+  IDashboardWidgetsApi,
   IDataSourcesApi,
   IFieldsApi,
   IProfileApi,
@@ -43,6 +45,7 @@ export {
   useAuthApi,
   useChartsApi,
   useDashboardApi,
+  useDashboardWidgetsApi,
   useDataSourcesApi,
   useFieldsApi,
   useProfileApi,

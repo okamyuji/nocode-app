@@ -17,6 +17,14 @@ export {
   useSaveChartConfig,
 } from "./useCharts";
 export {
+  useCreateDashboardWidget,
+  useDashboardWidgets,
+  useDeleteDashboardWidget,
+  useReorderDashboardWidgets,
+  useToggleDashboardWidgetVisibility,
+  useUpdateDashboardWidget,
+} from "./useDashboardWidgets";
+export {
   useCreateField,
   useDeleteField,
   useFields,

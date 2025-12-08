@@ -68,6 +68,11 @@ export function useDashboardApi() {
   return useApiClient().dashboard;
 }
 
+// ダッシュボードウィジェットAPI
+export function useDashboardWidgetsApi() {
+  return useApiClient().dashboardWidgets;
+}
+
 // データソースAPI
 export function useDataSourcesApi() {
   return useApiClient().dataSources;
