@@ -6,6 +6,7 @@ import type {
   App,
   AppListResponse,
   ChangePasswordRequest,
+  ColumnInfo,
   CreateDashboardWidgetRequest,
   CreateFieldRequest,
   CreateUserRequest,
@@ -21,7 +22,7 @@ import type {
   WidgetSize,
   WidgetViewType,
 } from "@/types";
-import { FIELD_TYPE_LABELS } from "@/types";
+import { FIELD_TYPE_LABELS, mapDataTypeToFieldType } from "@/types";
 import { getAppIcon } from "@/utils";
 import {
   AlertDialog,
@@ -1543,7 +1544,7 @@ function AppSettingsDetail({ app, onBack }: AppSettingsDetailProps) {
       <AddFieldModal
         isOpen={isAddFieldOpen}
         onClose={onAddFieldClose}
-        appId={app.id}
+        app={app}
         existingFieldCodes={fieldsData?.fields?.map((f) => f.field_code) || []}
       />
 
@@ -1625,17 +1626,19 @@ function AppSettingsDetail({ app, onBack }: AppSettingsDetailProps) {
 function AddFieldModal({
   isOpen,
   onClose,
-  appId,
+  app,
   existingFieldCodes,
 }: {
   isOpen: boolean;
   onClose: () => void;
-  appId: number;
+  app: App;
   existingFieldCodes: string[];
 }) {
-  const { fields } = useApiClient();
+  const { fields, dataSources } = useApiClient();
   const queryClient = useQueryClient();
   const toast = useToast();
+
+  // 新規データソース用のフォームステート
   const [formData, setFormData] = useState<{
     field_code: string;
     field_name: string;
@@ -1652,10 +1655,68 @@ function AddFieldModal({
   const [choicesText, setChoicesText] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // 外部データソース用のステート
+  const [selectedColumns, setSelectedColumns] = useState<Set<string>>(
+    new Set()
+  );
+
+  // 外部データソースのカラム一覧を取得
+  const { data: columnsData, isLoading: columnsLoading } = useQuery({
+    queryKey: ["columns", app.data_source_id, app.source_table_name],
+    queryFn: () =>
+      dataSources.getColumns(app.data_source_id!, app.source_table_name!),
+    enabled: app.is_external && !!app.data_source_id && !!app.source_table_name,
+  });
+
+  // 追加可能なカラム（既存フィールドに追加済みのものを除外）
+  const availableColumns = useMemo((): ColumnInfo[] => {
+    if (!columnsData?.columns) return [];
+    return columnsData.columns.filter(
+      (col: ColumnInfo) => !existingFieldCodes.includes(col.name)
+    );
+  }, [columnsData?.columns, existingFieldCodes]);
+
   const createMutation = useMutation({
-    mutationFn: (data: CreateFieldRequest) => fields.create(appId, data),
+    mutationFn: (data: CreateFieldRequest) => fields.create(app.id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["fields", appId] });
+      queryClient.invalidateQueries({ queryKey: ["fields", app.id] });
+      toast({
+        title: "フィールドを追加しました",
+        status: "success",
+        duration: 3000,
+      });
+      onClose();
+      resetForm();
+    },
+    onError: () => {
+      toast({
+        title: "フィールドの追加に失敗しました",
+        status: "error",
+        duration: 3000,
+      });
+    },
+  });
+
+  // 外部データソース用の一括作成ミューテーション
+  const bulkCreateMutation = useMutation({
+    mutationFn: async (columnNames: string[]) => {
+      // 選択されたカラムを順番に追加
+      for (const colName of columnNames) {
+        const column = columnsData?.columns.find(
+          (c: ColumnInfo) => c.name === colName
+        );
+        if (column) {
+          await fields.create(app.id, {
+            field_code: colName,
+            field_name: colName,
+            field_type: mapDataTypeToFieldType(column.data_type) as FieldType,
+            required: !column.is_nullable,
+          });
+        }
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["fields", app.id] });
       toast({
         title: "フィールドを追加しました",
         status: "success",
@@ -1683,12 +1744,14 @@ function AddFieldModal({
     });
     setChoicesText("");
     setErrors({});
+    setSelectedColumns(new Set());
   };
 
   const needsChoices = ["select", "multiselect", "radio"].includes(
     formData.field_type
   );
 
+  // 新規データソース用のサブミット
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const newErrors: Record<string, string> = {};
@@ -1731,11 +1794,167 @@ function AddFieldModal({
     }
   };
 
+  // 外部データソース用のサブミット
+  const handleExternalSubmit = () => {
+    if (selectedColumns.size === 0) {
+      toast({
+        title: "カラムを選択してください",
+        status: "warning",
+        duration: 3000,
+      });
+      return;
+    }
+    bulkCreateMutation.mutate(Array.from(selectedColumns));
+  };
+
+  const handleColumnToggle = (columnName: string) => {
+    setSelectedColumns((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(columnName)) {
+        newSet.delete(columnName);
+      } else {
+        newSet.add(columnName);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (selectedColumns.size === availableColumns.length) {
+      setSelectedColumns(new Set());
+    } else {
+      setSelectedColumns(new Set(availableColumns.map((col) => col.name)));
+    }
+  };
+
   const handleClose = useCallback(() => {
     resetForm();
     onClose();
   }, [onClose]);
 
+  // 外部データソースの場合
+  if (app.is_external) {
+    return (
+      <Modal isOpen={isOpen} onClose={handleClose} size="xl">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>カラムからフィールドを追加</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            {columnsLoading ? (
+              <VStack spacing={4}>
+                <Skeleton height="40px" width="100%" />
+                <Skeleton height="40px" width="100%" />
+                <Skeleton height="40px" width="100%" />
+              </VStack>
+            ) : availableColumns.length === 0 ? (
+              <Text color="gray.500" textAlign="center" py={4}>
+                追加可能なカラムがありません。
+                {columnsData?.columns?.length === existingFieldCodes.length &&
+                  "すべてのカラムが既に追加されています。"}
+              </Text>
+            ) : (
+              <VStack spacing={4} align="stretch">
+                <Text fontSize="sm" color="gray.600">
+                  テーブル「{app.source_table_name}
+                  」のカラムから追加するものを選択してください
+                </Text>
+                <Flex justify="space-between" align="center">
+                  <Text fontWeight="medium">
+                    {selectedColumns.size} / {availableColumns.length} 件選択中
+                  </Text>
+                  <Button size="sm" variant="ghost" onClick={handleSelectAll}>
+                    {selectedColumns.size === availableColumns.length
+                      ? "全て解除"
+                      : "全て選択"}
+                  </Button>
+                </Flex>
+                <Box
+                  maxH="400px"
+                  overflowY="auto"
+                  borderWidth="1px"
+                  borderRadius="md"
+                >
+                  <Table size="sm">
+                    <Thead position="sticky" top={0} bg="white" zIndex={1}>
+                      <Tr>
+                        <Th width="40px" />
+                        <Th>カラム名</Th>
+                        <Th>データ型</Th>
+                        <Th>フィールド型</Th>
+                        <Th>NULL可</Th>
+                      </Tr>
+                    </Thead>
+                    <Tbody>
+                      {availableColumns.map((column) => (
+                        <Tr
+                          key={column.name}
+                          cursor="pointer"
+                          _hover={{ bg: "gray.50" }}
+                          onClick={() => handleColumnToggle(column.name)}
+                        >
+                          <Td>
+                            <Switch
+                              isChecked={selectedColumns.has(column.name)}
+                              onChange={() => handleColumnToggle(column.name)}
+                              size="sm"
+                            />
+                          </Td>
+                          <Td fontWeight="medium">{column.name}</Td>
+                          <Td>
+                            <Tag size="sm" colorScheme="gray">
+                              {column.data_type}
+                            </Tag>
+                          </Td>
+                          <Td>
+                            <Tag size="sm" colorScheme="blue">
+                              {FIELD_TYPE_LABELS[
+                                mapDataTypeToFieldType(
+                                  column.data_type
+                                ) as FieldType
+                              ] || mapDataTypeToFieldType(column.data_type)}
+                            </Tag>
+                          </Td>
+                          <Td>
+                            {column.is_nullable ? (
+                              <Tag size="sm" colorScheme="green">
+                                可
+                              </Tag>
+                            ) : (
+                              <Tag size="sm" colorScheme="red">
+                                不可
+                              </Tag>
+                            )}
+                          </Td>
+                        </Tr>
+                      ))}
+                    </Tbody>
+                  </Table>
+                </Box>
+              </VStack>
+            )}
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" mr={3} onClick={handleClose}>
+              キャンセル
+            </Button>
+            <Button
+              colorScheme="brand"
+              onClick={handleExternalSubmit}
+              isLoading={bulkCreateMutation.isPending}
+              isDisabled={selectedColumns.size === 0}
+            >
+              {selectedColumns.size > 0
+                ? `${selectedColumns.size}件追加`
+                : "追加"}
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+    );
+  }
+
+  // 新規データソースの場合（従来のフォーム）
   return (
     <Modal isOpen={isOpen} onClose={handleClose}>
       <ModalOverlay />
