@@ -239,8 +239,8 @@ describe("datasources API", () => {
     it("should fetch tables for a data source", async () => {
       const mockResponse: TableListResponse = {
         tables: [
-          { name: "users", schema: "public" },
-          { name: "orders", schema: "public" },
+          { name: "users", schema: "public", type: "TABLE" },
+          { name: "orders", schema: "public", type: "VIEW" },
         ],
       };
 

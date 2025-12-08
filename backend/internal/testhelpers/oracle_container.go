@@ -127,3 +127,31 @@ func (o *OracleTestContainer) CreateTestTable(ctx context.Context) error {
 
 	return nil
 }
+
+// CreateTestView テスト用のビューを作成する
+func (o *OracleTestContainer) CreateTestView(ctx context.Context) error {
+	connStr := fmt.Sprintf("oracle://%s:%s@%s:%d/%s",
+		o.Username, o.Password, o.Host, o.Port, o.Database)
+
+	db, err := openTestDB("oracle", connStr)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = db.Close() }()
+
+	// 既存のビューを削除（存在する場合）
+	_, _ = db.ExecContext(ctx, `DROP VIEW test_view`)
+
+	// テストビューを作成（アクティブなユーザーのみを表示）
+	_, err = db.ExecContext(ctx, `
+		CREATE VIEW test_view AS
+		SELECT id, name, email, age, salary
+		FROM test_table
+		WHERE is_active = 1
+	`)
+	if err != nil {
+		return fmt.Errorf("テストビューの作成に失敗しました: %w", err)
+	}
+
+	return nil
+}

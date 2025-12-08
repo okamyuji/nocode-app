@@ -118,3 +118,28 @@ func (m *MySQLExternalTestContainer) CreateTestTable(ctx context.Context) error 
 
 	return nil
 }
+
+// CreateTestView テスト用のビューを作成する
+func (m *MySQLExternalTestContainer) CreateTestView(ctx context.Context) error {
+	connStr := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true",
+		m.Username, m.Password, m.Host, m.Port, m.Database)
+
+	db, err := openTestDB("mysql", connStr)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = db.Close() }()
+
+	// テストビューを作成（アクティブなユーザーのみを表示）
+	_, err = db.ExecContext(ctx, `
+		CREATE OR REPLACE VIEW test_view AS
+		SELECT id, name, email, age, salary
+		FROM test_table
+		WHERE is_active = 1
+	`)
+	if err != nil {
+		return fmt.Errorf("テストビューの作成に失敗しました: %w", err)
+	}
+
+	return nil
+}
