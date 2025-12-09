@@ -90,7 +90,7 @@ import {
   FiSearch,
   FiTrash2,
 } from "react-icons/fi";
-import { useSearchParams } from "react-router-dom";
+import { Link as RouterLink, useSearchParams } from "react-router-dom";
 
 export function SettingsPage() {
   const { user } = useAuthStore();
@@ -1452,9 +1452,20 @@ function AppSettingsDetail({ app, onBack }: AppSettingsDetailProps) {
                     <FormControl>
                       <FormLabel>表示するグラフ</FormLabel>
                       {chartConfigs.length === 0 ? (
-                        <Text fontSize="sm" color="gray.500">
-                          グラフ設定がありません。アプリのグラフビューで設定を作成してください。
-                        </Text>
+                        <VStack spacing={2} align="start">
+                          <Text fontSize="sm" color="gray.500">
+                            グラフ設定がありません。
+                          </Text>
+                          <Button
+                            as={RouterLink}
+                            to={`/apps/${app.id}?view=chart`}
+                            size="sm"
+                            colorScheme="brand"
+                            leftIcon={<Icon as={FiBarChart2} />}
+                          >
+                            グラフ設定を作成する
+                          </Button>
+                        </VStack>
                       ) : (
                         <Select
                           value={selectedChartConfigId || ""}
