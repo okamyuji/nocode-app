@@ -24,11 +24,12 @@ func NewDashboardWidgetRepository(db *bun.DB) *DashboardWidgetRepository {
 // Create 新しいダッシュボードウィジェットを作成
 func (r *DashboardWidgetRepository) Create(ctx context.Context, widget *models.DashboardWidget) error {
 	// is_visible のゼロ値（false）を含めるため、生SQLで挿入
+	// created_at, updated_at はデータベースのデフォルト値を使用
 	result, err := r.db.NewRaw(`
 		INSERT INTO dashboard_widgets 
-		(user_id, app_id, display_order, view_type, is_visible, widget_size, config, created_at, updated_at) 
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, widget.UserID, widget.AppID, widget.DisplayOrder, widget.ViewType, widget.IsVisible, widget.WidgetSize, widget.Config, widget.CreatedAt, widget.UpdatedAt).Exec(ctx)
+		(user_id, app_id, display_order, view_type, is_visible, widget_size, config) 
+		VALUES (?, ?, ?, ?, ?, ?, ?)
+	`, widget.UserID, widget.AppID, widget.DisplayOrder, widget.ViewType, widget.IsVisible, widget.WidgetSize, widget.Config).Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("ダッシュボードウィジェットの作成に失敗しました: %w", err)
 	}
