@@ -1458,7 +1458,7 @@ function AppSettingsDetail({ app, onBack }: AppSettingsDetailProps) {
                           </Text>
                           <Button
                             as={RouterLink}
-                            to={`/apps/${app.id}?view=chart`}
+                            to={`/apps/${app.id}/charts`}
                             size="sm"
                             colorScheme="brand"
                             leftIcon={<Icon as={FiBarChart2} />}
