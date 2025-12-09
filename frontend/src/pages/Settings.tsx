@@ -1,6 +1,6 @@
 import { useApiClient, useDashboardWidgetsApi } from "@/api";
 import { DataSourceList } from "@/components/datasources";
-import { useDashboardWidgets } from "@/hooks";
+import { useChartConfigs, useDashboardWidgets } from "@/hooks";
 import { useAuthStore } from "@/stores";
 import type {
   App,
@@ -1034,6 +1034,13 @@ function AppSettingsDetail({ app, onBack }: AppSettingsDetailProps) {
   const [showOnDashboard, setShowOnDashboard] = useState(false);
   const [viewType, setViewType] = useState<WidgetViewType>("table");
   const [widgetSize, setWidgetSize] = useState<WidgetSize>("medium");
+  const [selectedChartConfigId, setSelectedChartConfigId] = useState<
+    number | null
+  >(null);
+
+  // チャート設定一覧を取得
+  const { data: chartConfigsData } = useChartConfigs(app.id);
+  const chartConfigs = chartConfigsData?.configs || [];
 
   // 既存のウィジェット設定をステートに反映
   useEffect(() => {
@@ -1041,10 +1048,16 @@ function AppSettingsDetail({ app, onBack }: AppSettingsDetailProps) {
       setShowOnDashboard(existingWidget.is_visible);
       setViewType(existingWidget.view_type);
       setWidgetSize(existingWidget.widget_size);
+      // チャート設定IDを復元
+      const chartConfigId = existingWidget.config?.chart_config_id as
+        | number
+        | undefined;
+      setSelectedChartConfigId(chartConfigId || null);
     } else {
       setShowOnDashboard(false);
       setViewType("table");
       setWidgetSize("medium");
+      setSelectedChartConfigId(null);
     }
   }, [existingWidget]);
 
@@ -1269,6 +1282,12 @@ function AppSettingsDetail({ app, onBack }: AppSettingsDetailProps) {
 
   // ダッシュボード設定を保存
   const handleSaveDashboardSettings = () => {
+    // グラフ選択時のconfig設定
+    const widgetConfig =
+      viewType === "chart" && selectedChartConfigId
+        ? { chart_config_id: selectedChartConfigId }
+        : undefined;
+
     if (showOnDashboard) {
       if (existingWidget) {
         // 既存のウィジェットを更新
@@ -1278,6 +1297,7 @@ function AppSettingsDetail({ app, onBack }: AppSettingsDetailProps) {
             view_type: viewType,
             widget_size: widgetSize,
             is_visible: true,
+            config: widgetConfig,
           },
         });
       } else {
@@ -1287,6 +1307,7 @@ function AppSettingsDetail({ app, onBack }: AppSettingsDetailProps) {
           view_type: viewType,
           widget_size: widgetSize,
           is_visible: true,
+          config: widgetConfig,
         });
       }
     } else {
@@ -1426,6 +1447,33 @@ function AppSettingsDetail({ app, onBack }: AppSettingsDetailProps) {
                       </Button>
                     </Grid>
                   </FormControl>
+
+                  {viewType === "chart" && (
+                    <FormControl>
+                      <FormLabel>表示するグラフ</FormLabel>
+                      {chartConfigs.length === 0 ? (
+                        <Text fontSize="sm" color="gray.500">
+                          グラフ設定がありません。アプリのグラフビューで設定を作成してください。
+                        </Text>
+                      ) : (
+                        <Select
+                          value={selectedChartConfigId || ""}
+                          onChange={(e) =>
+                            setSelectedChartConfigId(
+                              e.target.value ? Number(e.target.value) : null
+                            )
+                          }
+                          placeholder="グラフを選択"
+                        >
+                          {chartConfigs.map((config) => (
+                            <option key={config.id} value={config.id}>
+                              {config.name}
+                            </option>
+                          ))}
+                        </Select>
+                      )}
+                    </FormControl>
+                  )}
 
                   <FormControl>
                     <FormLabel>ウィジェットサイズ</FormLabel>

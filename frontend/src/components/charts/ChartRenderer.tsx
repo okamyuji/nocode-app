@@ -24,7 +24,7 @@ import {
 interface ChartRendererProps {
   data: ChartDataResponse;
   chartType: ChartType;
-  height?: number;
+  height?: number | string;
 }
 
 const COLORS = [

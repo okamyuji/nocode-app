@@ -7,9 +7,9 @@
 import { ChartRenderer } from "@/components/charts";
 import { RecordTable } from "@/components/records";
 import { ListView } from "@/components/views";
-import { useChartData, useRecords } from "@/hooks";
+import { useChartConfigs, useChartData, useRecords } from "@/hooks";
 import type { DashboardWidget, WidgetSize } from "@/types";
-import type { ChartDataRequest } from "@/types/chart";
+import type { ChartDataRequest, ChartType } from "@/types/chart";
 import { getAppIcon } from "@/utils";
 import {
   Badge,
@@ -41,13 +41,29 @@ interface DashboardWidgetCardProps {
 function getWidgetHeight(size: WidgetSize): string {
   switch (size) {
     case "small":
-      return "250px";
+      return "300px";
     case "medium":
-      return "350px";
+      return "400px";
     case "large":
-      return "500px";
+      return "550px";
     default:
-      return "350px";
+      return "400px";
+  }
+}
+
+/**
+ * ウィジェットサイズに応じたコンテンツ高さを取得（ヘッダー分を除く）
+ */
+function getContentHeight(size: WidgetSize): string {
+  switch (size) {
+    case "small":
+      return "220px";
+    case "medium":
+      return "320px";
+    case "large":
+      return "470px";
+    default:
+      return "320px";
   }
 }
 
@@ -71,17 +87,43 @@ export function DashboardWidgetCard({
   widget,
   isDragging = false,
 }: DashboardWidgetCardProps) {
-  // チャートの設定を生成（x_axis, y_axis形式で）
-  const chartConfig = useMemo<ChartDataRequest | null>(() => {
+  // チャート設定IDを取得（widgetのconfigから）
+  const chartConfigId = widget.config?.chart_config_id as number | undefined;
+
+  // チャート設定一覧を取得（チャート表示の場合のみ）
+  const { data: chartConfigsData, isLoading: isConfigsLoading } =
+    useChartConfigs(widget.view_type === "chart" ? widget.app_id : 0);
+
+  // 選択されたチャート設定を取得
+  const selectedChartConfig = useMemo(() => {
+    if (!chartConfigId || !chartConfigsData?.configs) return null;
+    return chartConfigsData.configs.find((c) => c.id === chartConfigId) || null;
+  }, [chartConfigId, chartConfigsData?.configs]);
+
+  // チャートデータリクエストを生成
+  const chartDataRequest = useMemo<ChartDataRequest | null>(() => {
     if (widget.view_type !== "chart") return null;
+    // 選択されたチャート設定がある場合はそのconfigを使用
+    if (selectedChartConfig) {
+      return selectedChartConfig.config;
+    }
+    // フォールバック: 最初のフィールドでデフォルトのグラフを表示
     const firstField = widget.app?.fields?.[0]?.field_code || "";
     if (!firstField) return null;
     return {
-      chart_type: "bar",
+      chart_type: "bar" as ChartType,
       x_axis: { field: firstField },
       y_axis: { field: firstField, aggregation: "count" },
     };
-  }, [widget.view_type, widget.app?.fields]);
+  }, [widget.view_type, selectedChartConfig, widget.app?.fields]);
+
+  // チャートの種類を取得
+  const chartType = useMemo<ChartType>(() => {
+    if (selectedChartConfig) {
+      return selectedChartConfig.chart_type;
+    }
+    return chartDataRequest?.chart_type || "bar";
+  }, [selectedChartConfig, chartDataRequest?.chart_type]);
 
   // DnD設定
   const {
@@ -108,7 +150,7 @@ export function DashboardWidgetCard({
   // チャートデータの取得
   const { data: chartData, isLoading: isChartLoading } = useChartData(
     widget.app_id,
-    widget.view_type === "chart" ? chartConfig : null
+    widget.view_type === "chart" ? chartDataRequest : null
   );
 
   const fields = widget.app?.fields || [];
@@ -116,7 +158,7 @@ export function DashboardWidgetCard({
 
   const isLoading =
     (widget.view_type !== "chart" && isRecordsLoading) ||
-    (widget.view_type === "chart" && isChartLoading);
+    (widget.view_type === "chart" && (isChartLoading || isConfigsLoading));
 
   return (
     <Card
@@ -167,7 +209,11 @@ export function DashboardWidgetCard({
         </HStack>
       </CardHeader>
 
-      <CardBody pt={0} overflow="auto">
+      <CardBody
+        pt={0}
+        overflow="hidden"
+        h={getContentHeight(widget.widget_size)}
+      >
         {isLoading ? (
           <Box
             display="flex"
@@ -180,7 +226,7 @@ export function DashboardWidgetCard({
         ) : (
           <>
             {widget.view_type === "table" && (
-              <Box overflowX="auto">
+              <Box overflowX="auto" overflowY="auto" h="full">
                 <RecordTable
                   records={records}
                   fields={fields}
@@ -194,19 +240,22 @@ export function DashboardWidgetCard({
             )}
 
             {widget.view_type === "list" && (
-              <ListView
-                records={records}
-                fields={fields}
-                onView={() => {}}
-                isAdmin={false}
-              />
+              <Box overflowY="auto" h="full">
+                <ListView
+                  records={records}
+                  fields={fields}
+                  onView={() => {}}
+                  isAdmin={false}
+                />
+              </Box>
             )}
 
             {widget.view_type === "chart" && chartData && (
-              <Box h="full">
+              <Box h="full" w="full">
                 <ChartRenderer
-                  chartType={chartConfig?.chart_type || "bar"}
+                  chartType={chartType}
                   data={chartData}
+                  height="100%"
                 />
               </Box>
             )}
