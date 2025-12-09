@@ -56,6 +56,7 @@ export interface ChartDataResponse {
  * チャート設定保存リクエスト
  */
 export interface SaveChartConfigRequest {
+  id?: number; // 編集時に指定
   name: string;
   chart_type: ChartType;
   config: ChartDataRequest;

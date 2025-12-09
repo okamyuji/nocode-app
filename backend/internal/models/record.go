@@ -97,6 +97,7 @@ type ChartDataset struct {
 
 // SaveChartConfigRequest チャート設定保存リクエストの構造体
 type SaveChartConfigRequest struct {
+	ID        *uint64          `json:"id,omitempty"` // 更新時に指定
 	Name      string           `json:"name" validate:"required,min=1,max=100"`
 	ChartType string           `json:"chart_type" validate:"required"`
 	Config    ChartDataRequest `json:"config" validate:"required"`

@@ -94,7 +94,7 @@ func (s *ChartService) GetChartConfigs(ctx context.Context, appID uint64) ([]mod
 	return s.chartRepo.GetByAppID(ctx, appID)
 }
 
-// SaveChartConfig チャート設定を保存する
+// SaveChartConfig チャート設定を保存する（IDがあれば更新、なければ新規作成）
 func (s *ChartService) SaveChartConfig(ctx context.Context, appID, userID uint64, req *models.SaveChartConfigRequest) (*models.ChartConfig, error) {
 	// アプリの存在確認
 	app, err := s.appRepo.GetByID(ctx, appID)
@@ -117,6 +117,34 @@ func (s *ChartService) SaveChartConfig(ctx context.Context, appID, userID uint64
 	}
 
 	now := time.Now()
+
+	// IDが指定されている場合は更新
+	if req.ID != nil && *req.ID > 0 {
+		existingConfig, err := s.chartRepo.GetByID(ctx, *req.ID)
+		if err != nil {
+			return nil, err
+		}
+		if existingConfig == nil {
+			return nil, ErrChartConfigNotFound
+		}
+		// 別のアプリの設定は更新不可
+		if existingConfig.AppID != appID {
+			return nil, ErrChartConfigNotFound
+		}
+
+		existingConfig.Name = req.Name
+		existingConfig.ChartType = req.ChartType
+		existingConfig.Config = viewConfig
+		existingConfig.UpdatedAt = now
+
+		if err := s.chartRepo.Update(ctx, existingConfig); err != nil {
+			return nil, err
+		}
+
+		return existingConfig, nil
+	}
+
+	// 新規作成
 	config := &models.ChartConfig{
 		AppID:     appID,
 		Name:      req.Name,
