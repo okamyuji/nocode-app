@@ -52,7 +52,7 @@ func TestDataSourceHandler_List(t *testing.T) {
 		resp := &models.DataSourceListResponse{
 			DataSources: []models.DataSourceResponse{
 				{ID: 1, Name: "ds1", DBType: models.DBTypePostgreSQL},
-				{ID: 2, Name: "ds2", DBType: models.DBTypeMySQL},
+				{ID: 2, Name: "ds2", DBType: models.DBTypePostgreSQL},
 			},
 			Pagination: models.NewPagination(1, 20, 2),
 		}

@@ -25,10 +25,10 @@ func TestDynamicQueryExecutor_CreateTable(t *testing.T) {
 	executor := repositories.NewDynamicQueryExecutor(db)
 
 	fields := []models.AppField{
-		{FieldCode: "title", FieldName: "Title", FieldType: "TEXT"},
-		{FieldCode: "amount", FieldName: "Amount", FieldType: "NUMBER"},
-		{FieldCode: "is_active", FieldName: "Is Active", FieldType: "CHECKBOX"},
-		{FieldCode: "due_date", FieldName: "Due Date", FieldType: "DATE"},
+		{FieldCode: "title", FieldName: "Title", FieldType: "text"},
+		{FieldCode: "amount", FieldName: "Amount", FieldType: "number"},
+		{FieldCode: "is_active", FieldName: "Is Active", FieldType: "checkbox"},
+		{FieldCode: "due_date", FieldName: "Due Date", FieldType: "date"},
 	}
 
 	err = executor.CreateTable(ctx, "app_data_dynamic_1", fields)
@@ -83,7 +83,7 @@ func TestDynamicQueryExecutor_DropTable(t *testing.T) {
 
 	// まずテーブルを作成
 	err = executor.CreateTable(ctx, "app_data_drop_test", []models.AppField{
-		{FieldCode: "field1", FieldName: "Field 1", FieldType: "TEXT"},
+		{FieldCode: "field1", FieldName: "Field 1", FieldType: "text"},
 	})
 	require.NoError(t, err)
 
@@ -109,7 +109,7 @@ func TestDynamicQueryExecutor_AddColumn(t *testing.T) {
 
 	// テーブルを作成
 	err = executor.CreateTable(ctx, "app_data_addcol", []models.AppField{
-		{FieldCode: "existing", FieldName: "Existing", FieldType: "TEXT"},
+		{FieldCode: "existing", FieldName: "Existing", FieldType: "text"},
 	})
 	require.NoError(t, err)
 
@@ -117,7 +117,7 @@ func TestDynamicQueryExecutor_AddColumn(t *testing.T) {
 	newField := &models.AppField{
 		FieldCode: "new_field",
 		FieldName: "New Field",
-		FieldType: "NUMBER",
+		FieldType: "number",
 	}
 	err = executor.AddColumn(ctx, "app_data_addcol", newField)
 	require.NoError(t, err)
@@ -145,8 +145,8 @@ func TestDynamicQueryExecutor_DropColumn(t *testing.T) {
 
 	// 2つのカラムを持つテーブルを作成
 	err = executor.CreateTable(ctx, "app_data_dropcol", []models.AppField{
-		{FieldCode: "keep_field", FieldName: "Keep", FieldType: "TEXT"},
-		{FieldCode: "drop_field", FieldName: "Drop", FieldType: "TEXT"},
+		{FieldCode: "keep_field", FieldName: "Keep", FieldType: "text"},
+		{FieldCode: "drop_field", FieldName: "Drop", FieldType: "text"},
 	})
 	require.NoError(t, err)
 
@@ -183,8 +183,8 @@ func TestDynamicQueryExecutor_InsertRecord(t *testing.T) {
 
 	// テーブルを作成
 	fields := []models.AppField{
-		{FieldCode: "name", FieldName: "Name", FieldType: "TEXT"},
-		{FieldCode: "age", FieldName: "Age", FieldType: "NUMBER"},
+		{FieldCode: "name", FieldName: "Name", FieldType: "text"},
+		{FieldCode: "age", FieldName: "Age", FieldType: "number"},
 	}
 	require.NoError(t, executor.CreateTable(ctx, "app_data_insert", fields))
 
@@ -202,8 +202,9 @@ func TestDynamicQueryExecutor_InsertRecord(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, record)
 	assert.Equal(t, "John Doe", record.Data["name"])
-	// 数値フィールドはデータベーススキャン後に文字列として返される
-	assert.Equal(t, "30", record.Data["age"])
+	// 数値フィールド (NUMERIC(18,4)) はデータベーススキャン後に文字列として返される。
+	// PostgreSQL は精度を含めて格納するため、整数 30 は "30.0000" として返る。
+	assert.Equal(t, "30.0000", record.Data["age"])
 }
 
 func TestDynamicQueryExecutor_UpdateRecord(t *testing.T) {
@@ -220,8 +221,8 @@ func TestDynamicQueryExecutor_UpdateRecord(t *testing.T) {
 
 	// テーブルを作成
 	fields := []models.AppField{
-		{FieldCode: "title", FieldName: "Title", FieldType: "TEXT"},
-		{FieldCode: "status", FieldName: "Status", FieldType: "TEXT"},
+		{FieldCode: "title", FieldName: "Title", FieldType: "text"},
+		{FieldCode: "status", FieldName: "Status", FieldType: "text"},
 	}
 	require.NoError(t, executor.CreateTable(ctx, "app_data_update", fields))
 
@@ -261,7 +262,7 @@ func TestDynamicQueryExecutor_DeleteRecord(t *testing.T) {
 
 	// テーブルを作成
 	fields := []models.AppField{
-		{FieldCode: "name", FieldName: "Name", FieldType: "TEXT"},
+		{FieldCode: "name", FieldName: "Name", FieldType: "text"},
 	}
 	require.NoError(t, executor.CreateTable(ctx, "app_data_delete", fields))
 
@@ -293,7 +294,7 @@ func TestDynamicQueryExecutor_DeleteRecords(t *testing.T) {
 
 	// テーブルを作成
 	fields := []models.AppField{
-		{FieldCode: "name", FieldName: "Name", FieldType: "TEXT"},
+		{FieldCode: "name", FieldName: "Name", FieldType: "text"},
 	}
 	require.NoError(t, executor.CreateTable(ctx, "app_data_bulk_delete", fields))
 
@@ -342,8 +343,8 @@ func TestDynamicQueryExecutor_GetRecords(t *testing.T) {
 
 	// テーブルを作成
 	fields := []models.AppField{
-		{FieldCode: "name", FieldName: "Name", FieldType: "TEXT"},
-		{FieldCode: "priority", FieldName: "Priority", FieldType: "NUMBER"},
+		{FieldCode: "name", FieldName: "Name", FieldType: "text"},
+		{FieldCode: "priority", FieldName: "Priority", FieldType: "number"},
 	}
 	require.NoError(t, executor.CreateTable(ctx, "app_data_getrecords", fields))
 
@@ -411,8 +412,8 @@ func TestDynamicQueryExecutor_GetRecords_WithFilters(t *testing.T) {
 
 	// テーブルを作成
 	fields := []models.AppField{
-		{FieldCode: "category", FieldName: "Category", FieldType: "TEXT"},
-		{FieldCode: "amount", FieldName: "Amount", FieldType: "NUMBER"},
+		{FieldCode: "category", FieldName: "Category", FieldType: "text"},
+		{FieldCode: "amount", FieldName: "Amount", FieldType: "number"},
 	}
 	require.NoError(t, executor.CreateTable(ctx, "app_data_filter", fields))
 
@@ -489,7 +490,7 @@ func TestDynamicQueryExecutor_GetRecordByID(t *testing.T) {
 
 	// テーブルを作成
 	fields := []models.AppField{
-		{FieldCode: "title", FieldName: "Title", FieldType: "TEXT"},
+		{FieldCode: "title", FieldName: "Title", FieldType: "text"},
 	}
 	require.NoError(t, executor.CreateTable(ctx, "app_data_getbyid", fields))
 
@@ -547,8 +548,8 @@ func TestDynamicQueryExecutor_GetAggregatedData(t *testing.T) {
 
 	// テーブルを作成
 	fields := []models.AppField{
-		{FieldCode: "category", FieldName: "Category", FieldType: "TEXT"},
-		{FieldCode: "amount", FieldName: "Amount", FieldType: "NUMBER"},
+		{FieldCode: "category", FieldName: "Category", FieldType: "text"},
+		{FieldCode: "amount", FieldName: "Amount", FieldType: "number"},
 	}
 	require.NoError(t, executor.CreateTable(ctx, "app_data_aggregate", fields))
 
@@ -644,8 +645,8 @@ func TestDynamicQueryExecutor_GetAggregatedData_WithFilter(t *testing.T) {
 
 	// テーブルを作成
 	fields := []models.AppField{
-		{FieldCode: "category", FieldName: "Category", FieldType: "TEXT"},
-		{FieldCode: "amount", FieldName: "Amount", FieldType: "NUMBER"},
+		{FieldCode: "category", FieldName: "Category", FieldType: "text"},
+		{FieldCode: "amount", FieldName: "Amount", FieldType: "number"},
 	}
 	require.NoError(t, executor.CreateTable(ctx, "app_data_agg_filter", fields))
 
@@ -718,14 +719,14 @@ func TestDynamicQueryExecutor_FieldTypes(t *testing.T) {
 
 	// 全フィールドタイプを含むテーブルを作成
 	fields := []models.AppField{
-		{FieldCode: "text_field", FieldName: "Text", FieldType: "TEXT"},
-		{FieldCode: "number_field", FieldName: "Number", FieldType: "NUMBER"},
-		{FieldCode: "checkbox_field", FieldName: "Checkbox", FieldType: "CHECKBOX"},
-		{FieldCode: "date_field", FieldName: "Date", FieldType: "DATE"},
-		{FieldCode: "datetime_field", FieldName: "DateTime", FieldType: "DATETIME"},
-		{FieldCode: "dropdown_field", FieldName: "Dropdown", FieldType: "DROPDOWN"},
-		{FieldCode: "radio_field", FieldName: "Radio", FieldType: "RADIO"},
-		{FieldCode: "textarea_field", FieldName: "Textarea", FieldType: "TEXTAREA"},
+		{FieldCode: "text_field", FieldName: "Text", FieldType: "text"},
+		{FieldCode: "number_field", FieldName: "Number", FieldType: "number"},
+		{FieldCode: "checkbox_field", FieldName: "Checkbox", FieldType: "checkbox"},
+		{FieldCode: "date_field", FieldName: "Date", FieldType: "date"},
+		{FieldCode: "datetime_field", FieldName: "DateTime", FieldType: "datetime"},
+		{FieldCode: "dropdown_field", FieldName: "Dropdown", FieldType: "dropdown"},
+		{FieldCode: "radio_field", FieldName: "Radio", FieldType: "radio"},
+		{FieldCode: "textarea_field", FieldName: "Textarea", FieldType: "textarea"},
 	}
 	require.NoError(t, executor.CreateTable(ctx, "app_data_fieldtypes", fields))
 
@@ -753,8 +754,10 @@ func TestDynamicQueryExecutor_FieldTypes(t *testing.T) {
 	require.NotNil(t, record)
 
 	assert.Equal(t, "Sample text", record.Data["text_field"])
-	// 数値フィールドはデータベーススキャン後に文字列として返される
-	assert.Equal(t, "42.5", record.Data["number_field"])
-	assert.Equal(t, "1", record.Data["checkbox_field"]) // MySQLはスキャン後にTINYINTを文字列として返す
-	assert.Equal(t, now, record.Data["date_field"])
+	// 数値フィールド (NUMERIC(18,4)) はデータベーススキャン後に文字列として返される
+	assert.Equal(t, "42.5000", record.Data["number_field"])
+	// PostgreSQL の BOOLEAN は bool として返る
+	assert.Equal(t, true, record.Data["checkbox_field"])
+	// PostgreSQL の DATE は time.Time → RFC3339 文字列に変換されて返る (時刻部分は 00:00:00Z)
+	assert.Equal(t, now+"T00:00:00Z", record.Data["date_field"])
 }

@@ -171,21 +171,21 @@ func (e *DynamicQueryExecutor) InsertRecord(ctx context.Context, tableName strin
 	}
 
 	columns := []string{"created_by"}
-	placeholders := []string{"$1"}
+	placeholders := []string{"?"}
 	values := []interface{}{userID}
 
-	idx := 2
 	for key, value := range data {
 		quotedCol, colErr := quoteIdentifier(key)
 		if colErr != nil {
 			return 0, fmt.Errorf("無効なカラム名 %q: %w", key, colErr)
 		}
 		columns = append(columns, quotedCol)
-		placeholders = append(placeholders, fmt.Sprintf("$%d", idx))
+		placeholders = append(placeholders, "?")
 		values = append(values, value)
-		idx++
 	}
 
+	// PostgreSQL は LastInsertId を返さないため RETURNING id を使う。
+	// bun は ? を pgdialect 用に適切に整形する。
 	query := fmt.Sprintf(
 		"INSERT INTO %s (%s) VALUES (%s) RETURNING id",
 		quotedTable,
@@ -211,24 +211,21 @@ func (e *DynamicQueryExecutor) UpdateRecord(ctx context.Context, tableName strin
 	setClauses := make([]string, 0, len(data))
 	values := make([]interface{}, 0, len(data)+1)
 
-	idx := 1
 	for key, value := range data {
 		quotedCol, colErr := quoteIdentifier(key)
 		if colErr != nil {
 			return fmt.Errorf("無効なカラム名 %q: %w", key, colErr)
 		}
-		setClauses = append(setClauses, fmt.Sprintf("%s = $%d", quotedCol, idx))
+		setClauses = append(setClauses, quotedCol+" = ?")
 		values = append(values, value)
-		idx++
 	}
 
 	values = append(values, recordID)
 
 	query := fmt.Sprintf(
-		"UPDATE %s SET %s WHERE id = $%d",
+		"UPDATE %s SET %s WHERE id = ?",
 		quotedTable,
 		strings.Join(setClauses, ", "),
-		idx,
 	)
 
 	_, err = e.db.ExecContext(ctx, query, values...)
@@ -242,7 +239,7 @@ func (e *DynamicQueryExecutor) DeleteRecord(ctx context.Context, tableName strin
 		return fmt.Errorf("無効なテーブル名: %w", err)
 	}
 
-	query := fmt.Sprintf("DELETE FROM %s WHERE id = $1", quotedTable)
+	query := fmt.Sprintf("DELETE FROM %s WHERE id = ?", quotedTable)
 	_, err = e.db.ExecContext(ctx, query, recordID)
 	return err
 }
@@ -261,7 +258,7 @@ func (e *DynamicQueryExecutor) DeleteRecords(ctx context.Context, tableName stri
 	placeholders := make([]string, len(recordIDs))
 	values := make([]interface{}, len(recordIDs))
 	for i, id := range recordIDs {
-		placeholders[i] = fmt.Sprintf("$%d", i+1)
+		placeholders[i] = "?"
 		values[i] = id
 	}
 
@@ -297,7 +294,7 @@ func (e *DynamicQueryExecutor) GetRecords(ctx context.Context, tableName string,
 		return nil, 0, err
 	}
 
-	whereSQL, whereValues, nextIdx, err := e.buildWhereClause(opts.Filters)
+	whereSQL, whereValues, err := e.buildWhereClause(opts.Filters)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -315,7 +312,7 @@ func (e *DynamicQueryExecutor) GetRecords(ctx context.Context, tableName string,
 	}
 
 	// メインクエリを構築して実行
-	return e.executeRecordsQuery(ctx, quotedTable, columns, whereSQL, whereValues, orderBy, opts, fields, total, nextIdx)
+	return e.executeRecordsQuery(ctx, quotedTable, columns, whereSQL, whereValues, orderBy, opts, fields, total)
 }
 
 // buildColumnList SELECTカラムリストを構築する
@@ -333,32 +330,31 @@ func (e *DynamicQueryExecutor) buildColumnList(fields []models.AppField) ([]stri
 	return columns, nil
 }
 
-// buildWhereClause フィルターからWHERE句を構築する。nextIdx は WHERE 句の後で使う次のプレースホルダ番号。
-func (e *DynamicQueryExecutor) buildWhereClause(filters []models.FilterItem) (whereSQL string, whereValues []interface{}, nextIdx int, err error) {
+// buildWhereClause フィルターからWHERE句を構築する。bun が ? を pgdialect 用に整形するため
+// 識別子はクォートしつつ値は ? で受ける。
+func (e *DynamicQueryExecutor) buildWhereClause(filters []models.FilterItem) (whereSQL string, whereValues []interface{}, err error) {
 	if len(filters) == 0 {
-		return "", nil, 1, nil
+		return "", nil, nil
 	}
 
 	whereClauses := make([]string, 0, len(filters))
 	whereValues = make([]interface{}, 0, len(filters))
-	idx := 1
 
 	for _, filter := range filters {
-		clause, value, filterErr := buildFilterClause(filter, idx)
+		clause, value, filterErr := buildFilterClause(filter)
 		if filterErr != nil {
-			return "", nil, 0, filterErr
+			return "", nil, filterErr
 		}
 		if clause != "" {
 			whereClauses = append(whereClauses, clause)
 			whereValues = append(whereValues, value)
-			idx++
 		}
 	}
 
 	if len(whereClauses) == 0 {
-		return "", nil, idx, nil
+		return "", nil, nil
 	}
-	return "WHERE " + strings.Join(whereClauses, " AND "), whereValues, idx, nil
+	return "WHERE " + strings.Join(whereClauses, " AND "), whereValues, nil
 }
 
 // getRecordCount レコードの総件数を取得する
@@ -398,16 +394,13 @@ func (e *DynamicQueryExecutor) executeRecordsQuery(
 	opts RecordQueryOptions,
 	fields []models.AppField,
 	total int64,
-	startIdx int,
 ) ([]models.RecordResponse, int64, error) {
 	query := fmt.Sprintf(
-		"SELECT %s FROM %s %s ORDER BY %s LIMIT $%d OFFSET $%d",
+		"SELECT %s FROM %s %s ORDER BY %s LIMIT ? OFFSET ?",
 		strings.Join(columns, ", "),
 		quotedTable,
 		whereSQL,
 		orderBy,
-		startIdx,
-		startIdx+1,
 	)
 
 	offset := (opts.Page - 1) * opts.Limit
@@ -457,7 +450,7 @@ func (e *DynamicQueryExecutor) GetRecordByID(ctx context.Context, tableName stri
 	}
 
 	query := fmt.Sprintf(
-		"SELECT %s FROM %s WHERE id = $1",
+		"SELECT %s FROM %s WHERE id = ?",
 		strings.Join(columns, ", "),
 		quotedTable,
 	)
@@ -467,28 +460,27 @@ func (e *DynamicQueryExecutor) GetRecordByID(ctx context.Context, tableName stri
 }
 
 // buildFilterClause 単一のフィルター句を構築する
-func buildFilterClause(filter models.FilterItem, idx int) (clause string, value interface{}, err error) {
+func buildFilterClause(filter models.FilterItem) (clause string, value interface{}, err error) {
 	quotedCol, err := quoteIdentifier(filter.Field)
 	if err != nil {
 		return "", nil, fmt.Errorf("無効なフィルターフィールド %q: %w", filter.Field, err)
 	}
 
-	ph := fmt.Sprintf("$%d", idx)
 	switch filter.Operator {
 	case "eq":
-		return quotedCol + " = " + ph, filter.Value, nil
+		return quotedCol + " = ?", filter.Value, nil
 	case "ne":
-		return quotedCol + " != " + ph, filter.Value, nil
+		return quotedCol + " != ?", filter.Value, nil
 	case "gt":
-		return quotedCol + " > " + ph, filter.Value, nil
+		return quotedCol + " > ?", filter.Value, nil
 	case "gte":
-		return quotedCol + " >= " + ph, filter.Value, nil
+		return quotedCol + " >= ?", filter.Value, nil
 	case "lt":
-		return quotedCol + " < " + ph, filter.Value, nil
+		return quotedCol + " < ?", filter.Value, nil
 	case "lte":
-		return quotedCol + " <= " + ph, filter.Value, nil
+		return quotedCol + " <= ?", filter.Value, nil
 	case "like":
-		return quotedCol + " LIKE " + ph, "%" + filter.Value + "%", nil
+		return quotedCol + " LIKE ?", "%" + filter.Value + "%", nil
 	default:
 		return "", nil, nil
 	}
@@ -602,7 +594,7 @@ func (e *DynamicQueryExecutor) GetAggregatedData(ctx context.Context, tableName 
 	}
 
 	// フィルターからWHERE句を構築
-	whereSQL, whereValues, _, err := e.buildWhereClause(req.Filters)
+	whereSQL, whereValues, err := e.buildWhereClause(req.Filters)
 	if err != nil {
 		return nil, err
 	}
