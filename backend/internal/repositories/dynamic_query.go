@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
@@ -516,8 +517,8 @@ func scanRecordRow(rows *sql.Rows, fields []models.AppField) (*models.RecordResp
 		ID:        id,
 		Data:      data,
 		CreatedBy: createdBy,
-		CreatedAt: createdAt.Format(time.RFC3339),
-		UpdatedAt: updatedAt.Format(time.RFC3339),
+		CreatedAt: createdAt.UTC().Format(time.RFC3339),
+		UpdatedAt: updatedAt.UTC().Format(time.RFC3339),
 	}, nil
 }
 
@@ -554,12 +555,14 @@ func scanSingleRecordRow(row *sql.Row, fields []models.AppField) (*models.Record
 		ID:        id,
 		Data:      data,
 		CreatedBy: createdBy,
-		CreatedAt: createdAt.Format(time.RFC3339),
-		UpdatedAt: updatedAt.Format(time.RFC3339),
+		CreatedAt: createdAt.UTC().Format(time.RFC3339),
+		UpdatedAt: updatedAt.UTC().Format(time.RFC3339),
 	}, nil
 }
 
-// convertScannedValue スキャンした値を変換する
+// convertScannedValue スキャンした値を変換する。
+// PostgreSQL の JSONB は []byte として返るため、[ または { で始まる場合は JSON としてデコードして
+// フロントエンドに配列/オブジェクトとして届ける。
 func convertScannedValue(v interface{}) interface{} {
 	if v == nil {
 		return nil
@@ -567,12 +570,31 @@ func convertScannedValue(v interface{}) interface{} {
 
 	switch val := v.(type) {
 	case []byte:
-		return string(val)
+		return convertBytesValue(val)
 	case time.Time:
-		return val.Format(time.RFC3339)
+		// バックエンドはすべての時刻を UTC として入出力する。
+		// フロントは Date.parse + toLocaleString で local timezone に変換して表示する。
+		return val.UTC().Format(time.RFC3339)
 	default:
 		return val
 	}
+}
+
+// convertBytesValue []byte が JSON 配列/オブジェクトなら decode して返す。
+// 先頭が '[' または '{' の場合のみ JSON として扱い、失敗した場合は生文字列にフォールバック。
+func convertBytesValue(b []byte) interface{} {
+	// 先頭の空白を飛ばす
+	start := 0
+	for start < len(b) && (b[start] == ' ' || b[start] == '\t' || b[start] == '\n' || b[start] == '\r') {
+		start++
+	}
+	if start < len(b) && (b[start] == '[' || b[start] == '{') {
+		var decoded interface{}
+		if err := json.Unmarshal(b, &decoded); err == nil {
+			return decoded
+		}
+	}
+	return string(b)
 }
 
 // GetAggregatedData チャート用の集計データを取得する

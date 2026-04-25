@@ -758,6 +758,6 @@ func TestDynamicQueryExecutor_FieldTypes(t *testing.T) {
 	assert.Equal(t, "42.5000", record.Data["number_field"])
 	// PostgreSQL の BOOLEAN は bool として返る
 	assert.Equal(t, true, record.Data["checkbox_field"])
-	// PostgreSQL の DATE は time.Time → RFC3339 文字列に変換されて返る (時刻部分は 00:00:00Z)
+	// バックエンドは時刻をすべて UTC RFC3339 で返す。フロント側で local 表示に変換。
 	assert.Equal(t, now+"T00:00:00Z", record.Data["date_field"])
 }
