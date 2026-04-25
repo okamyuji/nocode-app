@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"strconv"
 	"time"
@@ -60,7 +61,7 @@ func Load() *Config {
 	return &Config{
 		DB: DBConfig{
 			Host:            getEnv("DB_HOST", "localhost"),
-			Port:            getEnv("DB_PORT", "3306"),
+			Port:            getEnv("DB_PORT", "5432"),
 			User:            getEnv("DB_USER", "nocode"),
 			Password:        getEnv("DB_PASSWORD", "nocodepassword"),
 			Name:            getEnv("DB_NAME", "nocode-app"),
@@ -82,9 +83,12 @@ func Load() *Config {
 	}
 }
 
-// DSN MySQLのデータソース名を返す
+// DSN PostgreSQLのデータソース名を返す
 func (c *DBConfig) DSN() string {
-	return c.User + ":" + c.Password + "@tcp(" + c.Host + ":" + c.Port + ")/" + c.Name + "?charset=utf8mb4&parseTime=True&loc=Local"
+	return fmt.Sprintf(
+		"host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+		c.Host, c.Port, c.User, c.Password, c.Name,
+	)
 }
 
 // getEnv 環境変数を取得し、未設定の場合はデフォルト値を返す
