@@ -21,9 +21,11 @@ export function Layout({ showSidebar = true }: LayoutProps) {
           as="main"
           flex={1}
           p={6}
+          minW={0}
           maxW={showSidebar ? `calc(100% - ${effectiveWidth}px)` : "100%"}
           ml={{ base: 0, lg: 0 }}
           transition="max-width 0.2s"
+          overflowX="hidden"
         >
           <Outlet />
         </Box>

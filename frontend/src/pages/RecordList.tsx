@@ -311,8 +311,8 @@ export function RecordListPage() {
         </HStack>
       </HStack>
 
-      <Card>
-        <CardBody p={currentView === "chart" ? 4 : 0}>
+      <Card overflow="hidden">
+        <CardBody p={currentView === "chart" ? 4 : 0} minW={0}>
           {isRecordsLoading && currentView !== "chart" ? (
             <Loading message="レコードを読み込み中..." />
           ) : (
