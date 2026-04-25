@@ -11,28 +11,22 @@ import {
 
 describe("datasource types", () => {
   describe("DB_TYPE_LABELS", () => {
-    it("should have labels for all supported database types", () => {
+    it("should have label for PostgreSQL", () => {
       expect(DB_TYPE_LABELS.postgresql).toBe("PostgreSQL");
-      expect(DB_TYPE_LABELS.mysql).toBe("MySQL");
-      expect(DB_TYPE_LABELS.oracle).toBe("Oracle");
-      expect(DB_TYPE_LABELS.sqlserver).toBe("SQL Server");
     });
 
-    it("should have exactly 4 database types", () => {
-      expect(Object.keys(DB_TYPE_LABELS)).toHaveLength(4);
+    it("should have exactly 1 database type (PostgreSQL only)", () => {
+      expect(Object.keys(DB_TYPE_LABELS)).toHaveLength(1);
     });
   });
 
   describe("DEFAULT_PORTS", () => {
-    it("should have correct default ports for each database type", () => {
+    it("should have correct default port for PostgreSQL", () => {
       expect(DEFAULT_PORTS.postgresql).toBe(5432);
-      expect(DEFAULT_PORTS.mysql).toBe(3306);
-      expect(DEFAULT_PORTS.oracle).toBe(1521);
-      expect(DEFAULT_PORTS.sqlserver).toBe(1433);
     });
 
-    it("should have exactly 4 database types", () => {
-      expect(Object.keys(DEFAULT_PORTS)).toHaveLength(4);
+    it("should have exactly 1 database type (PostgreSQL only)", () => {
+      expect(Object.keys(DEFAULT_PORTS)).toHaveLength(1);
     });
   });
 

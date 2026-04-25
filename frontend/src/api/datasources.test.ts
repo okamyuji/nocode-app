@@ -86,9 +86,9 @@ describe("datasources API", () => {
       const mockDataSource: DataSource = {
         id: 1,
         name: "Test DS",
-        db_type: "mysql",
+        db_type: "postgresql",
         host: "localhost",
-        port: 3306,
+        port: 5432,
         database_name: "testdb",
         username: "user",
         created_by: 1,
@@ -213,9 +213,9 @@ describe("datasources API", () => {
 
     it("should return failure response for failed connection", async () => {
       const testRequest = {
-        db_type: "mysql" as const,
+        db_type: "postgresql" as const,
         host: "invalid-host",
-        port: 3306,
+        port: 5432,
         database_name: "testdb",
         username: "user",
         password: "wrong",
