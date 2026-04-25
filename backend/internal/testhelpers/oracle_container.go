@@ -55,7 +55,7 @@ func SetupOracleContainer(ctx context.Context) (*OracleTestContainer, error) {
 	return &OracleTestContainer{
 		Container: container,
 		Host:      host,
-		Port:      mappedPort.Int(),
+		Port:      int(mappedPort.Num()),
 		Database:  "XEPDB1", // Oracle XEのデフォルトPDB
 		Username:  "system",
 		Password:  "testpass",

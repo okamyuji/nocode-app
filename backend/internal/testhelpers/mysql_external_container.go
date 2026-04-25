@@ -54,7 +54,7 @@ func SetupMySQLExternalContainer(ctx context.Context) (*MySQLExternalTestContain
 	return &MySQLExternalTestContainer{
 		Container: container,
 		Host:      host,
-		Port:      mappedPort.Int(),
+		Port:      int(mappedPort.Num()),
 		Database:  dbName,
 		Username:  dbUser,
 		Password:  dbPassword,

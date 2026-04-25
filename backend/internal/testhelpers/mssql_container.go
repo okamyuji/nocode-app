@@ -51,7 +51,7 @@ func SetupMSSQLContainer(ctx context.Context) (*MSSQLTestContainer, error) {
 	return &MSSQLTestContainer{
 		Container: container,
 		Host:      host,
-		Port:      mappedPort.Int(),
+		Port:      int(mappedPort.Num()),
 		Database:  "master",
 		Username:  "sa",
 		Password:  dbPassword,
