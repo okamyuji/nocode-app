@@ -11,17 +11,11 @@ type DBType string
 
 const (
 	DBTypePostgreSQL DBType = "postgresql"
-	DBTypeMySQL      DBType = "mysql"
-	DBTypeOracle     DBType = "oracle"
-	DBTypeSQLServer  DBType = "sqlserver"
 )
 
 // ValidDBTypes 有効なデータベースタイプ一覧
 var ValidDBTypes = []DBType{
 	DBTypePostgreSQL,
-	DBTypeMySQL,
-	DBTypeOracle,
-	DBTypeSQLServer,
 }
 
 // IsValidDBType データベースタイプが有効かどうかを検証する
@@ -55,7 +49,7 @@ type DataSource struct {
 // CreateDataSourceRequest データソース作成リクエストの構造体
 type CreateDataSourceRequest struct {
 	Name         string `json:"name" validate:"required,min=1,max=100"`
-	DBType       string `json:"db_type" validate:"required,oneof=postgresql mysql oracle sqlserver"`
+	DBType       string `json:"db_type" validate:"required,oneof=postgresql"`
 	Host         string `json:"host" validate:"required,min=1,max=255"`
 	Port         int    `json:"port" validate:"required,min=1,max=65535"`
 	DatabaseName string `json:"database_name" validate:"required,min=1,max=100"`
@@ -75,7 +69,7 @@ type UpdateDataSourceRequest struct {
 
 // TestConnectionRequest テスト接続リクエストの構造体
 type TestConnectionRequest struct {
-	DBType       string `json:"db_type" validate:"required,oneof=postgresql mysql oracle sqlserver"`
+	DBType       string `json:"db_type" validate:"required,oneof=postgresql"`
 	Host         string `json:"host" validate:"required,min=1,max=255"`
 	Port         int    `json:"port" validate:"required,min=1,max=65535"`
 	DatabaseName string `json:"database_name" validate:"required,min=1,max=100"`
@@ -161,16 +155,8 @@ type TestConnectionResponse struct {
 
 // GetDefaultPort データベースタイプに応じたデフォルトポートを返す
 func GetDefaultPort(dbType DBType) int {
-	switch dbType {
-	case DBTypePostgreSQL:
+	if dbType == DBTypePostgreSQL {
 		return 5432
-	case DBTypeMySQL:
-		return 3306
-	case DBTypeOracle:
-		return 1521
-	case DBTypeSQLServer:
-		return 1433
-	default:
-		return 0
 	}
+	return 0
 }
