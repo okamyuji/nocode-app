@@ -100,7 +100,7 @@ func TestAppField_ToResponse(t *testing.T) {
 	assert.Equal(t, field.UpdatedAt, resp.UpdatedAt)
 }
 
-func TestAppField_GetMySQLColumnType(t *testing.T) {
+func TestAppField_GetPostgresColumnType(t *testing.T) {
 	tests := []struct {
 		name      string
 		fieldType string
@@ -119,7 +119,7 @@ func TestAppField_GetMySQLColumnType(t *testing.T) {
 		{
 			name:      "number field",
 			fieldType: "number",
-			want:      "DECIMAL(18,4)",
+			want:      "NUMERIC(18,4)",
 		},
 		{
 			name:      "date field",
@@ -129,7 +129,7 @@ func TestAppField_GetMySQLColumnType(t *testing.T) {
 		{
 			name:      "datetime field",
 			fieldType: "datetime",
-			want:      "DATETIME",
+			want:      "TIMESTAMP",
 		},
 		{
 			name:      "select field",
@@ -139,7 +139,7 @@ func TestAppField_GetMySQLColumnType(t *testing.T) {
 		{
 			name:      "multiselect field",
 			fieldType: "multiselect",
-			want:      "JSON",
+			want:      "JSONB",
 		},
 		{
 			name:      "checkbox field",
@@ -159,7 +159,7 @@ func TestAppField_GetMySQLColumnType(t *testing.T) {
 		{
 			name:      "attachment field",
 			fieldType: "attachment",
-			want:      "JSON",
+			want:      "JSONB",
 		},
 		{
 			name:      "unknown field type",
@@ -171,7 +171,7 @@ func TestAppField_GetMySQLColumnType(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			field := &models.AppField{FieldType: tt.fieldType}
-			got := field.GetMySQLColumnType()
+			got := field.GetPostgresColumnType()
 			assert.Equal(t, tt.want, got)
 		})
 	}
