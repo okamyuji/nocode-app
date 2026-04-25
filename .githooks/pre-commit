@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+# nocode-app pre-commit フック
+# - フロントエンド: typecheck / lint / format:check / test
+# - バックエンド: gofmt / go vet / go test -short
+# 失敗するとコミットを中断する。
+#
+# 有効化: 一度だけ `git config core.hooksPath .githooks` を実行する。
+
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+# 変更ファイルを検出
+CHANGED_FILES="$(git diff --cached --name-only --diff-filter=ACMR || true)"
+if [ -z "$CHANGED_FILES" ]; then
+  exit 0
+fi
+
+NEED_FRONTEND=0
+NEED_BACKEND=0
+
+for f in $CHANGED_FILES; do
+  case "$f" in
+    frontend/*|.github/*|.githooks/*) NEED_FRONTEND=1 ;;
+  esac
+  case "$f" in
+    backend/*|.github/*|.githooks/*) NEED_BACKEND=1 ;;
+  esac
+done
+
+# .githooks や .github の変更時は両方を回す
+if [ "$NEED_FRONTEND" -eq 0 ] && [ "$NEED_BACKEND" -eq 0 ]; then
+  echo "[pre-commit] frontend / backend の変更なし。スキップします。"
+  exit 0
+fi
+
+run() {
+  local label="$1"; shift
+  echo "[pre-commit] >>> $label"
+  if ! "$@"; then
+    echo "[pre-commit] !!! $label に失敗しました。コミットを中断します。"
+    exit 1
+  fi
+}
+
+if [ "$NEED_BACKEND" -eq 1 ]; then
+  echo "[pre-commit] === backend 品質検証 ==="
+  cd "$REPO_ROOT/backend"
+
+  # gofmt の差分検出
+  unformatted="$(gofmt -l . | grep -v '^$' || true)"
+  if [ -n "$unformatted" ]; then
+    echo "[pre-commit] !!! gofmt 差分があります:"
+    echo "$unformatted"
+    echo "[pre-commit] gofmt -w . を実行してから再度 git add してください。"
+    exit 1
+  fi
+
+  run "go vet ./..."        go vet ./...
+  run "go test -short ./..." go test -short ./...
+
+  cd "$REPO_ROOT"
+fi
+
+if [ "$NEED_FRONTEND" -eq 1 ]; then
+  echo "[pre-commit] === frontend 品質検証 ==="
+  cd "$REPO_ROOT/frontend"
+
+  if ! command -v pnpm >/dev/null 2>&1; then
+    echo "[pre-commit] !!! pnpm が見つかりません。https://pnpm.io/installation を参照してインストールしてください。"
+    exit 1
+  fi
+
+  run "pnpm run typecheck"     pnpm run typecheck
+  run "pnpm run lint"          pnpm run lint
+  run "pnpm run format:check"  pnpm run format:check
+  run "pnpm test -- --run"     pnpm test -- --run
+
+  cd "$REPO_ROOT"
+fi
+
+echo "[pre-commit] === すべての検証に合格しました ==="

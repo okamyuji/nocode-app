@@ -1328,6 +1328,23 @@ docs: README更新
 refactor: ハンドラーの共通処理を抽出
 ```
 
+### Pre-commit フック
+
+クローン直後に一度だけ以下を実行すると、`git commit` の前にバックエンド／フロントエンドの品質検証が自動で走り、失敗するとコミットを中断する:
+
+```bash
+./scripts/setup-hooks.sh
+```
+
+これは `git config core.hooksPath .githooks` を設定し、`.githooks/pre-commit` を有効化するだけのスクリプト。フックは変更ファイルの場所を見て関連スイートだけを走らせる:
+
+| 変更場所 | 走る検証 |
+|---|---|
+| `backend/**` | `gofmt -l .`（差分なし）, `go vet ./...`, `go test -short ./...` |
+| `frontend/**` | `pnpm run typecheck`, `pnpm run lint`, `pnpm run format:check`, `pnpm test -- --run` |
+
+CI（GitHub Actions, `.github/workflows/ci.yml`）も同じスイートを PR 時に実行する。フックを通すこと = CI が通ることを意味する。
+
 ---
 
 ## テスト
