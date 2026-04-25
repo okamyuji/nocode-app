@@ -8,7 +8,12 @@ import {
   useFields,
   useSaveChartConfig,
 } from "@/hooks";
-import { ChartConfig, ChartDataRequest, ChartType, CHART_TYPE_LABELS } from "@/types";
+import {
+  ChartConfig,
+  ChartDataRequest,
+  ChartType,
+  CHART_TYPE_LABELS,
+} from "@/types";
 import { ChevronRightIcon } from "@chakra-ui/icons";
 import {
   AlertDialog,
@@ -133,7 +138,9 @@ export function AppChartPage() {
         },
       });
       toast({
-        title: editingConfig ? "グラフ設定を更新しました" : "グラフ設定を保存しました",
+        title: editingConfig
+          ? "グラフ設定を更新しました"
+          : "グラフ設定を保存しました",
         status: "success",
         duration: 3000,
       });
@@ -244,7 +251,9 @@ export function AppChartPage() {
                 <ChartConfigForm
                   fields={fields}
                   onSubmit={setChartConfig}
-                  initialConfig={chartConfig || editingConfig?.config || undefined}
+                  initialConfig={
+                    chartConfig || editingConfig?.config || undefined
+                  }
                   isLoading={isChartLoading}
                 />
               </VStack>
@@ -370,7 +379,12 @@ interface SavedChartCardProps {
   onDelete: (config: ChartConfig) => void;
 }
 
-function SavedChartCard({ config, appId, onEdit, onDelete }: SavedChartCardProps) {
+function SavedChartCard({
+  config,
+  appId,
+  onEdit,
+  onDelete,
+}: SavedChartCardProps) {
   const { data: chartData, isLoading } = useChartData(appId, config.config);
 
   return (
@@ -399,13 +413,21 @@ function SavedChartCard({ config, appId, onEdit, onDelete }: SavedChartCardProps
           </HStack>
         </Flex>
         <Tag size="sm" mt={2} colorScheme="blue">
-          {CHART_TYPE_LABELS[config.chart_type as ChartType] || config.chart_type}
+          {CHART_TYPE_LABELS[config.chart_type as ChartType] ||
+            config.chart_type}
         </Tag>
       </CardHeader>
       <CardBody pt={0}>
         {isLoading ? (
-          <Box h="150px" display="flex" alignItems="center" justifyContent="center">
-            <Text color="gray.400" fontSize="sm">読み込み中...</Text>
+          <Box
+            h="150px"
+            display="flex"
+            alignItems="center"
+            justifyContent="center"
+          >
+            <Text color="gray.400" fontSize="sm">
+              読み込み中...
+            </Text>
           </Box>
         ) : chartData ? (
           <Box h="150px">
@@ -416,8 +438,15 @@ function SavedChartCard({ config, appId, onEdit, onDelete }: SavedChartCardProps
             />
           </Box>
         ) : (
-          <Box h="150px" display="flex" alignItems="center" justifyContent="center">
-            <Text color="gray.400" fontSize="sm">データなし</Text>
+          <Box
+            h="150px"
+            display="flex"
+            alignItems="center"
+            justifyContent="center"
+          >
+            <Text color="gray.400" fontSize="sm">
+              データなし
+            </Text>
           </Box>
         )}
       </CardBody>

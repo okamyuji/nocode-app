@@ -112,11 +112,11 @@ func TestChartService_GetChartData(t *testing.T) {
 
 		dataSource := &models.DataSource{
 			ID:                1,
-			Name:              "Oracle DB",
-			DBType:            models.DBTypeOracle,
+			Name:              "PostgreSQL DB",
+			DBType:            models.DBTypePostgreSQL,
 			Host:              "localhost",
-			Port:              1521,
-			DatabaseName:      "ORCL",
+			Port:              5432,
+			DatabaseName:      "testdb",
 			Username:          "testuser",
 			EncryptedPassword: encryptedPassword,
 		}
@@ -194,14 +194,14 @@ func TestChartService_GetChartData(t *testing.T) {
 		}
 
 		// パスワードを暗号化
-		encryptedPassword := encryptTestPassword(t, "mysqlpassword")
+		encryptedPassword := encryptTestPassword(t, "pgpassword")
 
 		dataSource := &models.DataSource{
 			ID:                1,
-			Name:              "MySQL DB",
-			DBType:            models.DBTypeMySQL,
+			Name:              "PostgreSQL DB",
+			DBType:            models.DBTypePostgreSQL,
 			Host:              "localhost",
-			Port:              3306,
+			Port:              5432,
 			DatabaseName:      "testdb",
 			Username:          "testuser",
 			EncryptedPassword: encryptedPassword,
@@ -217,7 +217,7 @@ func TestChartService_GetChartData(t *testing.T) {
 		mockAppRepo.On("GetByID", ctx, uint64(3)).Return(app, nil)
 		mockDSRepo.On("GetByID", ctx, uint64(1)).Return(dataSource, nil)
 		mockFieldRepo.On("GetByAppID", ctx, uint64(3)).Return(fields, nil)
-		mockExternalQuery.On("GetAggregatedData", ctx, dataSource, "mysqlpassword", sourceTableName, fields, mock.AnythingOfType("*models.ChartDataRequest")).Return(chartData, nil)
+		mockExternalQuery.On("GetAggregatedData", ctx, dataSource, "pgpassword", sourceTableName, fields, mock.AnythingOfType("*models.ChartDataRequest")).Return(chartData, nil)
 
 		service := services.NewChartService(mockChartRepo, mockAppRepo, mockFieldRepo, mockDynamicQuery, mockDSRepo, mockExternalQuery)
 

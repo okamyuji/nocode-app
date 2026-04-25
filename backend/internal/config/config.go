@@ -1,6 +1,8 @@
 package config
 
 import (
+	"fmt"
+	"net/url"
 	"os"
 	"strconv"
 	"time"
@@ -60,7 +62,7 @@ func Load() *Config {
 	return &Config{
 		DB: DBConfig{
 			Host:            getEnv("DB_HOST", "localhost"),
-			Port:            getEnv("DB_PORT", "3306"),
+			Port:            getEnv("DB_PORT", "5432"),
 			User:            getEnv("DB_USER", "nocode"),
 			Password:        getEnv("DB_PASSWORD", "nocodepassword"),
 			Name:            getEnv("DB_NAME", "nocode-app"),
@@ -82,9 +84,19 @@ func Load() *Config {
 	}
 }
 
-// DSN MySQLのデータソース名を返す
+// DSN PostgreSQLのデータソース名を URI 形式で返す。
+// keyword/value 形式 (host=... password=...) はパスワード等に空白・'・\ が含まれると
+// パーサが破綻するため、user/password を URL エンコードした URI 形式を使う。
+// dbname も path として URL エンコードして特殊文字に対応する。
 func (c *DBConfig) DSN() string {
-	return c.User + ":" + c.Password + "@tcp(" + c.Host + ":" + c.Port + ")/" + c.Name + "?charset=utf8mb4&parseTime=True&loc=Local"
+	return fmt.Sprintf(
+		"postgresql://%s:%s@%s:%s/%s?sslmode=disable",
+		url.QueryEscape(c.User),
+		url.QueryEscape(c.Password),
+		c.Host,
+		c.Port,
+		url.PathEscape(c.Name),
+	)
 }
 
 // getEnv 環境変数を取得し、未設定の場合はデフォルト値を返す

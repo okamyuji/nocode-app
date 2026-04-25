@@ -27,9 +27,9 @@ const (
 	FieldTypeAttachment  FieldType = "attachment"
 )
 
-// MySQLカラム型の定数
+// PostgreSQLカラム型の定数
 const (
-	mysqlVarchar255 = "VARCHAR(255)"
+	pgVarchar255 = "VARCHAR(255)"
 )
 
 // FieldOptions フィールド固有のオプションをJSONとして保持する型
@@ -144,32 +144,32 @@ func (f *AppField) ToResponse() *FieldResponse {
 	}
 }
 
-// GetMySQLColumnType このフィールドのMySQLカラム型を返す
-func (f *AppField) GetMySQLColumnType() string {
+// GetPostgresColumnType このフィールドのPostgreSQLカラム型を返す
+func (f *AppField) GetPostgresColumnType() string {
 	switch FieldType(f.FieldType) {
 	case FieldTypeText:
-		return mysqlVarchar255
+		return pgVarchar255
 	case FieldTypeTextArea:
 		return "TEXT"
 	case FieldTypeNumber:
-		return "DECIMAL(18,4)"
+		return "NUMERIC(18,4)"
 	case FieldTypeDate:
 		return "DATE"
 	case FieldTypeDateTime:
-		return "DATETIME"
+		return "TIMESTAMP"
 	case FieldTypeSelect:
-		return mysqlVarchar255
+		return pgVarchar255
 	case FieldTypeMultiSelect:
-		return "JSON"
+		return "JSONB"
 	case FieldTypeCheckbox:
 		return "BOOLEAN"
 	case FieldTypeRadio:
-		return mysqlVarchar255
+		return pgVarchar255
 	case FieldTypeLink:
 		return "VARCHAR(500)"
 	case FieldTypeAttachment:
-		return "JSON"
+		return "JSONB"
 	default:
-		return mysqlVarchar255
+		return pgVarchar255
 	}
 }

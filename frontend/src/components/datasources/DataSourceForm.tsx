@@ -39,7 +39,7 @@ interface DataSourceFormProps {
   dataSource?: DataSource | null;
 }
 
-const DB_TYPES: DBType[] = ["postgresql", "mysql", "oracle", "sqlserver"];
+const DB_TYPES: DBType[] = ["postgresql"];
 
 export function DataSourceForm({
   isOpen,

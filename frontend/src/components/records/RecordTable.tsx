@@ -8,6 +8,7 @@ import {
   MenuButton,
   MenuItem,
   MenuList,
+  Portal,
   Table,
   Tbody,
   Td,
@@ -46,8 +47,20 @@ export function RecordTable({
   const someSelected =
     selectedIds.length > 0 && selectedIds.length < records.length;
 
+  // 操作列を右端に固定するための共通スタイル。
+  // 多フィールド時に横スクロールが発生しても操作メニューが常に見える。
+  const stickyHeaderSx = {
+    position: "sticky" as const,
+    right: 0,
+    bg: "gray.50",
+    zIndex: 2,
+    borderLeft: "1px solid",
+    borderLeftColor: "gray.200",
+    boxShadow: "-4px 0 6px -4px rgba(0, 0, 0, 0.05)",
+  };
+
   return (
-    <Box overflowX="auto">
+    <Box overflowX="auto" maxW="100%" w="100%">
       <Table variant="simple" size="sm">
         <Thead bg="gray.50">
           <Tr>
@@ -66,7 +79,9 @@ export function RecordTable({
                 {field.field_name}
               </Th>
             ))}
-            <Th w="60px">操作</Th>
+            <Th w="64px" sx={stickyHeaderSx}>
+              操作
+            </Th>
           </Tr>
         </Thead>
         <Tbody>
@@ -81,65 +96,88 @@ export function RecordTable({
               </Td>
             </Tr>
           ) : (
-            records.map((record) => (
-              <Tr
-                key={record.id}
-                _hover={{ bg: "gray.50" }}
-                bg={selectedIds.includes(record.id) ? "brand.50" : undefined}
-              >
-                {isAdmin && (
-                  <Td px={2}>
-                    <Checkbox
-                      isChecked={selectedIds.includes(record.id)}
-                      onChange={() => onSelectRecord(record.id)}
-                    />
+            records.map((record) => {
+              const isSelected = selectedIds.includes(record.id);
+              const rowBg = isSelected ? "brand.50" : "white";
+              return (
+                <Tr
+                  key={record.id}
+                  role="group"
+                  _hover={{ bg: "gray.50" }}
+                  bg={isSelected ? "brand.50" : undefined}
+                >
+                  {isAdmin && (
+                    <Td px={2}>
+                      <Checkbox
+                        isChecked={isSelected}
+                        onChange={() => onSelectRecord(record.id)}
+                      />
+                    </Td>
+                  )}
+                  <Td fontWeight="medium" color="gray.600">
+                    {record.id}
                   </Td>
-                )}
-                <Td fontWeight="medium" color="gray.600">
-                  {record.id}
-                </Td>
-                {fields.map((field) => (
-                  <Td key={field.id}>
-                    <FieldValue
-                      field={field}
-                      value={record.data[field.field_code]}
-                    />
+                  {fields.map((field) => (
+                    <Td key={field.id}>
+                      <FieldValue
+                        field={field}
+                        value={record.data[field.field_code]}
+                      />
+                    </Td>
+                  ))}
+                  <Td
+                    sx={{
+                      position: "sticky",
+                      right: 0,
+                      bg: rowBg,
+                      zIndex: 1,
+                      borderLeft: "1px solid",
+                      borderLeftColor: "gray.200",
+                      boxShadow: "-4px 0 6px -4px rgba(0, 0, 0, 0.05)",
+                      _groupHover: { bg: "gray.50" },
+                    }}
+                  >
+                    <Menu placement="left-start" isLazy>
+                      <MenuButton
+                        as={IconButton}
+                        icon={<FiMoreVertical />}
+                        variant="ghost"
+                        size="sm"
+                        aria-label="行アクション"
+                      />
+                      {/* Portal にレンダリングして、親 Card / main の overflow:hidden に切り取られないようにする */}
+                      <Portal>
+                        <MenuList zIndex="popover">
+                          <MenuItem
+                            icon={<FiEye />}
+                            onClick={() => onView(record)}
+                          >
+                            詳細
+                          </MenuItem>
+                          {isAdmin && onEdit && (
+                            <MenuItem
+                              icon={<FiEdit2 />}
+                              onClick={() => onEdit(record)}
+                            >
+                              編集
+                            </MenuItem>
+                          )}
+                          {isAdmin && onDelete && (
+                            <MenuItem
+                              icon={<FiTrash2 />}
+                              color="red.500"
+                              onClick={() => onDelete(record)}
+                            >
+                              削除
+                            </MenuItem>
+                          )}
+                        </MenuList>
+                      </Portal>
+                    </Menu>
                   </Td>
-                ))}
-                <Td>
-                  <Menu>
-                    <MenuButton
-                      as={IconButton}
-                      icon={<FiMoreVertical />}
-                      variant="ghost"
-                      size="sm"
-                    />
-                    <MenuList>
-                      <MenuItem icon={<FiEye />} onClick={() => onView(record)}>
-                        詳細
-                      </MenuItem>
-                      {isAdmin && onEdit && (
-                        <MenuItem
-                          icon={<FiEdit2 />}
-                          onClick={() => onEdit(record)}
-                        >
-                          編集
-                        </MenuItem>
-                      )}
-                      {isAdmin && onDelete && (
-                        <MenuItem
-                          icon={<FiTrash2 />}
-                          color="red.500"
-                          onClick={() => onDelete(record)}
-                        >
-                          削除
-                        </MenuItem>
-                      )}
-                    </MenuList>
-                  </Menu>
-                </Td>
-              </Tr>
-            ))
+                </Tr>
+              );
+            })
           )}
         </Tbody>
       </Table>

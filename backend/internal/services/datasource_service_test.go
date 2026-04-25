@@ -167,7 +167,7 @@ func TestDataSourceService_GetDataSources(t *testing.T) {
 
 		dataSources := []models.DataSource{
 			{ID: 1, Name: "ds1", DBType: models.DBTypePostgreSQL},
-			{ID: 2, Name: "ds2", DBType: models.DBTypeMySQL},
+			{ID: 2, Name: "ds2", DBType: models.DBTypePostgreSQL},
 		}
 
 		mockDSRepo.On("GetAll", ctx, 1, 20).Return(dataSources, int64(2), nil)

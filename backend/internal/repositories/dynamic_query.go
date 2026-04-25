@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
@@ -34,14 +35,14 @@ func ValidateIdentifier(name string) error {
 	return nil
 }
 
-// quoteIdentifier 検証後にSQL識別子を安全にクォートする
+// quoteIdentifier 検証後にSQL識別子を安全にクォートする (PostgreSQL: ダブルクォート)
 func quoteIdentifier(name string) (string, error) {
 	if err := ValidateIdentifier(name); err != nil {
 		return "", err
 	}
-	// バッククォートをエスケープ（正規表現で防止されているが念のため）
-	escaped := strings.ReplaceAll(name, "`", "``")
-	return "`" + escaped + "`", nil
+	// ダブルクォートをエスケープ（正規表現で防止されているが念のため）
+	escaped := strings.ReplaceAll(name, `"`, `""`)
+	return `"` + escaped + `"`, nil
 }
 
 // DynamicQueryExecutor 動的テーブル操作を処理する構造体
@@ -54,18 +55,31 @@ func NewDynamicQueryExecutor(db *bun.DB) *DynamicQueryExecutor {
 	return &DynamicQueryExecutor{db: db}
 }
 
-// CreateTable アプリ用の動的テーブルを作成する
+// CreateTable アプリ用の動的テーブルを作成する。
+// テーブル本体と updated_at 用トリガをトランザクションで張り、片方失敗時に
+// 部分初期化されたテーブルが残らないようにする。
 func (e *DynamicQueryExecutor) CreateTable(ctx context.Context, tableName string, fields []models.AppField) error {
 	quotedTable, err := quoteIdentifier(tableName)
 	if err != nil {
 		return fmt.Errorf("無効なテーブル名: %w", err)
 	}
 
+	// トリガ名長チェック: PostgreSQL の識別子は 63 バイトまで。
+	// "trg_dyn_updated_at_" (19) + tableName のバイト数で判断する。
+	const triggerPrefix = "trg_dyn_updated_at_"
+	const maxIdentBytes = 63
+	if len(triggerPrefix)+len(tableName) > maxIdentBytes {
+		return fmt.Errorf(
+			"テーブル名が長すぎます: トリガ名 %q が PostgreSQL の識別子最大長 %d バイトを超えます",
+			triggerPrefix+tableName, maxIdentBytes,
+		)
+	}
+
 	// カラムスライスを事前確保: 1 id + len(fields) + 3 メタデータ
 	columns := make([]string, 0, len(fields)+4)
 
 	// 基本カラム
-	columns = append(columns, "id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY")
+	columns = append(columns, "id BIGSERIAL PRIMARY KEY")
 
 	// フィールドからの動的カラム
 	for i := range fields {
@@ -73,25 +87,53 @@ func (e *DynamicQueryExecutor) CreateTable(ctx context.Context, tableName string
 		if colErr != nil {
 			return fmt.Errorf("無効なカラム名 %q: %w", fields[i].FieldCode, colErr)
 		}
-		colDef := fmt.Sprintf("%s %s", quotedCol, fields[i].GetMySQLColumnType())
+		colDef := fmt.Sprintf("%s %s", quotedCol, fields[i].GetPostgresColumnType())
 		columns = append(columns, colDef)
 	}
 
 	// メタデータカラム
 	columns = append(columns,
-		"created_by BIGINT UNSIGNED NOT NULL",
-		"created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
-		"updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+		"created_by BIGINT NOT NULL",
+		"created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP",
+		"updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP",
 	)
 
-	query := fmt.Sprintf(
-		"CREATE TABLE IF NOT EXISTS %s (%s) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+	createTableSQL := fmt.Sprintf(
+		"CREATE TABLE IF NOT EXISTS %s (%s)",
 		quotedTable,
 		strings.Join(columns, ", "),
 	)
 
-	_, err = e.db.ExecContext(ctx, query)
-	return err
+	triggerName := triggerPrefix + tableName
+	quotedTrigger, err := quoteIdentifier(triggerName)
+	if err != nil {
+		return fmt.Errorf("無効なトリガ名: %w", err)
+	}
+	dropTriggerSQL := fmt.Sprintf("DROP TRIGGER IF EXISTS %s ON %s", quotedTrigger, quotedTable)
+	createTriggerSQL := fmt.Sprintf(
+		"CREATE TRIGGER %s BEFORE UPDATE ON %s FOR EACH ROW EXECUTE FUNCTION set_updated_at()",
+		quotedTrigger, quotedTable,
+	)
+
+	// テーブル+トリガをトランザクションでまとめて作成。
+	// トリガ作成が失敗した場合、テーブル作成も自動的に rollback されるため、
+	// updated_at が自動更新されない壊れたテーブルが残らない。
+	tx, err := e.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("トランザクション開始に失敗しました: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	if _, err := tx.ExecContext(ctx, createTableSQL); err != nil {
+		return fmt.Errorf("テーブル作成に失敗しました: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, dropTriggerSQL); err != nil {
+		return fmt.Errorf("既存トリガの削除に失敗しました: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, createTriggerSQL); err != nil {
+		return fmt.Errorf("トリガ作成に失敗しました: %w", err)
+	}
+	return tx.Commit()
 }
 
 // DropTable 動的テーブルを削除する
@@ -122,7 +164,7 @@ func (e *DynamicQueryExecutor) AddColumn(ctx context.Context, tableName string, 
 		"ALTER TABLE %s ADD COLUMN %s %s",
 		quotedTable,
 		quotedCol,
-		field.GetMySQLColumnType(),
+		field.GetPostgresColumnType(),
 	)
 	_, err = e.db.ExecContext(ctx, query)
 	return err
@@ -166,24 +208,22 @@ func (e *DynamicQueryExecutor) InsertRecord(ctx context.Context, tableName strin
 		values = append(values, value)
 	}
 
+	// PostgreSQL は LastInsertId を返さないため RETURNING id を使う。
+	// プレースホルダは bun の慣例どおり ? を使い、bun.DB.QueryRowContext が
+	// 内部で db.format(query, args) を呼び、引数を SQL リテラルとして
+	// インライン化して PostgreSQL に渡す（pgdialect の単一クエリプロトコル）。
 	query := fmt.Sprintf(
-		"INSERT INTO %s (%s) VALUES (%s)",
+		"INSERT INTO %s (%s) VALUES (%s) RETURNING id",
 		quotedTable,
 		strings.Join(columns, ", "),
 		strings.Join(placeholders, ", "),
 	)
 
-	result, err := e.db.ExecContext(ctx, query, values...)
-	if err != nil {
+	var id uint64
+	if err := e.db.QueryRowContext(ctx, query, values...).Scan(&id); err != nil {
 		return 0, err
 	}
-
-	id, err := result.LastInsertId()
-	if err != nil {
-		return 0, err
-	}
-
-	return uint64(id), nil
+	return id, nil
 }
 
 // UpdateRecord 動的テーブルのレコードを更新する
@@ -316,7 +356,9 @@ func (e *DynamicQueryExecutor) buildColumnList(fields []models.AppField) ([]stri
 	return columns, nil
 }
 
-// buildWhereClause フィルターからWHERE句を構築する
+// buildWhereClause フィルターからWHERE句を構築する。
+// プレースホルダは bun の ? を使い、引数は bun.DB が SQL リテラルとして
+// インライン化して PostgreSQL に渡す（pgdialect で適切にエスケープされる）。
 func (e *DynamicQueryExecutor) buildWhereClause(filters []models.FilterItem) (whereSQL string, whereValues []interface{}, err error) {
 	if len(filters) == 0 {
 		return "", nil, nil
@@ -501,8 +543,8 @@ func scanRecordRow(rows *sql.Rows, fields []models.AppField) (*models.RecordResp
 		ID:        id,
 		Data:      data,
 		CreatedBy: createdBy,
-		CreatedAt: createdAt.Format(time.RFC3339),
-		UpdatedAt: updatedAt.Format(time.RFC3339),
+		CreatedAt: createdAt.UTC().Format(time.RFC3339),
+		UpdatedAt: updatedAt.UTC().Format(time.RFC3339),
 	}, nil
 }
 
@@ -539,12 +581,14 @@ func scanSingleRecordRow(row *sql.Row, fields []models.AppField) (*models.Record
 		ID:        id,
 		Data:      data,
 		CreatedBy: createdBy,
-		CreatedAt: createdAt.Format(time.RFC3339),
-		UpdatedAt: updatedAt.Format(time.RFC3339),
+		CreatedAt: createdAt.UTC().Format(time.RFC3339),
+		UpdatedAt: updatedAt.UTC().Format(time.RFC3339),
 	}, nil
 }
 
-// convertScannedValue スキャンした値を変換する
+// convertScannedValue スキャンした値を変換する。
+// PostgreSQL の JSONB は []byte として返るため、[ または { で始まる場合は JSON としてデコードして
+// フロントエンドに配列/オブジェクトとして届ける。
 func convertScannedValue(v interface{}) interface{} {
 	if v == nil {
 		return nil
@@ -552,12 +596,31 @@ func convertScannedValue(v interface{}) interface{} {
 
 	switch val := v.(type) {
 	case []byte:
-		return string(val)
+		return convertBytesValue(val)
 	case time.Time:
-		return val.Format(time.RFC3339)
+		// バックエンドはすべての時刻を UTC として入出力する。
+		// フロントは Date.parse + toLocaleString で local timezone に変換して表示する。
+		return val.UTC().Format(time.RFC3339)
 	default:
 		return val
 	}
+}
+
+// convertBytesValue []byte が JSON 配列/オブジェクトなら decode して返す。
+// 先頭が '[' または '{' の場合のみ JSON として扱い、失敗した場合は生文字列にフォールバック。
+func convertBytesValue(b []byte) interface{} {
+	// 先頭の空白を飛ばす
+	start := 0
+	for start < len(b) && (b[start] == ' ' || b[start] == '\t' || b[start] == '\n' || b[start] == '\r') {
+		start++
+	}
+	if start < len(b) && (b[start] == '[' || b[start] == '{') {
+		var decoded interface{}
+		if err := json.Unmarshal(b, &decoded); err == nil {
+			return decoded
+		}
+	}
+	return string(b)
 }
 
 // GetAggregatedData チャート用の集計データを取得する
@@ -686,7 +749,7 @@ func (e *DynamicQueryExecutor) CountTodaysUpdates(ctx context.Context, tableName
 		return 0, fmt.Errorf("無効なテーブル名: %w", err)
 	}
 
-	query := fmt.Sprintf("SELECT COUNT(*) FROM %s WHERE DATE(updated_at) = CURDATE()", quotedTable)
+	query := fmt.Sprintf("SELECT COUNT(*) FROM %s WHERE DATE(updated_at) = CURRENT_DATE", quotedTable)
 	var count int64
 	err = e.db.QueryRowContext(ctx, query).Scan(&count)
 	if err != nil {
