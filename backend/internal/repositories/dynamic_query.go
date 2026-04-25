@@ -55,11 +55,24 @@ func NewDynamicQueryExecutor(db *bun.DB) *DynamicQueryExecutor {
 	return &DynamicQueryExecutor{db: db}
 }
 
-// CreateTable アプリ用の動的テーブルを作成する
+// CreateTable アプリ用の動的テーブルを作成する。
+// テーブル本体と updated_at 用トリガをトランザクションで張り、片方失敗時に
+// 部分初期化されたテーブルが残らないようにする。
 func (e *DynamicQueryExecutor) CreateTable(ctx context.Context, tableName string, fields []models.AppField) error {
 	quotedTable, err := quoteIdentifier(tableName)
 	if err != nil {
 		return fmt.Errorf("無効なテーブル名: %w", err)
+	}
+
+	// トリガ名長チェック: PostgreSQL の識別子は 63 バイトまで。
+	// "trg_dyn_updated_at_" (19) + tableName のバイト数で判断する。
+	const triggerPrefix = "trg_dyn_updated_at_"
+	const maxIdentBytes = 63
+	if len(triggerPrefix)+len(tableName) > maxIdentBytes {
+		return fmt.Errorf(
+			"テーブル名が長すぎます: トリガ名 %q が PostgreSQL の識別子最大長 %d バイトを超えます",
+			triggerPrefix+tableName, maxIdentBytes,
+		)
 	}
 
 	// カラムスライスを事前確保: 1 id + len(fields) + 3 メタデータ
@@ -85,32 +98,42 @@ func (e *DynamicQueryExecutor) CreateTable(ctx context.Context, tableName string
 		"updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP",
 	)
 
-	query := fmt.Sprintf(
+	createTableSQL := fmt.Sprintf(
 		"CREATE TABLE IF NOT EXISTS %s (%s)",
 		quotedTable,
 		strings.Join(columns, ", "),
 	)
 
-	if _, err := e.db.ExecContext(ctx, query); err != nil {
-		return err
-	}
-
-	// updated_at 自動更新トリガを張る (init.sql で定義された set_updated_at() 関数を利用)
-	triggerName := fmt.Sprintf("trg_dyn_updated_at_%s", tableName)
+	triggerName := triggerPrefix + tableName
 	quotedTrigger, err := quoteIdentifier(triggerName)
 	if err != nil {
 		return fmt.Errorf("無効なトリガ名: %w", err)
 	}
 	dropTriggerSQL := fmt.Sprintf("DROP TRIGGER IF EXISTS %s ON %s", quotedTrigger, quotedTable)
-	if _, err := e.db.ExecContext(ctx, dropTriggerSQL); err != nil {
-		return err
-	}
 	createTriggerSQL := fmt.Sprintf(
 		"CREATE TRIGGER %s BEFORE UPDATE ON %s FOR EACH ROW EXECUTE FUNCTION set_updated_at()",
 		quotedTrigger, quotedTable,
 	)
-	_, err = e.db.ExecContext(ctx, createTriggerSQL)
-	return err
+
+	// テーブル+トリガをトランザクションでまとめて作成。
+	// トリガ作成が失敗した場合、テーブル作成も自動的に rollback されるため、
+	// updated_at が自動更新されない壊れたテーブルが残らない。
+	tx, err := e.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("トランザクション開始に失敗しました: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	if _, err := tx.ExecContext(ctx, createTableSQL); err != nil {
+		return fmt.Errorf("テーブル作成に失敗しました: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, dropTriggerSQL); err != nil {
+		return fmt.Errorf("既存トリガの削除に失敗しました: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, createTriggerSQL); err != nil {
+		return fmt.Errorf("トリガ作成に失敗しました: %w", err)
+	}
+	return tx.Commit()
 }
 
 // DropTable 動的テーブルを削除する
@@ -186,7 +209,9 @@ func (e *DynamicQueryExecutor) InsertRecord(ctx context.Context, tableName strin
 	}
 
 	// PostgreSQL は LastInsertId を返さないため RETURNING id を使う。
-	// bun は ? を pgdialect 用に適切に整形する。
+	// プレースホルダは bun の慣例どおり ? を使い、bun.DB.QueryRowContext が
+	// 内部で db.format(query, args) を呼び、引数を SQL リテラルとして
+	// インライン化して PostgreSQL に渡す（pgdialect の単一クエリプロトコル）。
 	query := fmt.Sprintf(
 		"INSERT INTO %s (%s) VALUES (%s) RETURNING id",
 		quotedTable,
@@ -331,8 +356,9 @@ func (e *DynamicQueryExecutor) buildColumnList(fields []models.AppField) ([]stri
 	return columns, nil
 }
 
-// buildWhereClause フィルターからWHERE句を構築する。bun が ? を pgdialect 用に整形するため
-// 識別子はクォートしつつ値は ? で受ける。
+// buildWhereClause フィルターからWHERE句を構築する。
+// プレースホルダは bun の ? を使い、引数は bun.DB が SQL リテラルとして
+// インライン化して PostgreSQL に渡す（pgdialect で適切にエスケープされる）。
 func (e *DynamicQueryExecutor) buildWhereClause(filters []models.FilterItem) (whereSQL string, whereValues []interface{}, err error) {
 	if len(filters) == 0 {
 		return "", nil, nil

@@ -128,6 +128,9 @@ func (e *ExternalQueryExecutor) GetColumns(ctx context.Context, ds *models.DataS
 	}
 	defer func() { _ = db.Close() }()
 
+	// スキーマ未指定なら接続中の検索パスのスキーマ (current_schema()) で絞る。
+	// マルチスキーマ DB で同名テーブルが存在しても他スキーマのカラムや PK 制約を
+	// 拾わないようにする。
 	const query = `SELECT
 			c.column_name,
 			c.data_type,
@@ -136,12 +139,15 @@ func (e *ExternalQueryExecutor) GetColumns(ctx context.Context, ds *models.DataS
 			COALESCE(c.column_default, '') as default_value
 		FROM information_schema.columns c
 		LEFT JOIN information_schema.key_column_usage kcu
-			ON c.table_name = kcu.table_name
+			ON c.table_schema = kcu.table_schema
+			AND c.table_name = kcu.table_name
 			AND c.column_name = kcu.column_name
 		LEFT JOIN information_schema.table_constraints tc
-			ON kcu.constraint_name = tc.constraint_name
+			ON kcu.table_schema = tc.table_schema
+			AND kcu.constraint_name = tc.constraint_name
 			AND tc.constraint_type = 'PRIMARY KEY'
 		WHERE c.table_name = $1
+			AND c.table_schema = current_schema()
 		ORDER BY c.ordinal_position`
 
 	rows, err := db.QueryContext(ctx, query, tableName)

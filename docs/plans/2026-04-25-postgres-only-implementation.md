@@ -463,6 +463,8 @@ git commit -m "refactor(models): rename GetMySQLColumnType to GetPostgresColumnT
 **Files:**
 - Modify: `backend/internal/repositories/dynamic_query.go`
 
+> ⚠️ **実装結果に関する注記 (2026-04-25 更新)**: 当初の計画では `?` プレースホルダを `$N` に手動で書き換える予定だったが、bun の `db.format(query, args)` が引数を SQL リテラルとしてインライン化する仕様であることを確認し、**プレースホルダは `?` のまま維持**することにした。下記の Step で示している `$N` 化のサンプルコードは参考情報として残しているが、最終的に commit された `dynamic_query.go` では `?` を使用している。詳細は ADR-5（design.md）参照。
+
 このファイルが最大の書き換え対象なので、5 つのサブステップに分ける。
 
 - [ ] **Step 6.1:** 識別子クォートをバックティック→ダブルクォート

@@ -86,9 +86,13 @@ func ResetDatabase(ctx context.Context) error {
 }
 
 func dropDynamicTablesLocked(ctx context.Context) error {
+	// LIKE の `_` はワイルドカードなので、リテラル下線にエスケープする。
+	// "app_data_" 以外で始まるテーブル (例: app_dataset_cache) を誤って
+	// 巻き込んで DROP しないため。
 	rows, err := appTestDB.QueryContext(ctx, `
 		SELECT tablename FROM pg_tables
-		WHERE schemaname = 'public' AND tablename LIKE 'app_data_%'`)
+		WHERE schemaname = 'public'
+			AND tablename LIKE 'app\_data\_%' ESCAPE '\'`)
 	if err != nil {
 		return fmt.Errorf("動的テーブル一覧取得に失敗: %w", err)
 	}

@@ -42,7 +42,7 @@
 | `backend/internal/repositories/external_query.go` | PostgreSQL 専用に縮小（switch/case 削除、ファイル本体を半分以下に） |
 | `backend/internal/repositories/external_query_test.go` | PostgreSQL 関連テストのみ残す |
 | `backend/internal/repositories/external_query_integration_test.go` | `TestExternalQueryExecutor_PostgreSQL_Integration` 以外を削除 |
-| `backend/internal/repositories/dynamic_query.go` | バックティック `\`` → ダブルクォート `"`、`BIGINT UNSIGNED AUTO_INCREMENT` → `BIGSERIAL`、`?` プレースホルダ → `$N`、`CURDATE()` → `CURRENT_DATE`、`ON UPDATE CURRENT_TIMESTAMP` 廃止（トリガに移管） |
+| `backend/internal/repositories/dynamic_query.go` | 識別子クォートをバックティック (`` ` ``) → ダブルクォート (`"`)、`BIGINT UNSIGNED AUTO_INCREMENT` → `BIGSERIAL`、`CURDATE()` → `CURRENT_DATE`、`ON UPDATE CURRENT_TIMESTAMP` 廃止（トリガ `set_updated_at()` に移管）、`LastInsertId()` → `INSERT ... RETURNING id`。プレースホルダは bun の `?` のまま (ADR-5 参照) |
 | `backend/internal/models/field.go` | `GetMySQLColumnType` → `GetPostgresColumnType`、戻り値も PG 型へ |
 | `backend/internal/models/field_test.go` | 上記の改名と期待値変更 |
 | `backend/internal/models/datasource.go` | `DBType` を `DBTypePostgreSQL` のみに縮約、`ValidDBTypes`、`IsValidDBType`、validate タグ、`GetDefaultPort` を縮小 |
@@ -118,9 +118,13 @@ $$ LANGUAGE plpgsql;
 
 各テーブルに `BEFORE UPDATE` トリガを 1 個ずつ張る。
 
-### ADR-5: 識別子クォートの正規化
+### ADR-5: 識別子クォートの正規化とプレースホルダ方針
 
-`dynamic_query.go` のすべてのバックティックを **ダブルクォート (`"`)** に置換し、`?` プレースホルダを **`$N` プレースホルダ** に置換する。`fmt.Sprintf` で連番を生成するヘルパ `pgPlaceholders(n int) []string` を `dynamic_query.go` 内に追加。
+`dynamic_query.go` のすべてのバックティックを **ダブルクォート (`"`)** に置換する。
+
+プレースホルダは **bun の `?` をそのまま使う**。`bun.DB.QueryRowContext` / `ExecContext` / `QueryContext` は内部で `db.format(query, args...)` を呼び、引数を SQL リテラルとして **インライン化したクエリを生成**するため（pgdialect に応じた適切なエスケープが行われる）、`$N` 形式に手動で書き換える必要はない。`pgPlaceholders(n int)` のようなヘルパも追加しない。
+
+> 当初案では `?` を `$N` に手動置換する予定だったが、bun の format 動作を確認した結果、`?` のままで pgdialect が正しく扱うため不要と判明した。
 
 ### ADR-6: `LastInsertId()` の代替
 

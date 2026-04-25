@@ -1,6 +1,6 @@
 # Nocode App - 動的データベースアプリケーションプラットフォーム
 
-![Go](https://img.shields.io/badge/Go-1.24-00ADD8?logo=go&logoColor=white)
+![Go](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go&logoColor=white)
 ![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6?logo=typescript&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?logo=postgresql&logoColor=white)
@@ -308,7 +308,7 @@ const { isAdmin } = useAuth();
 
 | 技術 | バージョン | 用途 |
 |-----|----------|------|
-| Go | 1.24+ | メイン言語 |
+| Go | 1.25+ | メイン言語 |
 | net/http | (標準) | HTTPサーバー/ルーター |
 | BUN | v1 | ORM/マイグレーション |
 | go-playground/validator | v10 | バリデーション |
@@ -664,7 +664,7 @@ erDiagram
 | name | VARCHAR(100) | NOT NULL | 表示名 |
 | role | VARCHAR(20) CHECK (role IN ('admin','user')) | DEFAULT 'user' | ロール |
 | created_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 作成日時 |
-| updated_at | TIMESTAMP | ON UPDATE CURRENT_TIMESTAMP | 更新日時 |
+| updated_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP（`set_updated_at()` BEFORE UPDATE トリガで自動更新） | 更新日時 |
 
 #### data_sources テーブル
 
@@ -682,7 +682,7 @@ erDiagram
 | encrypted_password | TEXT | NOT NULL | AES-256-GCM暗号化パスワード |
 | created_by | BIGINT | FK → users.id | 作成者 |
 | created_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 作成日時 |
-| updated_at | TIMESTAMP | ON UPDATE CURRENT_TIMESTAMP | 更新日時 |
+| updated_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP（`set_updated_at()` BEFORE UPDATE トリガで自動更新） | 更新日時 |
 
 #### apps テーブル
 
@@ -710,7 +710,7 @@ erDiagram
 | field_name | VARCHAR(100) | NOT NULL | 表示名 |
 | field_type | VARCHAR(20) | NOT NULL | フィールドタイプ |
 | source_column_name | VARCHAR(100) | NULL | 外部テーブルの元カラム名 |
-| options | JSON | | 選択肢・設定等 |
+| options | JSONB | | 選択肢・設定等 |
 | required | BOOLEAN | DEFAULT FALSE | 必須フラグ |
 | display_order | INT | DEFAULT 0 | 表示順序 |
 | created_at | TIMESTAMP | | 作成日時 |
@@ -724,7 +724,7 @@ erDiagram
 | app_id | BIGINT | FK → apps.id | 所属アプリ |
 | name | VARCHAR(100) | NOT NULL | ビュー名 |
 | view_type | VARCHAR(20) CHECK (view_type IN ('table','list','calendar','chart')) | NOT NULL | ビュータイプ |
-| config | JSON | | ビュー設定（カラム表示、ソート、フィルタ等） |
+| config | JSONB | | ビュー設定（カラム表示、ソート、フィルタ等） |
 | is_default | BOOLEAN | DEFAULT FALSE | デフォルトビューフラグ |
 | created_at | TIMESTAMP | | 作成日時 |
 | updated_at | TIMESTAMP | | 更新日時 |
@@ -742,7 +742,7 @@ erDiagram
 | view_type | VARCHAR(20) CHECK (view_type IN ('table','list','chart')) | DEFAULT 'table' | 表示形式 |
 | is_visible | BOOLEAN | DEFAULT TRUE | 表示フラグ |
 | widget_size | VARCHAR(20) CHECK (widget_size IN ('small','medium','large')) | DEFAULT 'medium' | ウィジェットサイズ |
-| config | JSON | NULL | 追加設定 |
+| config | JSONB | NULL | 追加設定 |
 | created_at | TIMESTAMP | | 作成日時 |
 | updated_at | TIMESTAMP | | 更新日時 |
 
@@ -1236,7 +1236,7 @@ flowchart TB
 - Docker Desktop 4.0以上
 - Docker Compose 2.0以上
 - Node.js 20以上（ローカル開発時）
-- Go 1.22以上（ローカル開発時）
+- Go 1.25以上（ローカル開発時）
 
 ### Docker Composeによる起動
 

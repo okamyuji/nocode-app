@@ -134,12 +134,44 @@ docker run --rm -it \
 
 ### 5.5 Step 4: 静的スキーマの整合性確認
 
-`init.sql` で定義されたトリガ・CHECK 制約・インデックスは pgloader 経由では入らないので、**インポート後に init.sql を再適用**する:
+`init.sql` で定義された **CHECK 制約・トリガ・インデックス** は pgloader 経由では入らないため、インポート後に補正が必要。
+
+⚠️ **重要**: `CREATE TABLE IF NOT EXISTS` は **テーブルが既に存在する場合は何もしない**（既存テーブルに新たな CHECK 制約を追加してくれない）。pgloader が先にテーブルを作っているため、init.sql を後から流してもインライン CHECK 制約は反映されない。トリガと `CREATE INDEX IF NOT EXISTS` の方は別ステートメントなので問題なく追加される。
+
+選択肢のいずれかで進める:
+
+**(a) pgloader 後に既存テーブルへ ALTER で CHECK を追加 (推奨)**
 
 ```bash
+docker exec -i nocode-postgres psql -U nocode -d nocode-app <<'SQL'
+-- pgloader が型を text にマップしている可能性があるため、必要に応じ TYPE も合わせる
+ALTER TABLE users
+    ADD CONSTRAINT users_role_check CHECK (role IN ('admin', 'user'));
+ALTER TABLE data_sources
+    ADD CONSTRAINT data_sources_db_type_check CHECK (db_type IN ('postgresql'));
+ALTER TABLE app_views
+    ADD CONSTRAINT app_views_view_type_check CHECK (view_type IN ('table', 'list', 'calendar', 'chart'));
+ALTER TABLE dashboard_widgets
+    ADD CONSTRAINT dashboard_widgets_view_type_check CHECK (view_type IN ('table', 'list', 'chart'));
+ALTER TABLE dashboard_widgets
+    ADD CONSTRAINT dashboard_widgets_widget_size_check CHECK (widget_size IN ('small', 'medium', 'large'));
+SQL
+
+# その後 init.sql を流してトリガ・インデックスを補完
 docker exec -i nocode-postgres psql -U nocode -d nocode-app < backend/migrations/init.sql
-# CREATE TABLE IF NOT EXISTS なので競合しない
-# トリガとインデックスのみ追加される
+```
+
+**(b) pgloader が作ったテーブルを drop して init.sql で作り直す（より確実）**
+
+```bash
+# 静的テーブルだけ drop (動的テーブル app_data_* は残す)
+docker exec -i nocode-postgres psql -U nocode -d nocode-app -c '
+DROP TABLE IF EXISTS dashboard_widgets, chart_configs, app_views, app_fields, apps, data_sources, users CASCADE;'
+
+# init.sql でクリーンに作成
+docker exec -i nocode-postgres psql -U nocode -d nocode-app < backend/migrations/init.sql
+
+# その上で pgloader し直す（データのみ、--no-create フラグ等で対応）
 ```
 
 ### 5.6 Step 5: シーケンス値リセット

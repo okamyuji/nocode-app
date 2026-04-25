@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
 	"time"
@@ -83,11 +84,18 @@ func Load() *Config {
 	}
 }
 
-// DSN PostgreSQLのデータソース名を返す
+// DSN PostgreSQLのデータソース名を URI 形式で返す。
+// keyword/value 形式 (host=... password=...) はパスワード等に空白・'・\ が含まれると
+// パーサが破綻するため、user/password を URL エンコードした URI 形式を使う。
+// dbname も path として URL エンコードして特殊文字に対応する。
 func (c *DBConfig) DSN() string {
 	return fmt.Sprintf(
-		"host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
-		c.Host, c.Port, c.User, c.Password, c.Name,
+		"postgresql://%s:%s@%s:%s/%s?sslmode=disable",
+		url.QueryEscape(c.User),
+		url.QueryEscape(c.Password),
+		c.Host,
+		c.Port,
+		url.PathEscape(c.Name),
 	)
 }
 
