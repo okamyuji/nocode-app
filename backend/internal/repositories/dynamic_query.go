@@ -34,14 +34,14 @@ func ValidateIdentifier(name string) error {
 	return nil
 }
 
-// quoteIdentifier 検証後にSQL識別子を安全にクォートする
+// quoteIdentifier 検証後にSQL識別子を安全にクォートする (PostgreSQL: ダブルクォート)
 func quoteIdentifier(name string) (string, error) {
 	if err := ValidateIdentifier(name); err != nil {
 		return "", err
 	}
-	// バッククォートをエスケープ（正規表現で防止されているが念のため）
-	escaped := strings.ReplaceAll(name, "`", "``")
-	return "`" + escaped + "`", nil
+	// ダブルクォートをエスケープ（正規表現で防止されているが念のため）
+	escaped := strings.ReplaceAll(name, `"`, `""`)
+	return `"` + escaped + `"`, nil
 }
 
 // DynamicQueryExecutor 動的テーブル操作を処理する構造体
@@ -65,7 +65,7 @@ func (e *DynamicQueryExecutor) CreateTable(ctx context.Context, tableName string
 	columns := make([]string, 0, len(fields)+4)
 
 	// 基本カラム
-	columns = append(columns, "id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY")
+	columns = append(columns, "id BIGSERIAL PRIMARY KEY")
 
 	// フィールドからの動的カラム
 	for i := range fields {
@@ -73,24 +73,42 @@ func (e *DynamicQueryExecutor) CreateTable(ctx context.Context, tableName string
 		if colErr != nil {
 			return fmt.Errorf("無効なカラム名 %q: %w", fields[i].FieldCode, colErr)
 		}
-		colDef := fmt.Sprintf("%s %s", quotedCol, fields[i].GetMySQLColumnType())
+		colDef := fmt.Sprintf("%s %s", quotedCol, fields[i].GetPostgresColumnType())
 		columns = append(columns, colDef)
 	}
 
 	// メタデータカラム
 	columns = append(columns,
-		"created_by BIGINT UNSIGNED NOT NULL",
-		"created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
-		"updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+		"created_by BIGINT NOT NULL",
+		"created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP",
+		"updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP",
 	)
 
 	query := fmt.Sprintf(
-		"CREATE TABLE IF NOT EXISTS %s (%s) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+		"CREATE TABLE IF NOT EXISTS %s (%s)",
 		quotedTable,
 		strings.Join(columns, ", "),
 	)
 
-	_, err = e.db.ExecContext(ctx, query)
+	if _, err := e.db.ExecContext(ctx, query); err != nil {
+		return err
+	}
+
+	// updated_at 自動更新トリガを張る (init.sql で定義された set_updated_at() 関数を利用)
+	triggerName := fmt.Sprintf("trg_dyn_updated_at_%s", tableName)
+	quotedTrigger, err := quoteIdentifier(triggerName)
+	if err != nil {
+		return fmt.Errorf("無効なトリガ名: %w", err)
+	}
+	dropTriggerSQL := fmt.Sprintf("DROP TRIGGER IF EXISTS %s ON %s", quotedTrigger, quotedTable)
+	if _, err := e.db.ExecContext(ctx, dropTriggerSQL); err != nil {
+		return err
+	}
+	createTriggerSQL := fmt.Sprintf(
+		"CREATE TRIGGER %s BEFORE UPDATE ON %s FOR EACH ROW EXECUTE FUNCTION set_updated_at()",
+		quotedTrigger, quotedTable,
+	)
+	_, err = e.db.ExecContext(ctx, createTriggerSQL)
 	return err
 }
 
@@ -122,7 +140,7 @@ func (e *DynamicQueryExecutor) AddColumn(ctx context.Context, tableName string, 
 		"ALTER TABLE %s ADD COLUMN %s %s",
 		quotedTable,
 		quotedCol,
-		field.GetMySQLColumnType(),
+		field.GetPostgresColumnType(),
 	)
 	_, err = e.db.ExecContext(ctx, query)
 	return err
@@ -153,37 +171,33 @@ func (e *DynamicQueryExecutor) InsertRecord(ctx context.Context, tableName strin
 	}
 
 	columns := []string{"created_by"}
-	placeholders := []string{"?"}
+	placeholders := []string{"$1"}
 	values := []interface{}{userID}
 
+	idx := 2
 	for key, value := range data {
 		quotedCol, colErr := quoteIdentifier(key)
 		if colErr != nil {
 			return 0, fmt.Errorf("無効なカラム名 %q: %w", key, colErr)
 		}
 		columns = append(columns, quotedCol)
-		placeholders = append(placeholders, "?")
+		placeholders = append(placeholders, fmt.Sprintf("$%d", idx))
 		values = append(values, value)
+		idx++
 	}
 
 	query := fmt.Sprintf(
-		"INSERT INTO %s (%s) VALUES (%s)",
+		"INSERT INTO %s (%s) VALUES (%s) RETURNING id",
 		quotedTable,
 		strings.Join(columns, ", "),
 		strings.Join(placeholders, ", "),
 	)
 
-	result, err := e.db.ExecContext(ctx, query, values...)
-	if err != nil {
+	var id uint64
+	if err := e.db.QueryRowContext(ctx, query, values...).Scan(&id); err != nil {
 		return 0, err
 	}
-
-	id, err := result.LastInsertId()
-	if err != nil {
-		return 0, err
-	}
-
-	return uint64(id), nil
+	return id, nil
 }
 
 // UpdateRecord 動的テーブルのレコードを更新する
@@ -197,21 +211,24 @@ func (e *DynamicQueryExecutor) UpdateRecord(ctx context.Context, tableName strin
 	setClauses := make([]string, 0, len(data))
 	values := make([]interface{}, 0, len(data)+1)
 
+	idx := 1
 	for key, value := range data {
 		quotedCol, colErr := quoteIdentifier(key)
 		if colErr != nil {
 			return fmt.Errorf("無効なカラム名 %q: %w", key, colErr)
 		}
-		setClauses = append(setClauses, quotedCol+" = ?")
+		setClauses = append(setClauses, fmt.Sprintf("%s = $%d", quotedCol, idx))
 		values = append(values, value)
+		idx++
 	}
 
 	values = append(values, recordID)
 
 	query := fmt.Sprintf(
-		"UPDATE %s SET %s WHERE id = ?",
+		"UPDATE %s SET %s WHERE id = $%d",
 		quotedTable,
 		strings.Join(setClauses, ", "),
+		idx,
 	)
 
 	_, err = e.db.ExecContext(ctx, query, values...)
@@ -225,7 +242,7 @@ func (e *DynamicQueryExecutor) DeleteRecord(ctx context.Context, tableName strin
 		return fmt.Errorf("無効なテーブル名: %w", err)
 	}
 
-	query := fmt.Sprintf("DELETE FROM %s WHERE id = ?", quotedTable)
+	query := fmt.Sprintf("DELETE FROM %s WHERE id = $1", quotedTable)
 	_, err = e.db.ExecContext(ctx, query, recordID)
 	return err
 }
@@ -244,7 +261,7 @@ func (e *DynamicQueryExecutor) DeleteRecords(ctx context.Context, tableName stri
 	placeholders := make([]string, len(recordIDs))
 	values := make([]interface{}, len(recordIDs))
 	for i, id := range recordIDs {
-		placeholders[i] = "?"
+		placeholders[i] = fmt.Sprintf("$%d", i+1)
 		values[i] = id
 	}
 
@@ -280,7 +297,7 @@ func (e *DynamicQueryExecutor) GetRecords(ctx context.Context, tableName string,
 		return nil, 0, err
 	}
 
-	whereSQL, whereValues, err := e.buildWhereClause(opts.Filters)
+	whereSQL, whereValues, nextIdx, err := e.buildWhereClause(opts.Filters)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -298,7 +315,7 @@ func (e *DynamicQueryExecutor) GetRecords(ctx context.Context, tableName string,
 	}
 
 	// メインクエリを構築して実行
-	return e.executeRecordsQuery(ctx, quotedTable, columns, whereSQL, whereValues, orderBy, opts, fields, total)
+	return e.executeRecordsQuery(ctx, quotedTable, columns, whereSQL, whereValues, orderBy, opts, fields, total, nextIdx)
 }
 
 // buildColumnList SELECTカラムリストを構築する
@@ -316,30 +333,32 @@ func (e *DynamicQueryExecutor) buildColumnList(fields []models.AppField) ([]stri
 	return columns, nil
 }
 
-// buildWhereClause フィルターからWHERE句を構築する
-func (e *DynamicQueryExecutor) buildWhereClause(filters []models.FilterItem) (whereSQL string, whereValues []interface{}, err error) {
+// buildWhereClause フィルターからWHERE句を構築する。nextIdx は WHERE 句の後で使う次のプレースホルダ番号。
+func (e *DynamicQueryExecutor) buildWhereClause(filters []models.FilterItem) (whereSQL string, whereValues []interface{}, nextIdx int, err error) {
 	if len(filters) == 0 {
-		return "", nil, nil
+		return "", nil, 1, nil
 	}
 
 	whereClauses := make([]string, 0, len(filters))
 	whereValues = make([]interface{}, 0, len(filters))
+	idx := 1
 
 	for _, filter := range filters {
-		clause, value, filterErr := buildFilterClause(filter)
+		clause, value, filterErr := buildFilterClause(filter, idx)
 		if filterErr != nil {
-			return "", nil, filterErr
+			return "", nil, 0, filterErr
 		}
 		if clause != "" {
 			whereClauses = append(whereClauses, clause)
 			whereValues = append(whereValues, value)
+			idx++
 		}
 	}
 
 	if len(whereClauses) == 0 {
-		return "", nil, nil
+		return "", nil, idx, nil
 	}
-	return "WHERE " + strings.Join(whereClauses, " AND "), whereValues, nil
+	return "WHERE " + strings.Join(whereClauses, " AND "), whereValues, idx, nil
 }
 
 // getRecordCount レコードの総件数を取得する
@@ -379,13 +398,16 @@ func (e *DynamicQueryExecutor) executeRecordsQuery(
 	opts RecordQueryOptions,
 	fields []models.AppField,
 	total int64,
+	startIdx int,
 ) ([]models.RecordResponse, int64, error) {
 	query := fmt.Sprintf(
-		"SELECT %s FROM %s %s ORDER BY %s LIMIT ? OFFSET ?",
+		"SELECT %s FROM %s %s ORDER BY %s LIMIT $%d OFFSET $%d",
 		strings.Join(columns, ", "),
 		quotedTable,
 		whereSQL,
 		orderBy,
+		startIdx,
+		startIdx+1,
 	)
 
 	offset := (opts.Page - 1) * opts.Limit
@@ -435,7 +457,7 @@ func (e *DynamicQueryExecutor) GetRecordByID(ctx context.Context, tableName stri
 	}
 
 	query := fmt.Sprintf(
-		"SELECT %s FROM %s WHERE id = ?",
+		"SELECT %s FROM %s WHERE id = $1",
 		strings.Join(columns, ", "),
 		quotedTable,
 	)
@@ -445,27 +467,28 @@ func (e *DynamicQueryExecutor) GetRecordByID(ctx context.Context, tableName stri
 }
 
 // buildFilterClause 単一のフィルター句を構築する
-func buildFilterClause(filter models.FilterItem) (clause string, value interface{}, err error) {
+func buildFilterClause(filter models.FilterItem, idx int) (clause string, value interface{}, err error) {
 	quotedCol, err := quoteIdentifier(filter.Field)
 	if err != nil {
 		return "", nil, fmt.Errorf("無効なフィルターフィールド %q: %w", filter.Field, err)
 	}
 
+	ph := fmt.Sprintf("$%d", idx)
 	switch filter.Operator {
 	case "eq":
-		return quotedCol + " = ?", filter.Value, nil
+		return quotedCol + " = " + ph, filter.Value, nil
 	case "ne":
-		return quotedCol + " != ?", filter.Value, nil
+		return quotedCol + " != " + ph, filter.Value, nil
 	case "gt":
-		return quotedCol + " > ?", filter.Value, nil
+		return quotedCol + " > " + ph, filter.Value, nil
 	case "gte":
-		return quotedCol + " >= ?", filter.Value, nil
+		return quotedCol + " >= " + ph, filter.Value, nil
 	case "lt":
-		return quotedCol + " < ?", filter.Value, nil
+		return quotedCol + " < " + ph, filter.Value, nil
 	case "lte":
-		return quotedCol + " <= ?", filter.Value, nil
+		return quotedCol + " <= " + ph, filter.Value, nil
 	case "like":
-		return quotedCol + " LIKE ?", "%" + filter.Value + "%", nil
+		return quotedCol + " LIKE " + ph, "%" + filter.Value + "%", nil
 	default:
 		return "", nil, nil
 	}
@@ -579,7 +602,7 @@ func (e *DynamicQueryExecutor) GetAggregatedData(ctx context.Context, tableName 
 	}
 
 	// フィルターからWHERE句を構築
-	whereSQL, whereValues, err := e.buildWhereClause(req.Filters)
+	whereSQL, whereValues, _, err := e.buildWhereClause(req.Filters)
 	if err != nil {
 		return nil, err
 	}
@@ -686,7 +709,7 @@ func (e *DynamicQueryExecutor) CountTodaysUpdates(ctx context.Context, tableName
 		return 0, fmt.Errorf("無効なテーブル名: %w", err)
 	}
 
-	query := fmt.Sprintf("SELECT COUNT(*) FROM %s WHERE DATE(updated_at) = CURDATE()", quotedTable)
+	query := fmt.Sprintf("SELECT COUNT(*) FROM %s WHERE DATE(updated_at) = CURRENT_DATE", quotedTable)
 	var count int64
 	err = e.db.QueryRowContext(ctx, query).Scan(&count)
 	if err != nil {
