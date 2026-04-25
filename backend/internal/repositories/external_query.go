@@ -4,14 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"net/url"
 	"strings"
 	"time"
 
-	_ "github.com/denisenkom/go-mssqldb" // SQL Server driver
-	_ "github.com/go-sql-driver/mysql"   // MySQL driver
-	_ "github.com/lib/pq"                // PostgreSQL driver
-	_ "github.com/sijms/go-ora/v2"       // Oracle driver (Pure Go)
+	_ "github.com/lib/pq" // PostgreSQL driver
 
 	"nocode-app/backend/internal/models"
 )
@@ -24,45 +20,14 @@ func NewExternalQueryExecutor() *ExternalQueryExecutor {
 	return &ExternalQueryExecutor{}
 }
 
-// buildDSN データソース情報からDSN文字列を構築する
+// buildDSN データソース情報からDSN文字列を構築する (PostgreSQL のみ対応)
 func buildDSN(ds *models.DataSource, password string) (string, string, error) {
-	switch ds.DBType {
-	case models.DBTypePostgreSQL:
-		// PostgreSQLはキーワード形式を使用（特殊文字のエスケープが不要）
-		dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
-			ds.Host, ds.Port, ds.Username, escapePostgresPassword(password), ds.DatabaseName)
-		return "postgres", dsn, nil
-
-	case models.DBTypeMySQL:
-		// MySQLはDSN形式を使用
-		dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true",
-			ds.Username, password, ds.Host, ds.Port, ds.DatabaseName)
-		return "mysql", dsn, nil
-
-	case models.DBTypeOracle:
-		// go-ora v2 format: oracle://user:pass@host:port/service_name
-		// パスワードとユーザー名はURLエンコードが必要
-		dsn := fmt.Sprintf("oracle://%s:%s@%s:%d/%s",
-			url.QueryEscape(ds.Username),
-			url.QueryEscape(password),
-			ds.Host,
-			ds.Port,
-			ds.DatabaseName)
-		return "oracle", dsn, nil
-
-	case models.DBTypeSQLServer:
-		// SQL ServerはURLエンコードが必要
-		dsn := fmt.Sprintf("sqlserver://%s:%s@%s:%d?database=%s",
-			url.QueryEscape(ds.Username),
-			url.QueryEscape(password),
-			ds.Host,
-			ds.Port,
-			ds.DatabaseName)
-		return "sqlserver", dsn, nil
-
-	default:
+	if ds.DBType != models.DBTypePostgreSQL {
 		return "", "", fmt.Errorf("サポートされていないデータベースタイプ: %s", ds.DBType)
 	}
+	dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
+		ds.Host, ds.Port, ds.Username, escapePostgresPassword(password), ds.DatabaseName)
+	return "postgres", dsn, nil
 }
 
 // escapePostgresPassword PostgreSQLのパスワードをエスケープする
@@ -111,51 +76,22 @@ func (e *ExternalQueryExecutor) TestConnection(ctx context.Context, ds *models.D
 
 // GetTables データベースのテーブル一覧を取得する（テーブルとViewの両方を含む）
 func (e *ExternalQueryExecutor) GetTables(ctx context.Context, ds *models.DataSource, password string) ([]models.TableInfo, error) {
+	if ds.DBType != models.DBTypePostgreSQL {
+		return nil, fmt.Errorf("サポートされていないデータベースタイプ: %s", ds.DBType)
+	}
+
 	db, err := openConnection(ctx, ds, password)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { _ = db.Close() }()
 
-	var query string
-	switch ds.DBType {
-	case models.DBTypePostgreSQL:
-		query = `SELECT table_name, table_schema,
+	const query = `SELECT table_name, table_schema,
 			CASE WHEN table_type = 'BASE TABLE' THEN 'TABLE' ELSE 'VIEW' END as table_type
-			FROM information_schema.tables 
-			WHERE table_schema NOT IN ('pg_catalog', 'information_schema') 
+			FROM information_schema.tables
+			WHERE table_schema NOT IN ('pg_catalog', 'information_schema')
 			AND table_type IN ('BASE TABLE', 'VIEW')
 			ORDER BY table_schema, table_name`
-
-	case models.DBTypeMySQL:
-		query = `SELECT table_name, table_schema,
-			CASE WHEN table_type = 'BASE TABLE' THEN 'TABLE' ELSE 'VIEW' END as table_type
-			FROM information_schema.tables 
-			WHERE table_schema = DATABASE() 
-			AND table_type IN ('BASE TABLE', 'VIEW')
-			ORDER BY table_name`
-
-	case models.DBTypeOracle:
-		// OracleはUNION ALLでテーブルとViewを結合
-		query = `SELECT table_name, owner as table_schema, 'TABLE' as table_type
-			FROM all_tables 
-			WHERE owner = USER
-			UNION ALL
-			SELECT view_name as table_name, owner as table_schema, 'VIEW' as table_type
-			FROM all_views
-			WHERE owner = USER
-			ORDER BY 1`
-
-	case models.DBTypeSQLServer:
-		query = `SELECT table_name, table_schema,
-			CASE WHEN table_type = 'BASE TABLE' THEN 'TABLE' ELSE 'VIEW' END as table_type
-			FROM information_schema.tables 
-			WHERE table_type IN ('BASE TABLE', 'VIEW')
-			ORDER BY table_schema, table_name`
-
-	default:
-		return nil, fmt.Errorf("サポートされていないデータベースタイプ: %s", ds.DBType)
-	}
 
 	rows, err := db.QueryContext(ctx, query)
 	if err != nil {
@@ -177,96 +113,38 @@ func (e *ExternalQueryExecutor) GetTables(ctx context.Context, ds *models.DataSo
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-
 	return tables, nil
 }
 
 // GetColumns テーブルのカラム一覧を取得する
 func (e *ExternalQueryExecutor) GetColumns(ctx context.Context, ds *models.DataSource, password string, tableName string) ([]models.ColumnInfo, error) {
+	if ds.DBType != models.DBTypePostgreSQL {
+		return nil, fmt.Errorf("サポートされていないデータベースタイプ: %s", ds.DBType)
+	}
+
 	db, err := openConnection(ctx, ds, password)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { _ = db.Close() }()
 
-	var query string
-	var args []interface{}
-
-	switch ds.DBType {
-	case models.DBTypePostgreSQL:
-		query = `SELECT 
+	const query = `SELECT
 			c.column_name,
 			c.data_type,
 			CASE WHEN c.is_nullable = 'YES' THEN true ELSE false END as is_nullable,
 			CASE WHEN tc.constraint_type = 'PRIMARY KEY' THEN true ELSE false END as is_primary_key,
 			COALESCE(c.column_default, '') as default_value
 		FROM information_schema.columns c
-		LEFT JOIN information_schema.key_column_usage kcu 
-			ON c.table_name = kcu.table_name 
+		LEFT JOIN information_schema.key_column_usage kcu
+			ON c.table_name = kcu.table_name
 			AND c.column_name = kcu.column_name
-		LEFT JOIN information_schema.table_constraints tc 
-			ON kcu.constraint_name = tc.constraint_name 
+		LEFT JOIN information_schema.table_constraints tc
+			ON kcu.constraint_name = tc.constraint_name
 			AND tc.constraint_type = 'PRIMARY KEY'
 		WHERE c.table_name = $1
 		ORDER BY c.ordinal_position`
-		args = []interface{}{tableName}
 
-	case models.DBTypeMySQL:
-		query = `SELECT 
-			column_name,
-			data_type,
-			CASE WHEN is_nullable = 'YES' THEN true ELSE false END as is_nullable,
-			CASE WHEN column_key = 'PRI' THEN true ELSE false END as is_primary_key,
-			COALESCE(column_default, '') as default_value
-		FROM information_schema.columns
-		WHERE table_schema = DATABASE() AND table_name = ?
-		ORDER BY ordinal_position`
-		args = []interface{}{tableName}
-
-	case models.DBTypeOracle:
-		// DATA_DEFAULTはLONG型のため、TO_CHARは使用できない
-		// 代わりに空文字を返す（デフォルト値は必須ではない）
-		query = `SELECT 
-			c.column_name,
-			c.data_type,
-			CASE WHEN c.nullable = 'Y' THEN 1 ELSE 0 END as is_nullable,
-			CASE WHEN cc.constraint_type = 'P' THEN 1 ELSE 0 END as is_primary_key,
-			'' as default_value
-		FROM all_tab_columns c
-		LEFT JOIN (
-			SELECT acc.column_name, ac.constraint_type
-			FROM all_cons_columns acc
-			JOIN all_constraints ac ON acc.constraint_name = ac.constraint_name
-			WHERE ac.constraint_type = 'P' AND acc.table_name = :1 AND acc.owner = USER
-		) cc ON c.column_name = cc.column_name
-		WHERE c.table_name = :2 AND c.owner = USER
-		ORDER BY c.column_id`
-		args = []interface{}{tableName, tableName}
-
-	case models.DBTypeSQLServer:
-		query = `SELECT 
-			c.COLUMN_NAME,
-			c.DATA_TYPE,
-			CASE WHEN c.IS_NULLABLE = 'YES' THEN 1 ELSE 0 END as is_nullable,
-			CASE WHEN pk.COLUMN_NAME IS NOT NULL THEN 1 ELSE 0 END as is_primary_key,
-			ISNULL(c.COLUMN_DEFAULT, '') as default_value
-		FROM INFORMATION_SCHEMA.COLUMNS c
-		LEFT JOIN (
-			SELECT ku.COLUMN_NAME, ku.TABLE_NAME
-			FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS tc
-			JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE ku 
-				ON tc.CONSTRAINT_NAME = ku.CONSTRAINT_NAME
-			WHERE tc.CONSTRAINT_TYPE = 'PRIMARY KEY'
-		) pk ON c.TABLE_NAME = pk.TABLE_NAME AND c.COLUMN_NAME = pk.COLUMN_NAME
-		WHERE c.TABLE_NAME = @p1
-		ORDER BY c.ORDINAL_POSITION`
-		args = []interface{}{tableName}
-
-	default:
-		return nil, fmt.Errorf("サポートされていないデータベースタイプ: %s", ds.DBType)
-	}
-
-	rows, err := db.QueryContext(ctx, query, args...)
+	rows, err := db.QueryContext(ctx, query, tableName)
 	if err != nil {
 		return nil, fmt.Errorf("カラム一覧の取得に失敗しました: %w", err)
 	}
@@ -288,7 +166,6 @@ func (e *ExternalQueryExecutor) GetColumns(ctx context.Context, ds *models.DataS
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-
 	return columns, nil
 }
 
@@ -448,12 +325,10 @@ func (e *ExternalQueryExecutor) GetAggregatedData(ctx context.Context, ds *model
 		if f.SourceColumnName != nil {
 			fieldCodeToColumn[f.FieldCode] = *f.SourceColumnName
 		} else {
-			// source_column_nameがない場合はfield_codeをそのまま使用
 			fieldCodeToColumn[f.FieldCode] = f.FieldCode
 		}
 	}
 
-	// X軸のカラム名を取得
 	xColumnName, ok := fieldCodeToColumn[req.XAxis.Field]
 	if !ok {
 		return nil, fmt.Errorf("x-axis field '%s' not found", req.XAxis.Field)
@@ -465,7 +340,6 @@ func (e *ExternalQueryExecutor) GetAggregatedData(ctx context.Context, ds *model
 	case "count":
 		selectClause = fmt.Sprintf("%s, COUNT(*) as value", xField)
 	case "sum", "avg", "min", "max":
-		// Y軸のカラム名を取得
 		yColumnName, ok := fieldCodeToColumn[req.YAxis.Field]
 		if !ok {
 			return nil, fmt.Errorf("y-axis field '%s' not found", req.YAxis.Field)
@@ -545,47 +419,20 @@ func (e *ExternalQueryExecutor) CountRecords(ctx context.Context, ds *models.Dat
 	return count, nil
 }
 
-// quoteIdentifierForDB データベースタイプに応じた識別子のクォート
-func quoteIdentifierForDB(dbType models.DBType, name string) string {
-	switch dbType {
-	case models.DBTypePostgreSQL:
-		return fmt.Sprintf(`"%s"`, strings.ReplaceAll(name, `"`, `""`))
-	case models.DBTypeMySQL:
-		return fmt.Sprintf("`%s`", strings.ReplaceAll(name, "`", "``"))
-	case models.DBTypeOracle:
-		return fmt.Sprintf(`"%s"`, strings.ReplaceAll(strings.ToUpper(name), `"`, `""`))
-	case models.DBTypeSQLServer:
-		return fmt.Sprintf("[%s]", strings.ReplaceAll(name, "]", "]]"))
-	default:
-		return name
-	}
+// quoteIdentifierForDB 識別子をダブルクォートでクォートする (PostgreSQL)。
+// 引数 dbType は将来の拡張性および呼び出し側互換性のため残す。
+func quoteIdentifierForDB(_ models.DBType, name string) string {
+	return fmt.Sprintf(`"%s"`, strings.ReplaceAll(name, `"`, `""`))
 }
 
-// getPlaceholder データベースタイプに応じたプレースホルダーを返す
-func getPlaceholder(dbType models.DBType, index int) string {
-	switch dbType {
-	case models.DBTypePostgreSQL:
-		return fmt.Sprintf("$%d", index)
-	case models.DBTypeOracle:
-		return fmt.Sprintf(":%d", index)
-	case models.DBTypeSQLServer:
-		return fmt.Sprintf("@p%d", index)
-	default: // MySQL
-		return "?"
-	}
+// getPlaceholder PostgreSQL の $N プレースホルダを返す。
+func getPlaceholder(_ models.DBType, index int) string {
+	return fmt.Sprintf("$%d", index)
 }
 
-// buildLimitOffset データベースタイプに応じたLIMIT/OFFSET句を構築する
-func buildLimitOffset(dbType models.DBType, limit, offset int) string {
-	switch dbType {
-	case models.DBTypeOracle:
-		return fmt.Sprintf(" OFFSET %d ROWS FETCH NEXT %d ROWS ONLY", offset, limit)
-	case models.DBTypeSQLServer:
-		// SQL Serverの場合、ORDER BYが必要
-		return fmt.Sprintf(" OFFSET %d ROWS FETCH NEXT %d ROWS ONLY", offset, limit)
-	default: // PostgreSQL, MySQL
-		return fmt.Sprintf(" LIMIT %d OFFSET %d", limit, offset)
-	}
+// buildLimitOffset PostgreSQL の LIMIT/OFFSET 句を構築する。
+func buildLimitOffset(_ models.DBType, limit, offset int) string {
+	return fmt.Sprintf(" LIMIT %d OFFSET %d", limit, offset)
 }
 
 // scanExternalRecordRow 外部DBの行からレコードをスキャンする
