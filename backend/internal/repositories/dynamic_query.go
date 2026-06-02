@@ -35,10 +35,22 @@ func ValidateIdentifier(name string) error {
 	return nil
 }
 
-// quoteIdentifier 検証後にSQL識別子を安全にクォートする (PostgreSQL: ダブルクォート)
+// quoteIdentifier 検証後にSQL識別子を安全にクォートする (PostgreSQL: ダブルクォート)。
+//
+// 許可リスト正規表現での検証を ValidateIdentifier に委譲せず本関数内に直接インライン化している。
+// これは戻り値（クォート済み識別子）のデータフロー上に MatchString バリアを置くためで、
+// 静的解析（CodeQL go/sql-injection 等）が「検証済みの識別子のみがクエリへ流れる」ことを
+// 認識できるようにする。ValidateIdentifier はエラーのみを返し値を返さないため、
+// それ経由ではバリアがデータフローに乗らず誤検知が残る。
 func quoteIdentifier(name string) (string, error) {
-	if err := ValidateIdentifier(name); err != nil {
-		return "", err
+	if name == "" {
+		return "", fmt.Errorf("識別子を空にすることはできません")
+	}
+	if len(name) > maxIdentifierLength {
+		return "", fmt.Errorf("識別子が長すぎます: 最大%d文字", maxIdentifierLength)
+	}
+	if !identifierRegex.MatchString(name) {
+		return "", fmt.Errorf("無効な識別子: 英数字とアンダースコアのみ許可、先頭は文字またはアンダースコア")
 	}
 	// ダブルクォートをエスケープ（正規表現で防止されているが念のため）
 	escaped := strings.ReplaceAll(name, `"`, `""`)
