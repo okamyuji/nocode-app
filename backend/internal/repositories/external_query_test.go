@@ -67,6 +67,7 @@ func TestQuoteIdentifierForDBRejectsInvalid(t *testing.T) {
 		{name: "ヌルバイトを含む", input: "users\x00"},
 		{name: "改行（制御文字）を含む", input: "user\nname"},
 		{name: "タブ（制御文字）を含む", input: "user\tname"},
+		{name: "DEL（制御文字）を含む", input: "user\x7fname"},
 		{name: "長すぎる識別子", input: strings.Repeat("a", maxExternalIdentifierLength+1)},
 	}
 
