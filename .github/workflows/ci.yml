@@ -10,6 +10,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# GITHUB_TOKEN の権限を最小化する。CI はソースの読み取りのみ行うため contents: read に限定する。
+permissions:
+  contents: read
+
 jobs:
   backend:
     name: Backend (Go)

@@ -1,6 +1,7 @@
 package repositories
 
 import (
+	"strings"
 	"testing"
 
 	"nocode-app/backend/internal/models"
@@ -12,43 +13,36 @@ import (
 func TestQuoteIdentifierForDB(t *testing.T) {
 	tests := []struct {
 		name     string
-		dbType   models.DBType
 		input    string
 		expected string
 	}{
 		{
 			name:     "PostgreSQL: 英語の単純な名前",
-			dbType:   models.DBTypePostgreSQL,
 			input:    "users",
 			expected: `"users"`,
 		},
 		{
 			name:     "PostgreSQL: 日本語テーブル名",
-			dbType:   models.DBTypePostgreSQL,
 			input:    "顧客マスタ",
 			expected: `"顧客マスタ"`,
 		},
 		{
 			name:     "PostgreSQL: 日本語カラム名",
-			dbType:   models.DBTypePostgreSQL,
 			input:    "プロセス名",
 			expected: `"プロセス名"`,
 		},
 		{
 			name:     "PostgreSQL: ダブルクォートを含む名前",
-			dbType:   models.DBTypePostgreSQL,
 			input:    `user"name`,
 			expected: `"user""name"`,
 		},
 		{
 			name:     "PostgreSQL: スペースを含む名前",
-			dbType:   models.DBTypePostgreSQL,
 			input:    "user name",
 			expected: `"user name"`,
 		},
 		{
 			name:     "PostgreSQL: 予約語",
-			dbType:   models.DBTypePostgreSQL,
 			input:    "select",
 			expected: `"select"`,
 		},
@@ -56,8 +50,31 @@ func TestQuoteIdentifierForDB(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := quoteIdentifierForDB(tt.dbType, tt.input)
+			result, err := quoteIdentifierForDB(tt.input)
+			assert.NoError(t, err)
 			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+// TestQuoteIdentifierForDBRejectsInvalid 制御文字・空文字など不正な識別子を拒否することをテストする
+func TestQuoteIdentifierForDBRejectsInvalid(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{name: "空文字", input: ""},
+		{name: "ヌルバイトを含む", input: "users\x00"},
+		{name: "改行（制御文字）を含む", input: "user\nname"},
+		{name: "タブ（制御文字）を含む", input: "user\tname"},
+		{name: "DEL（制御文字）を含む", input: "user\x7fname"},
+		{name: "長すぎる識別子", input: strings.Repeat("a", maxExternalIdentifierLength+1)},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := quoteIdentifierForDB(tt.input)
+			assert.Error(t, err)
 		})
 	}
 }
@@ -247,7 +264,8 @@ func TestQuoteIdentifierForDBWithJapaneseEdgeCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := quoteIdentifierForDB(models.DBTypePostgreSQL, tt.input)
+			result, err := quoteIdentifierForDB(tt.input)
+			assert.NoError(t, err)
 			assert.NotEmpty(t, result)
 			assert.Contains(t, result, tt.input)
 		})

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -11,6 +12,17 @@ import (
 
 	"nocode-app/backend/internal/models"
 )
+
+// externalIdentifierRegex 外部DBの識別子（テーブル名・カラム名）として許可する文字を定義する。
+// PostgreSQL のクォート済み識別子は日本語や絵文字などの任意の Unicode 文字を含められるため、
+// 内部テーブル用の identifierRegex（ASCII 限定の許可リスト）のように文字種を狭めず、
+// 「クォート済み識別子として安全に表現できない文字」＝制御文字（ヌルバイトを含む C0 制御 0x00-0x1f
+// および DEL 0x7f）のみを拒否するデナイリストとする。ダブルクォート自体は quoteIdentifierForDB 内で
+// `"` を `""` にエスケープして無害化する。
+var externalIdentifierRegex = regexp.MustCompile(`^[^\x00-\x1f\x7f]+$`)
+
+// maxExternalIdentifierLength 外部DB識別子の最大長（バイト）
+const maxExternalIdentifierLength = 128
 
 // ExternalQueryExecutor 外部データベースへのクエリ実行を処理する構造体
 type ExternalQueryExecutor struct{}
@@ -183,6 +195,12 @@ func (e *ExternalQueryExecutor) GetRecords(ctx context.Context, ds *models.DataS
 	}
 	defer func() { _ = db.Close() }()
 
+	// テーブル名を検証してクォート
+	quotedTable, err := quoteIdentifierForDB(tableName)
+	if err != nil {
+		return nil, 0, fmt.Errorf("無効なテーブル名: %w", err)
+	}
+
 	// カラムリストを構築（source_column_nameを使用）
 	columns := make([]string, 0, len(fields))
 	for _, f := range fields {
@@ -190,11 +208,15 @@ func (e *ExternalQueryExecutor) GetRecords(ctx context.Context, ds *models.DataS
 		if f.SourceColumnName != nil && *f.SourceColumnName != "" {
 			colName = *f.SourceColumnName
 		}
-		columns = append(columns, quoteIdentifierForDB(ds.DBType, colName))
+		quotedCol, colErr := quoteIdentifierForDB(colName)
+		if colErr != nil {
+			return nil, 0, fmt.Errorf("無効なカラム名 %q: %w", colName, colErr)
+		}
+		columns = append(columns, quotedCol)
 	}
 
 	// COUNT クエリ
-	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM %s", quoteIdentifierForDB(ds.DBType, tableName))
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM %s", quotedTable)
 	var total int64
 	if err := db.QueryRowContext(ctx, countQuery).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("レコード数の取得に失敗しました: %w", err)
@@ -203,7 +225,7 @@ func (e *ExternalQueryExecutor) GetRecords(ctx context.Context, ds *models.DataS
 	// メインクエリ
 	query := fmt.Sprintf("SELECT %s FROM %s",
 		strings.Join(columns, ", "),
-		quoteIdentifierForDB(ds.DBType, tableName))
+		quotedTable)
 
 	// ORDER BY
 	if opts.Sort != "" {
@@ -217,11 +239,15 @@ func (e *ExternalQueryExecutor) GetRecords(ctx context.Context, ds *models.DataS
 				break
 			}
 		}
+		quotedSort, sortErr := quoteIdentifierForDB(sortCol)
+		if sortErr != nil {
+			return nil, 0, fmt.Errorf("無効なソートカラム %q: %w", sortCol, sortErr)
+		}
 		order := "ASC"
 		if opts.Order == "desc" {
 			order = "DESC"
 		}
-		query += fmt.Sprintf(" ORDER BY %s %s", quoteIdentifierForDB(ds.DBType, sortCol), order)
+		query += fmt.Sprintf(" ORDER BY %s %s", quotedSort, order)
 	}
 
 	// LIMIT/OFFSET
@@ -258,6 +284,12 @@ func (e *ExternalQueryExecutor) GetRecordByID(ctx context.Context, ds *models.Da
 	}
 	defer func() { _ = db.Close() }()
 
+	// テーブル名を検証してクォート
+	quotedTable, err := quoteIdentifierForDB(tableName)
+	if err != nil {
+		return nil, fmt.Errorf("無効なテーブル名: %w", err)
+	}
+
 	// カラムリストを構築
 	columns := make([]string, 0, len(fields))
 	for _, f := range fields {
@@ -265,7 +297,11 @@ func (e *ExternalQueryExecutor) GetRecordByID(ctx context.Context, ds *models.Da
 		if f.SourceColumnName != nil && *f.SourceColumnName != "" {
 			colName = *f.SourceColumnName
 		}
-		columns = append(columns, quoteIdentifierForDB(ds.DBType, colName))
+		quotedCol, colErr := quoteIdentifierForDB(colName)
+		if colErr != nil {
+			return nil, fmt.Errorf("無効なカラム名 %q: %w", colName, colErr)
+		}
+		columns = append(columns, quotedCol)
 	}
 
 	// PKカラムを特定（最初のフィールドまたはidカラムを使用）
@@ -283,10 +319,15 @@ func (e *ExternalQueryExecutor) GetRecordByID(ctx context.Context, ds *models.Da
 		}
 	}
 
+	quotedPK, err := quoteIdentifierForDB(pkColumn)
+	if err != nil {
+		return nil, fmt.Errorf("無効な主キーカラム %q: %w", pkColumn, err)
+	}
+
 	query := fmt.Sprintf("SELECT %s FROM %s WHERE %s = %s",
 		strings.Join(columns, ", "),
-		quoteIdentifierForDB(ds.DBType, tableName),
-		quoteIdentifierForDB(ds.DBType, pkColumn),
+		quotedTable,
+		quotedPK,
 		getPlaceholder(ds.DBType, 1))
 
 	row := db.QueryRowContext(ctx, query, recordID)
@@ -339,7 +380,10 @@ func (e *ExternalQueryExecutor) GetAggregatedData(ctx context.Context, ds *model
 	if !ok {
 		return nil, fmt.Errorf("x-axis field '%s' not found", req.XAxis.Field)
 	}
-	xField := quoteIdentifierForDB(ds.DBType, xColumnName)
+	xField, err := quoteIdentifierForDB(xColumnName)
+	if err != nil {
+		return nil, fmt.Errorf("無効なX軸フィールド %q: %w", xColumnName, err)
+	}
 
 	var selectClause string
 	switch req.YAxis.Aggregation {
@@ -350,15 +394,23 @@ func (e *ExternalQueryExecutor) GetAggregatedData(ctx context.Context, ds *model
 		if !ok {
 			return nil, fmt.Errorf("y-axis field '%s' not found", req.YAxis.Field)
 		}
-		yField := quoteIdentifierForDB(ds.DBType, yColumnName)
+		yField, yErr := quoteIdentifierForDB(yColumnName)
+		if yErr != nil {
+			return nil, fmt.Errorf("無効なY軸フィールド %q: %w", yColumnName, yErr)
+		}
 		selectClause = fmt.Sprintf("%s, %s(%s) as value", xField, strings.ToUpper(req.YAxis.Aggregation), yField)
 	default:
 		selectClause = fmt.Sprintf("%s, COUNT(*) as value", xField)
 	}
 
+	quotedTable, err := quoteIdentifierForDB(tableName)
+	if err != nil {
+		return nil, fmt.Errorf("無効なテーブル名: %w", err)
+	}
+
 	query := fmt.Sprintf("SELECT %s FROM %s GROUP BY %s ORDER BY %s",
 		selectClause,
-		quoteIdentifierForDB(ds.DBType, tableName),
+		quotedTable,
 		xField,
 		xField)
 
@@ -417,7 +469,12 @@ func (e *ExternalQueryExecutor) CountRecords(ctx context.Context, ds *models.Dat
 	}
 	defer func() { _ = db.Close() }()
 
-	query := fmt.Sprintf("SELECT COUNT(*) FROM %s", quoteIdentifierForDB(ds.DBType, tableName))
+	quotedTable, err := quoteIdentifierForDB(tableName)
+	if err != nil {
+		return 0, fmt.Errorf("無効なテーブル名: %w", err)
+	}
+
+	query := fmt.Sprintf("SELECT COUNT(*) FROM %s", quotedTable)
 	var count int64
 	if err := db.QueryRowContext(ctx, query).Scan(&count); err != nil {
 		return 0, fmt.Errorf("レコード数の取得に失敗しました: %w", err)
@@ -425,10 +482,26 @@ func (e *ExternalQueryExecutor) CountRecords(ctx context.Context, ds *models.Dat
 	return count, nil
 }
 
-// quoteIdentifierForDB 識別子をダブルクォートでクォートする (PostgreSQL)。
-// 引数 dbType は将来の拡張性および呼び出し側互換性のため残す。
-func quoteIdentifierForDB(_ models.DBType, name string) string {
-	return fmt.Sprintf(`"%s"`, strings.ReplaceAll(name, `"`, `""`))
+// quoteIdentifierForDB 識別子を検証してダブルクォートでクォートする (PostgreSQL)。
+//
+// externalIdentifierRegex（制御文字を拒否するデナイリスト）による MatchString ガードを
+// 本関数内に直接置くことで、戻り値（クォート済み識別子）のデータフロー上にサニタイザバリアを乗せ、
+// 静的解析（CodeQL go/sql-injection 等）が「検証済みの識別子のみがクエリへ流れる」ことを
+// 認識できるようにする。検証に失敗した識別子はクエリに使わずエラーを返す。
+// 識別子に含まれうるダブルクォートは `"` を `""` にエスケープして無害化する。
+func quoteIdentifierForDB(name string) (string, error) {
+	if name == "" {
+		return "", fmt.Errorf("識別子を空にすることはできません")
+	}
+	if len(name) > maxExternalIdentifierLength {
+		return "", fmt.Errorf("識別子が長すぎます: 最大%dバイト", maxExternalIdentifierLength)
+	}
+	if !externalIdentifierRegex.MatchString(name) {
+		return "", fmt.Errorf("無効な識別子: 制御文字（ヌルバイト等）を含めることはできません")
+	}
+	// ダブルクォートを二重化してエスケープし、クォート済み識別子を破壊できないようにする
+	escaped := strings.ReplaceAll(name, `"`, `""`)
+	return `"` + escaped + `"`, nil
 }
 
 // getPlaceholder PostgreSQL の $N プレースホルダを返す。
