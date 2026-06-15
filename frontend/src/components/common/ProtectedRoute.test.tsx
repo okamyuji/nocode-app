@@ -19,9 +19,7 @@ vi.mock("@/stores", () => ({
 const renderWithRouter = (initialRoute = "/protected") => {
   return render(
     <ChakraProvider theme={theme}>
-      <MemoryRouter
-        initialEntries={[initialRoute]}
-      >
+      <MemoryRouter initialEntries={[initialRoute]}>
         <Routes>
           <Route path="/login" element={<div>Login Page</div>} />
           <Route
