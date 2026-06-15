@@ -21,10 +21,6 @@ const renderWithRouter = (initialRoute = "/protected") => {
     <ChakraProvider theme={theme}>
       <MemoryRouter
         initialEntries={[initialRoute]}
-        future={{
-          v7_startTransition: true,
-          v7_relativeSplatPath: true,
-        }}
       >
         <Routes>
           <Route path="/login" element={<div>Login Page</div>} />
