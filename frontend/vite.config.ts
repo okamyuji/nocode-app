@@ -17,21 +17,39 @@ export default defineConfig({
     rollupOptions: {
       output: {
         // 大きな依存関係のベンダーチャンク分割
-        manualChunks: {
-          "vendor-react": ["react", "react-dom", "react-router-dom"],
-          "vendor-chakra": [
-            "@chakra-ui/react",
-            "@emotion/react",
-            "@emotion/styled",
-            "framer-motion",
-          ],
-          "vendor-query": ["@tanstack/react-query", "axios"],
-          "vendor-charts": ["recharts"],
-          "vendor-dnd": [
-            "@dnd-kit/core",
-            "@dnd-kit/sortable",
-            "@dnd-kit/utilities",
-          ],
+        manualChunks(id: string) {
+          if (
+            id.includes("react-dom") ||
+            id.includes("react-router-dom") ||
+            // match react but not react-dom/react-router-dom/react-icons etc.
+            /\/node_modules\/react\//.test(id)
+          ) {
+            return "vendor-react";
+          }
+          if (
+            id.includes("@chakra-ui/react") ||
+            id.includes("@emotion/react") ||
+            id.includes("@emotion/styled") ||
+            id.includes("framer-motion")
+          ) {
+            return "vendor-chakra";
+          }
+          if (
+            id.includes("@tanstack/react-query") ||
+            id.includes("/axios/")
+          ) {
+            return "vendor-query";
+          }
+          if (id.includes("/recharts/")) {
+            return "vendor-charts";
+          }
+          if (
+            id.includes("@dnd-kit/core") ||
+            id.includes("@dnd-kit/sortable") ||
+            id.includes("@dnd-kit/utilities")
+          ) {
+            return "vendor-dnd";
+          }
         },
       },
     },
