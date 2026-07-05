@@ -15,8 +15,19 @@ permissions:
   contents: read
 
 jobs:
+  security:
+    name: gitleaks secret scan
+    uses: okamyuji/reusable-workflows/.github/workflows/security-scan.yml@v1
+
   backend:
     name: Backend (Go)
+    uses: okamyuji/reusable-workflows/.github/workflows/go-ci.yml@v1
+    with:
+      working-directory: backend
+      test-command: "go test -short -race -count=1 ./..."
+
+  backend-fmt:
+    name: Backend gofmt (no diff)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -39,14 +50,14 @@ jobs:
             exit 1
           fi
 
-      - name: go vet
-        run: go vet ./...
-
-      - name: go test (unit / -short)
-        run: go test -short -race -count=1 ./...
-
   frontend:
     name: Frontend (TypeScript)
+    uses: okamyuji/reusable-workflows/.github/workflows/node-ci.yml@v1
+    with:
+      working-directory: frontend
+
+  frontend-build:
+    name: Frontend format:check + build
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -67,17 +78,8 @@ jobs:
       - name: pnpm install
         run: pnpm install --frozen-lockfile
 
-      - name: typecheck
-        run: pnpm run typecheck
-
-      - name: lint
-        run: pnpm run lint
-
       - name: format:check
         run: pnpm run format:check
-
-      - name: test
-        run: pnpm test -- --run
 
       - name: build
         run: pnpm run build
