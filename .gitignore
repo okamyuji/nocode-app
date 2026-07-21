@@ -140,10 +140,13 @@ temp/
 *.bak
 *.backup
 
-# Lock files (comment out if you want to commit them)
-# pnpm-lock.yaml
-# package-lock.json
-# yarn.lock
+# Lock files
+# パッケージマネージャは pnpm に一本化しているため、pnpm-lock.yaml のみ
+# コミットする。npm や yarn のロックファイルが紛れ込むと、CI では使われない
+# のに Dependabot だけが別 manifest として監視し、同じ脆弱性が二重に
+# アラートされるため無視する。
+package-lock.json
+yarn.lock
 
 backend/server
 
