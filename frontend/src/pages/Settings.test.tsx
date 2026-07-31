@@ -30,14 +30,7 @@ const createWrapper = (apiClient: IApiClient) => {
       <QueryClientProvider client={queryClient}>
         <ChakraProvider theme={theme}>
           <ApiClientContext.Provider value={apiClient}>
-            <BrowserRouter
-              future={{
-                v7_startTransition: true,
-                v7_relativeSplatPath: true,
-              }}
-            >
-              {children}
-            </BrowserRouter>
+            <BrowserRouter>{children}</BrowserRouter>
           </ApiClientContext.Provider>
         </ChakraProvider>
       </QueryClientProvider>

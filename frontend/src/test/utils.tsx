@@ -44,14 +44,7 @@ const AllProviders = ({ children }: AllProvidersProps) => {
     <QueryClientProvider client={queryClient}>
       <ChakraProvider theme={theme}>
         <ApiClientProvider>
-          <BrowserRouter
-            future={{
-              v7_startTransition: true,
-              v7_relativeSplatPath: true,
-            }}
-          >
-            {children}
-          </BrowserRouter>
+          <BrowserRouter>{children}</BrowserRouter>
         </ApiClientProvider>
       </ChakraProvider>
     </QueryClientProvider>

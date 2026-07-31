@@ -28,14 +28,7 @@ import { authApi } from "@/api";
 
 describe("useAuth", () => {
   const wrapper = ({ children }: { children: ReactNode }) => (
-    <BrowserRouter
-      future={{
-        v7_startTransition: true,
-        v7_relativeSplatPath: true,
-      }}
-    >
-      {children}
-    </BrowserRouter>
+    <BrowserRouter>{children}</BrowserRouter>
   );
 
   beforeEach(() => {

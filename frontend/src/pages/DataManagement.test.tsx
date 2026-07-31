@@ -155,14 +155,7 @@ const createWrapper = () => {
       <QueryClientProvider client={queryClient}>
         <ChakraProvider theme={theme}>
           <ApiClientContext.Provider value={mockApiClient}>
-            <BrowserRouter
-              future={{
-                v7_startTransition: true,
-                v7_relativeSplatPath: true,
-              }}
-            >
-              {children}
-            </BrowserRouter>
+            <BrowserRouter>{children}</BrowserRouter>
           </ApiClientContext.Provider>
         </ChakraProvider>
       </QueryClientProvider>
