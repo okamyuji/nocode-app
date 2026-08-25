@@ -685,6 +685,8 @@ erDiagram
 | created_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 作成日時 |
 | updated_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP（`set_updated_at()` BEFORE UPDATE トリガで自動更新） | 更新日時 |
 
+既存インストールでは、`init.sql`の`CREATE TABLE IF NOT EXISTS`がすでにある`data_sources`テーブルを変更しません。`db_type`のCHECK制約が4種類を許可していない場合は、PostgreSQL以外のデータソースを作成する前に`psql -d nocode_app -f backend/migrations/004_widen_data_sources_db_type.sql`を実行して制約を広げてください。
+
 #### apps テーブル
 
 | カラム名 | 型 | 制約 | 説明 |
