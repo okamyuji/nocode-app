@@ -226,8 +226,16 @@ export function DataSourceList() {
 }
 
 function getDBTypeBadgeColor(dbType: string): string {
-  if (dbType === "postgresql") {
-    return "blue";
+  switch (dbType) {
+    case "postgresql":
+      return "blue";
+    case "mysql":
+      return "orange";
+    case "oracle":
+      return "red";
+    case "sqlserver":
+      return "purple";
+    default:
+      return "gray";
   }
-  return "gray";
 }

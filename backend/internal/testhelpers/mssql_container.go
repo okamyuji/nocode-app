@@ -1,0 +1,268 @@
+package testhelpers
+
+import (
+	"context"
+	"database/sql"
+	"fmt"
+	"net/url"
+	"time"
+
+	_ "github.com/microsoft/go-mssqldb" // SQL Serverドライバ
+	"github.com/testcontainers/testcontainers-go"
+	"github.com/testcontainers/testcontainers-go/modules/mssql"
+	"github.com/testcontainers/testcontainers-go/wait"
+)
+
+// MSSQLTestContainer SQL Serverテストコンテナの設定
+type MSSQLTestContainer struct {
+	Container *mssql.MSSQLServerContainer
+	Host      string
+	Port      int
+	Database  string
+	Username  string
+	Password  string
+}
+
+// SetupMSSQLContainer SQL Serverテストコンテナをセットアップする
+func SetupMSSQLContainer(ctx context.Context) (*MSSQLTestContainer, error) {
+	dbPassword := randomTestPassword()
+
+	container, err := mssql.Run(ctx,
+		"mcr.microsoft.com/mssql/server:2022-latest",
+		mssql.WithAcceptEULA(),
+		mssql.WithPassword(dbPassword),
+		// 各子ストラテジは自前の既定タイムアウト60sを持ち、WaitUntilReady内で
+		// 親から渡されたcontextをさらに60sで包み直す。ForAll側のタイムアウトは
+		// 全体の締切を伸ばすだけで内側の60sを上書きしないため、子ごとに指定する。
+		testcontainers.WithWaitStrategy(
+			wait.ForAll(
+				wait.ForListeningPort("1433/tcp").
+					WithStartupTimeout(120*time.Second),
+				wait.ForLog("SQL Server is now ready for client connections").
+					WithStartupTimeout(120*time.Second),
+			).WithDeadline(120*time.Second)),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("SQL Serverコンテナの起動に失敗しました: %w", err)
+	}
+
+	host, err := container.Host(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("ホストの取得に失敗しました: %w", err)
+	}
+
+	mappedPort, err := container.MappedPort(ctx, "1433")
+	if err != nil {
+		return nil, fmt.Errorf("ポートの取得に失敗しました: %w", err)
+	}
+
+	return &MSSQLTestContainer{
+		Container: container,
+		Host:      host,
+		Port:      int(mappedPort.Num()),
+		Database:  "master",
+		Username:  "sa",
+		Password:  dbPassword,
+	}, nil
+}
+
+// Terminate コンテナを終了する
+func (m *MSSQLTestContainer) Terminate(ctx context.Context) error {
+	if m.Container != nil {
+		return m.Container.Terminate(ctx)
+	}
+	return nil
+}
+
+// CreateTestTable テスト用のテーブルを作成する。
+//
+// 副作用として m.Database を master から testdb へ切り替える。
+// 接続情報（Database を含む）を読んでDataSourceを組み立てる処理は、必ず本メソッドの
+// 呼び出し後に行うこと。先に読むと master を指したままになる。
+func (m *MSSQLTestContainer) CreateTestTable(ctx context.Context) error {
+	// パスワードにURLエンコードが必要
+	connStr := fmt.Sprintf("sqlserver://%s:%s@%s:%d?database=%s",
+		url.QueryEscape(m.Username), url.QueryEscape(m.Password), m.Host, m.Port, m.Database)
+
+	// SQL Serverの接続が安定するまでリトライ
+	var db *sql.DB
+	var err error
+	for i := 0; i < 10; i++ {
+		db, err = openTestDB("sqlserver", connStr)
+		if err == nil {
+			break
+		}
+		time.Sleep(time.Second)
+	}
+	if err != nil {
+		return err
+	}
+	defer func() { _ = db.Close() }()
+
+	// テストデータベースを作成する。
+	// ログインを受け付けた直後でもmasterのリカバリが終わっておらずCREATE DATABASEが
+	// 失敗することがあるため、接続リトライと同じ様式で再試行する。
+	for i := 0; i < 30; i++ {
+		_, err = db.ExecContext(ctx, `
+			IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = 'testdb')
+			BEGIN
+				CREATE DATABASE testdb
+			END
+		`)
+		if err == nil {
+			break
+		}
+		time.Sleep(2 * time.Second)
+	}
+	if err != nil {
+		return fmt.Errorf("テストデータベースの作成に失敗しました: %w", err)
+	}
+
+	// testdbに接続し直す
+	m.Database = "testdb"
+	connStr = fmt.Sprintf("sqlserver://%s:%s@%s:%d?database=%s",
+		url.QueryEscape(m.Username), url.QueryEscape(m.Password), m.Host, m.Port, m.Database)
+
+	// 作成直後のtestdbはオンラインになるまで数秒かかることがある
+	var db2 *sql.DB
+	for i := 0; i < 30; i++ {
+		db2, err = openTestDB("sqlserver", connStr)
+		if err == nil {
+			break
+		}
+		time.Sleep(2 * time.Second)
+	}
+	if err != nil {
+		return fmt.Errorf("testdbへの接続に失敗しました: %w", err)
+	}
+	defer func() { _ = db2.Close() }()
+
+	// テストテーブルを作成
+	_, err = db2.ExecContext(ctx, `
+		IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'test_table' AND schema_id = SCHEMA_ID('dbo'))
+		BEGIN
+			CREATE TABLE dbo.test_table (
+				id INT IDENTITY(1,1) PRIMARY KEY,
+				name NVARCHAR(100) NOT NULL,
+				email NVARCHAR(255),
+				age INT,
+				salary DECIMAL(10, 2),
+				is_active BIT DEFAULT 1,
+				created_at DATETIME DEFAULT GETDATE()
+			)
+		END
+	`)
+	if err != nil {
+		return fmt.Errorf("テストテーブルの作成に失敗しました: %w", err)
+	}
+
+	// テストデータを挿入
+	_, err = db2.ExecContext(ctx, `
+		IF NOT EXISTS (SELECT * FROM test_table)
+		BEGIN
+			INSERT INTO test_table (name, email, age, salary, is_active) VALUES
+			('Alice', 'alice@example.com', 30, 50000.00, 1),
+			('Bob', 'bob@example.com', 25, 45000.00, 1),
+			('Charlie', 'charlie@example.com', 35, 60000.00, 0)
+		END
+	`)
+	if err != nil {
+		return fmt.Errorf("テストデータの挿入に失敗しました: %w", err)
+	}
+
+	return nil
+}
+
+// CreateCrossSchemaTable 既定スキーマ (dbo) 以外に同名テーブルを作成する。
+//
+// メタデータ取得がスキーマで絞られていないと、この other.test_table のカラムと主キーが
+// dbo.test_table の結果に混ざる。その回帰を検出するためのフィクスチャ。
+// カラム名も主キー列もdbo側と重ならないようにしてあるので、混入すればテストが落ちる。
+func (m *MSSQLTestContainer) CreateCrossSchemaTable(ctx context.Context) error {
+	connStr := fmt.Sprintf("sqlserver://%s:%s@%s:%d?database=%s",
+		url.QueryEscape(m.Username), url.QueryEscape(m.Password), m.Host, m.Port, m.Database)
+
+	db, err := openTestDB("sqlserver", connStr)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = db.Close() }()
+
+	// CREATE SCHEMA はバッチの先頭にしか書けないため EXEC で包む。
+	_, err = db.ExecContext(ctx, `
+		IF SCHEMA_ID('other') IS NULL
+		BEGIN
+			EXEC('CREATE SCHEMA other')
+		END
+	`)
+	if err != nil {
+		return fmt.Errorf("otherスキーマの作成に失敗しました: %w", err)
+	}
+
+	_, err = db.ExecContext(ctx, `
+		IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'test_table' AND schema_id = SCHEMA_ID('other'))
+		BEGIN
+			CREATE TABLE other.test_table (
+				other_id INT IDENTITY(1,1) PRIMARY KEY,
+				other_label NVARCHAR(50) NOT NULL,
+				other_amount INT
+			)
+		END
+	`)
+	if err != nil {
+		return fmt.Errorf("other.test_tableの作成に失敗しました: %w", err)
+	}
+
+	_, err = db.ExecContext(ctx, `
+		IF NOT EXISTS (SELECT * FROM other.test_table)
+		BEGIN
+			INSERT INTO other.test_table (other_label, other_amount) VALUES
+			('X', 1),
+			('Y', 2),
+			('Z', 3),
+			('W', 4)
+		END
+	`)
+	if err != nil {
+		return fmt.Errorf("other.test_tableへのテストデータ挿入に失敗しました: %w", err)
+	}
+
+	return nil
+}
+
+// CreateTestView テスト用のビューを作成する
+func (m *MSSQLTestContainer) CreateTestView(ctx context.Context) error {
+	// testdbに接続
+	connStr := fmt.Sprintf("sqlserver://%s:%s@%s:%d?database=%s",
+		url.QueryEscape(m.Username), url.QueryEscape(m.Password), m.Host, m.Port, m.Database)
+
+	db, err := openTestDB("sqlserver", connStr)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = db.Close() }()
+
+	// 既存のビューを削除して新規作成
+	_, err = db.ExecContext(ctx, `
+		IF EXISTS (SELECT * FROM sys.views WHERE name = 'test_view')
+		BEGIN
+			DROP VIEW test_view
+		END
+	`)
+	if err != nil {
+		return fmt.Errorf("既存ビューの削除に失敗しました: %w", err)
+	}
+
+	// テストビューを作成（アクティブなユーザーのみを表示）
+	_, err = db.ExecContext(ctx, `
+		CREATE VIEW test_view AS
+		SELECT id, name, email, age, salary
+		FROM test_table
+		WHERE is_active = 1
+	`)
+	if err != nil {
+		return fmt.Errorf("テストビューの作成に失敗しました: %w", err)
+	}
+
+	return nil
+}

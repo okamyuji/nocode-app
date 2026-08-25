@@ -4,11 +4,17 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net"
+	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
-	_ "github.com/lib/pq" // PostgreSQL driver
+	"github.com/go-sql-driver/mysql"    // MySQL driver（DSN組み立てにmysql.Configを使うため非ブランクimport）
+	_ "github.com/lib/pq"               // PostgreSQL driver
+	_ "github.com/microsoft/go-mssqldb" // SQL Server driver
+	_ "github.com/sijms/go-ora/v2"      // Oracle driver (Pure Go)
 
 	"nocode-app/backend/internal/models"
 )
@@ -32,22 +38,89 @@ func NewExternalQueryExecutor() *ExternalQueryExecutor {
 	return &ExternalQueryExecutor{}
 }
 
-// buildDSN データソース情報からDSN文字列を構築する (PostgreSQL のみ対応)
-func buildDSN(ds *models.DataSource, password string) (string, string, error) {
-	if ds.DBType != models.DBTypePostgreSQL {
-		return "", "", fmt.Errorf("サポートされていないデータベースタイプ: %s", ds.DBType)
+// dsnForbiddenHostChars ホスト名に含まれるとDSNの構造を壊しうる文字。
+// URL形式のDSN（Oracle/SQL Server）では認証情報・パス・クエリの区切りとして解釈され、
+// キーワード形式（PostgreSQL）やmysql.Configでも接続先のすり替えにつながる。
+const dsnForbiddenHostChars = "/?@"
+
+// validateDSNHost DSNに埋め込むホスト名を検証する
+func validateDSNHost(host string) error {
+	if strings.ContainsAny(host, dsnForbiddenHostChars) {
+		return fmt.Errorf("ホスト名に使用できない文字が含まれています: %q", host)
 	}
-	dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
-		ds.Host, ds.Port, ds.Username, escapePostgresPassword(password), ds.DatabaseName)
-	return "postgres", dsn, nil
+	return nil
 }
 
-// escapePostgresPassword PostgreSQLのパスワードをエスケープする
-func escapePostgresPassword(password string) string {
-	// PostgreSQLのキーワード形式では、シングルクォートとバックスラッシュをエスケープ
-	escaped := strings.ReplaceAll(password, `\`, `\\`)
+// buildDSN データソース情報からDSN文字列を構築する。
+// DatabaseName・ユーザー名・パスワードは利用者入力であるため、各方言のエンコーダ
+// （mysql.Config.FormatDSN / url.URL / PostgreSQLの引用符付き値）を通し、
+// 接続オプションとして再解釈されないようにする。
+func buildDSN(ds *models.DataSource, password string) (string, string, error) {
+	if err := validateDSNHost(ds.Host); err != nil {
+		return "", "", err
+	}
+	addr := net.JoinHostPort(ds.Host, strconv.Itoa(ds.Port))
+
+	switch ds.DBType {
+	case models.DBTypePostgreSQL:
+		// PostgreSQLはキーワード形式を使用する。空白を含む値は次のキーワードとして
+		// 解釈されるため、利用者入力である4つの値すべてを引用符で囲む。
+		dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
+			quotePostgresValue(ds.Host),
+			ds.Port,
+			quotePostgresValue(ds.Username),
+			quotePostgresValue(password),
+			quotePostgresValue(ds.DatabaseName))
+		return "postgres", dsn, nil
+
+	case models.DBTypeMySQL:
+		// mysql.NewConfig()の既定値（AllowNativePasswords=true など）を土台にすることで、
+		// 文字列連結していた頃のDSNと挙動を揃える。
+		cfg := mysql.NewConfig()
+		cfg.User = ds.Username
+		cfg.Passwd = password
+		cfg.Net = "tcp"
+		cfg.Addr = addr
+		cfg.DBName = ds.DatabaseName
+		cfg.ParseTime = true
+		return "mysql", cfg.FormatDSN(), nil
+
+	case models.DBTypeOracle:
+		// go-ora v2 format: oracle://user:pass@host:port/service_name
+		u := url.URL{
+			Scheme: "oracle",
+			User:   url.UserPassword(ds.Username, password),
+			Host:   addr,
+		}
+		// RawPathにPathEscape済みの値を入れることで、サービス名中の "/" や "?" も
+		// パス区切り・クエリ開始として解釈されない完全エスケープ形になる。
+		u.Path = "/" + ds.DatabaseName
+		u.RawPath = "/" + url.PathEscape(ds.DatabaseName)
+		return "oracle", u.String(), nil
+
+	case models.DBTypeSQLServer:
+		// url.Valuesではなくurl.URLに組ませることで、パスワード中の空白が
+		// "+"（クエリ表現）ではなく "%20" になり、パーサが空白として復元できる。
+		u := url.URL{
+			Scheme:   "sqlserver",
+			User:     url.UserPassword(ds.Username, password),
+			Host:     addr,
+			RawQuery: url.Values{"database": {ds.DatabaseName}}.Encode(),
+		}
+		return "sqlserver", u.String(), nil
+
+	default:
+		return "", "", fmt.Errorf("サポートされていないデータベースタイプ: %s", ds.DBType)
+	}
+}
+
+// quotePostgresValue PostgreSQLのキーワード形式DSN用に値を引用符で囲む。
+// libpqは単一引用符で囲まれた値の中の空白を値の一部として扱うため、
+// 引用符で囲まない値に空白があると以降が別のキーワードとして解釈される。
+func quotePostgresValue(value string) string {
+	escaped := strings.ReplaceAll(value, `\`, `\\`)
 	escaped = strings.ReplaceAll(escaped, `'`, `\'`)
-	return escaped
+	return "'" + escaped + "'"
 }
 
 // openConnection 外部データベースへの接続を開く
@@ -88,22 +161,54 @@ func (e *ExternalQueryExecutor) TestConnection(ctx context.Context, ds *models.D
 
 // GetTables データベースのテーブル一覧を取得する（テーブルとViewの両方を含む）
 func (e *ExternalQueryExecutor) GetTables(ctx context.Context, ds *models.DataSource, password string) ([]models.TableInfo, error) {
-	if ds.DBType != models.DBTypePostgreSQL {
-		return nil, fmt.Errorf("サポートされていないデータベースタイプ: %s", ds.DBType)
-	}
-
 	db, err := openConnection(ctx, ds, password)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { _ = db.Close() }()
 
-	const query = `SELECT table_name, table_schema,
+	var query string
+	switch ds.DBType {
+	case models.DBTypePostgreSQL:
+		query = `SELECT table_name, table_schema,
 			CASE WHEN table_type = 'BASE TABLE' THEN 'TABLE' ELSE 'VIEW' END as table_type
 			FROM information_schema.tables
 			WHERE table_schema NOT IN ('pg_catalog', 'information_schema')
 			AND table_type IN ('BASE TABLE', 'VIEW')
 			ORDER BY table_schema, table_name`
+
+	case models.DBTypeMySQL:
+		query = `SELECT table_name, table_schema,
+			CASE WHEN table_type = 'BASE TABLE' THEN 'TABLE' ELSE 'VIEW' END as table_type
+			FROM information_schema.tables
+			WHERE table_schema = DATABASE()
+			AND table_type IN ('BASE TABLE', 'VIEW')
+			ORDER BY table_name`
+
+	case models.DBTypeOracle:
+		// OracleはUNION ALLでテーブルとViewを結合
+		query = `SELECT table_name, owner as table_schema, 'TABLE' as table_type
+			FROM all_tables
+			WHERE owner = USER
+			UNION ALL
+			SELECT view_name as table_name, owner as table_schema, 'VIEW' as table_type
+			FROM all_views
+			WHERE owner = USER
+			ORDER BY 1`
+
+	case models.DBTypeSQLServer:
+		// GetRecords等が発行する非修飾の [table] は接続既定スキーマ (SCHEMA_NAME()) に解決されるため、
+		// メタデータ側も同じスキーマに絞らないと、参照できない同名テーブルを一覧に出してしまう。
+		query = `SELECT table_name, table_schema,
+			CASE WHEN table_type = 'BASE TABLE' THEN 'TABLE' ELSE 'VIEW' END as table_type
+			FROM information_schema.tables
+			WHERE table_type IN ('BASE TABLE', 'VIEW')
+			AND table_schema = SCHEMA_NAME()
+			ORDER BY table_schema, table_name`
+
+	default:
+		return nil, fmt.Errorf("サポートされていないデータベースタイプ: %s", ds.DBType)
+	}
 
 	rows, err := db.QueryContext(ctx, query)
 	if err != nil {
@@ -130,20 +235,21 @@ func (e *ExternalQueryExecutor) GetTables(ctx context.Context, ds *models.DataSo
 
 // GetColumns テーブルのカラム一覧を取得する
 func (e *ExternalQueryExecutor) GetColumns(ctx context.Context, ds *models.DataSource, password string, tableName string) ([]models.ColumnInfo, error) {
-	if ds.DBType != models.DBTypePostgreSQL {
-		return nil, fmt.Errorf("サポートされていないデータベースタイプ: %s", ds.DBType)
-	}
-
 	db, err := openConnection(ctx, ds, password)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { _ = db.Close() }()
 
-	// スキーマ未指定なら接続中の検索パスのスキーマ (current_schema()) で絞る。
-	// マルチスキーマ DB で同名テーブルが存在しても他スキーマのカラムや PK 制約を
-	// 拾わないようにする。
-	const query = `SELECT
+	var query string
+	var args []interface{}
+
+	switch ds.DBType {
+	case models.DBTypePostgreSQL:
+		// スキーマ未指定なら接続中の検索パスのスキーマ (current_schema()) で絞る。
+		// マルチスキーマ DB で同名テーブルが存在しても他スキーマのカラムや PK 制約を
+		// 拾わないようにする。
+		query = `SELECT
 			c.column_name,
 			c.data_type,
 			CASE WHEN c.is_nullable = 'YES' THEN true ELSE false END as is_nullable,
@@ -161,8 +267,80 @@ func (e *ExternalQueryExecutor) GetColumns(ctx context.Context, ds *models.DataS
 		WHERE c.table_name = $1
 			AND c.table_schema = current_schema()
 		ORDER BY c.ordinal_position`
+		args = []interface{}{tableName}
 
-	rows, err := db.QueryContext(ctx, query, tableName)
+	case models.DBTypeMySQL:
+		query = `SELECT
+			column_name,
+			data_type,
+			CASE WHEN is_nullable = 'YES' THEN true ELSE false END as is_nullable,
+			CASE WHEN column_key = 'PRI' THEN true ELSE false END as is_primary_key,
+			COALESCE(column_default, '') as default_value
+		FROM information_schema.columns
+		WHERE table_schema = DATABASE() AND table_name = ?
+		ORDER BY ordinal_position`
+		args = []interface{}{tableName}
+
+	case models.DBTypeOracle:
+		// DATA_DEFAULTはLONG型のため、TO_CHARは使用できない
+		// 代わりに空文字を返す（デフォルト値は必須ではない）
+		query = `SELECT
+			c.column_name,
+			c.data_type,
+			CASE WHEN c.nullable = 'Y' THEN 1 ELSE 0 END as is_nullable,
+			CASE WHEN cc.constraint_type = 'P' THEN 1 ELSE 0 END as is_primary_key,
+			'' as default_value
+		FROM all_tab_columns c
+		LEFT JOIN (
+			SELECT acc.column_name, ac.constraint_type
+			FROM all_cons_columns acc
+			JOIN all_constraints ac
+				ON ac.owner = acc.owner
+				AND ac.constraint_name = acc.constraint_name
+				AND ac.table_name = acc.table_name
+			WHERE ac.constraint_type = 'P' AND acc.table_name = :1
+				AND acc.owner = USER AND ac.owner = USER
+		) cc ON c.column_name = cc.column_name
+		WHERE c.table_name = :2 AND c.owner = USER
+		ORDER BY c.column_id`
+		// データディクショナリは非クォート識別子を大文字で保持するため、バインド値も大文字化する。
+		// これを怠るとquoteIdentifierForDBが大文字化するGetRecordsは成功するのに
+		// カラム一覧だけ空になる、という食い違いが起きる。
+		oracleTable := oracleObjectName(tableName)
+		args = []interface{}{oracleTable, oracleTable}
+
+	case models.DBTypeSQLServer:
+		// 非修飾の [table] は SCHEMA_NAME() に解決されるため、カラムもPK判定も同じスキーマに絞る。
+		// 絞らないと他スキーマの同名テーブルのカラムとPKフラグが混ざる。
+		query = `SELECT
+			c.COLUMN_NAME,
+			c.DATA_TYPE,
+			CASE WHEN c.IS_NULLABLE = 'YES' THEN 1 ELSE 0 END as is_nullable,
+			CASE WHEN pk.COLUMN_NAME IS NOT NULL THEN 1 ELSE 0 END as is_primary_key,
+			ISNULL(c.COLUMN_DEFAULT, '') as default_value
+		FROM INFORMATION_SCHEMA.COLUMNS c
+		LEFT JOIN (
+			SELECT ku.TABLE_CATALOG, ku.TABLE_SCHEMA, ku.TABLE_NAME, ku.COLUMN_NAME
+			FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS tc
+			JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE ku
+				ON tc.CONSTRAINT_CATALOG = ku.CONSTRAINT_CATALOG
+				AND tc.CONSTRAINT_SCHEMA = ku.CONSTRAINT_SCHEMA
+				AND tc.CONSTRAINT_NAME = ku.CONSTRAINT_NAME
+			WHERE tc.CONSTRAINT_TYPE = 'PRIMARY KEY'
+		) pk
+			ON pk.TABLE_CATALOG = c.TABLE_CATALOG
+			AND pk.TABLE_SCHEMA = c.TABLE_SCHEMA
+			AND pk.TABLE_NAME = c.TABLE_NAME
+			AND pk.COLUMN_NAME = c.COLUMN_NAME
+		WHERE c.TABLE_NAME = @p1 AND c.TABLE_SCHEMA = SCHEMA_NAME()
+		ORDER BY c.ORDINAL_POSITION`
+		args = []interface{}{tableName}
+
+	default:
+		return nil, fmt.Errorf("サポートされていないデータベースタイプ: %s", ds.DBType)
+	}
+
+	rows, err := db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("カラム一覧の取得に失敗しました: %w", err)
 	}
@@ -196,7 +374,7 @@ func (e *ExternalQueryExecutor) GetRecords(ctx context.Context, ds *models.DataS
 	defer func() { _ = db.Close() }()
 
 	// テーブル名を検証してクォート
-	quotedTable, err := quoteIdentifierForDB(tableName)
+	quotedTable, err := quoteIdentifierForDB(ds.DBType, tableName)
 	if err != nil {
 		return nil, 0, fmt.Errorf("無効なテーブル名: %w", err)
 	}
@@ -208,7 +386,7 @@ func (e *ExternalQueryExecutor) GetRecords(ctx context.Context, ds *models.DataS
 		if f.SourceColumnName != nil && *f.SourceColumnName != "" {
 			colName = *f.SourceColumnName
 		}
-		quotedCol, colErr := quoteIdentifierForDB(colName)
+		quotedCol, colErr := quoteIdentifierForDB(ds.DBType, colName)
 		if colErr != nil {
 			return nil, 0, fmt.Errorf("無効なカラム名 %q: %w", colName, colErr)
 		}
@@ -227,7 +405,8 @@ func (e *ExternalQueryExecutor) GetRecords(ctx context.Context, ds *models.DataS
 		strings.Join(columns, ", "),
 		quotedTable)
 
-	// ORDER BY
+	// ORDER BY の並び替え式（クォート済みカラム + 方向）を組み立てる
+	sortSQL := ""
 	if opts.Sort != "" {
 		sortCol := opts.Sort
 		// フィールドからsource_column_nameを取得
@@ -239,7 +418,7 @@ func (e *ExternalQueryExecutor) GetRecords(ctx context.Context, ds *models.DataS
 				break
 			}
 		}
-		quotedSort, sortErr := quoteIdentifierForDB(sortCol)
+		quotedSort, sortErr := quoteIdentifierForDB(ds.DBType, sortCol)
 		if sortErr != nil {
 			return nil, 0, fmt.Errorf("無効なソートカラム %q: %w", sortCol, sortErr)
 		}
@@ -247,12 +426,12 @@ func (e *ExternalQueryExecutor) GetRecords(ctx context.Context, ds *models.DataS
 		if opts.Order == "desc" {
 			order = "DESC"
 		}
-		query += fmt.Sprintf(" ORDER BY %s %s", quotedSort, order)
+		sortSQL = fmt.Sprintf("%s %s", quotedSort, order)
 	}
 
-	// LIMIT/OFFSET
+	// ORDER BY と LIMIT/OFFSET
 	offset := (opts.Page - 1) * opts.Limit
-	query += buildLimitOffset(ds.DBType, opts.Limit, offset)
+	query += buildOrderAndLimit(ds.DBType, sortSQL, opts.Limit, offset)
 
 	rows, err := db.QueryContext(ctx, query)
 	if err != nil {
@@ -285,7 +464,7 @@ func (e *ExternalQueryExecutor) GetRecordByID(ctx context.Context, ds *models.Da
 	defer func() { _ = db.Close() }()
 
 	// テーブル名を検証してクォート
-	quotedTable, err := quoteIdentifierForDB(tableName)
+	quotedTable, err := quoteIdentifierForDB(ds.DBType, tableName)
 	if err != nil {
 		return nil, fmt.Errorf("無効なテーブル名: %w", err)
 	}
@@ -297,7 +476,7 @@ func (e *ExternalQueryExecutor) GetRecordByID(ctx context.Context, ds *models.Da
 		if f.SourceColumnName != nil && *f.SourceColumnName != "" {
 			colName = *f.SourceColumnName
 		}
-		quotedCol, colErr := quoteIdentifierForDB(colName)
+		quotedCol, colErr := quoteIdentifierForDB(ds.DBType, colName)
 		if colErr != nil {
 			return nil, fmt.Errorf("無効なカラム名 %q: %w", colName, colErr)
 		}
@@ -319,7 +498,7 @@ func (e *ExternalQueryExecutor) GetRecordByID(ctx context.Context, ds *models.Da
 		}
 	}
 
-	quotedPK, err := quoteIdentifierForDB(pkColumn)
+	quotedPK, err := quoteIdentifierForDB(ds.DBType, pkColumn)
 	if err != nil {
 		return nil, fmt.Errorf("無効な主キーカラム %q: %w", pkColumn, err)
 	}
@@ -380,7 +559,7 @@ func (e *ExternalQueryExecutor) GetAggregatedData(ctx context.Context, ds *model
 	if !ok {
 		return nil, fmt.Errorf("x-axis field '%s' not found", req.XAxis.Field)
 	}
-	xField, err := quoteIdentifierForDB(xColumnName)
+	xField, err := quoteIdentifierForDB(ds.DBType, xColumnName)
 	if err != nil {
 		return nil, fmt.Errorf("無効なX軸フィールド %q: %w", xColumnName, err)
 	}
@@ -394,7 +573,7 @@ func (e *ExternalQueryExecutor) GetAggregatedData(ctx context.Context, ds *model
 		if !ok {
 			return nil, fmt.Errorf("y-axis field '%s' not found", req.YAxis.Field)
 		}
-		yField, yErr := quoteIdentifierForDB(yColumnName)
+		yField, yErr := quoteIdentifierForDB(ds.DBType, yColumnName)
 		if yErr != nil {
 			return nil, fmt.Errorf("無効なY軸フィールド %q: %w", yColumnName, yErr)
 		}
@@ -403,7 +582,7 @@ func (e *ExternalQueryExecutor) GetAggregatedData(ctx context.Context, ds *model
 		selectClause = fmt.Sprintf("%s, COUNT(*) as value", xField)
 	}
 
-	quotedTable, err := quoteIdentifierForDB(tableName)
+	quotedTable, err := quoteIdentifierForDB(ds.DBType, tableName)
 	if err != nil {
 		return nil, fmt.Errorf("無効なテーブル名: %w", err)
 	}
@@ -469,7 +648,7 @@ func (e *ExternalQueryExecutor) CountRecords(ctx context.Context, ds *models.Dat
 	}
 	defer func() { _ = db.Close() }()
 
-	quotedTable, err := quoteIdentifierForDB(tableName)
+	quotedTable, err := quoteIdentifierForDB(ds.DBType, tableName)
 	if err != nil {
 		return 0, fmt.Errorf("無効なテーブル名: %w", err)
 	}
@@ -482,14 +661,23 @@ func (e *ExternalQueryExecutor) CountRecords(ctx context.Context, ds *models.Dat
 	return count, nil
 }
 
-// quoteIdentifierForDB 識別子を検証してダブルクォートでクォートする (PostgreSQL)。
+// oracleObjectName Oracleのデータディクショナリ（all_tab_columns等）へバインドする
+// オブジェクト名を大文字化する。Oracleは非クォート識別子を大文字で格納するため、
+// quoteIdentifierForDBのOracle分岐と同じ規則を適用しないと、
+// メタデータ検索だけが空振りして実データ取得と結果が食い違う。
+func oracleObjectName(name string) string {
+	return strings.ToUpper(name)
+}
+
+// quoteIdentifierForDB 識別子を検証してデータベースタイプに応じてクォートする。
 //
 // externalIdentifierRegex（制御文字を拒否するデナイリスト）による MatchString ガードを
 // 本関数内に直接置くことで、戻り値（クォート済み識別子）のデータフロー上にサニタイザバリアを乗せ、
 // 静的解析（CodeQL go/sql-injection 等）が「検証済みの識別子のみがクエリへ流れる」ことを
 // 認識できるようにする。検証に失敗した識別子はクエリに使わずエラーを返す。
-// 識別子に含まれうるダブルクォートは `"` を `""` にエスケープして無害化する。
-func quoteIdentifierForDB(name string) (string, error) {
+// 識別子に含まれうるクォート文字は方言ごとに二重化して無害化する
+// （PostgreSQL / Oracle はダブルクォート、MySQL はバッククォート、SQL Server は閉じ角括弧を二重化する）。
+func quoteIdentifierForDB(dbType models.DBType, name string) (string, error) {
 	if name == "" {
 		return "", fmt.Errorf("識別子を空にすることはできません")
 	}
@@ -499,19 +687,63 @@ func quoteIdentifierForDB(name string) (string, error) {
 	if !externalIdentifierRegex.MatchString(name) {
 		return "", fmt.Errorf("無効な識別子: 制御文字（ヌルバイト等）を含めることはできません")
 	}
-	// ダブルクォートを二重化してエスケープし、クォート済み識別子を破壊できないようにする
-	escaped := strings.ReplaceAll(name, `"`, `""`)
-	return `"` + escaped + `"`, nil
+
+	switch dbType {
+	case models.DBTypePostgreSQL:
+		return fmt.Sprintf(`"%s"`, strings.ReplaceAll(name, `"`, `""`)), nil
+	case models.DBTypeMySQL:
+		return fmt.Sprintf("`%s`", strings.ReplaceAll(name, "`", "``")), nil
+	case models.DBTypeOracle:
+		// Oracleの非クォート識別子は大文字で格納されるため、大文字化してからクォートする
+		return fmt.Sprintf(`"%s"`, strings.ReplaceAll(strings.ToUpper(name), `"`, `""`)), nil
+	case models.DBTypeSQLServer:
+		return fmt.Sprintf("[%s]", strings.ReplaceAll(name, "]", "]]")), nil
+	default:
+		return "", fmt.Errorf("サポートされていないデータベースタイプ: %s", dbType)
+	}
 }
 
-// getPlaceholder PostgreSQL の $N プレースホルダを返す。
-func getPlaceholder(_ models.DBType, index int) string {
-	return fmt.Sprintf("$%d", index)
+// getPlaceholder データベースタイプに応じたプレースホルダーを返す
+func getPlaceholder(dbType models.DBType, index int) string {
+	switch dbType {
+	case models.DBTypePostgreSQL:
+		return fmt.Sprintf("$%d", index)
+	case models.DBTypeOracle:
+		return fmt.Sprintf(":%d", index)
+	case models.DBTypeSQLServer:
+		return fmt.Sprintf("@p%d", index)
+	default: // MySQL
+		return "?"
+	}
 }
 
-// buildLimitOffset PostgreSQL の LIMIT/OFFSET 句を構築する。
-func buildLimitOffset(_ models.DBType, limit, offset int) string {
-	return fmt.Sprintf(" LIMIT %d OFFSET %d", limit, offset)
+// buildLimitOffset データベースタイプに応じたLIMIT/OFFSET句を構築する
+func buildLimitOffset(dbType models.DBType, limit, offset int) string {
+	switch dbType {
+	case models.DBTypeOracle:
+		return fmt.Sprintf(" OFFSET %d ROWS FETCH NEXT %d ROWS ONLY", offset, limit)
+	case models.DBTypeSQLServer:
+		// SQL Serverの場合、ORDER BYが必要
+		return fmt.Sprintf(" OFFSET %d ROWS FETCH NEXT %d ROWS ONLY", offset, limit)
+	default: // PostgreSQL, MySQL
+		return fmt.Sprintf(" LIMIT %d OFFSET %d", limit, offset)
+	}
+}
+
+// buildOrderAndLimit ORDER BY句とLIMIT/OFFSET句を組み立てる。
+// sortSQLは検証・クォート済みの並び替え式（例: `"id" ASC`）で、空なら並び替えを指定しない。
+//
+// SQL ServerはOFFSET/FETCHをORDER BY無しで受け付けないため、並び替え指定が無い場合だけ
+// ORDER BY (SELECT NULL) を補って構文を成立させる。他の方言の出力は変えない。
+func buildOrderAndLimit(dbType models.DBType, sortSQL string, limit, offset int) string {
+	orderBy := ""
+	switch {
+	case sortSQL != "":
+		orderBy = " ORDER BY " + sortSQL
+	case dbType == models.DBTypeSQLServer:
+		orderBy = " ORDER BY (SELECT NULL)"
+	}
+	return orderBy + buildLimitOffset(dbType, limit, offset)
 }
 
 // scanExternalRecordRow 外部DBの行からレコードをスキャンする
@@ -534,18 +766,65 @@ func scanExternalRecordRow(rows *sql.Rows, fields []models.AppField) (*models.Re
 	// IDを取得（idフィールドがあれば）
 	var id uint64
 	if idVal, ok := data["id"]; ok {
-		switch v := idVal.(type) {
-		case int64:
-			id = uint64(v)
-		case uint64:
-			id = v
-		case float64:
-			id = uint64(v)
-		}
+		id = parseRecordID(idVal)
 	}
 
 	return &models.RecordResponse{
 		ID:   id,
 		Data: data,
 	}, nil
+}
+
+// parseRecordID スキャン済みの値をレコードIDへ変換する。変換できない値は0を返す。
+//
+// go-oraはNUMBER列（IDENTITYのidを含む）をinterface{}にスキャンすると文字列で返すため、
+// 数値型だけを見ているとOracleのレコードIDが常に0になる。
+func parseRecordID(v interface{}) uint64 {
+	switch val := v.(type) {
+	case int64:
+		if val < 0 {
+			return 0
+		}
+		return uint64(val)
+	case int32:
+		if val < 0 {
+			return 0
+		}
+		return uint64(val)
+	case int:
+		if val < 0 {
+			return 0
+		}
+		return uint64(val)
+	case uint64:
+		return val
+	case float64:
+		if val < 0 {
+			return 0
+		}
+		return uint64(val)
+	case string:
+		return parseRecordIDString(val)
+	case []byte:
+		return parseRecordIDString(string(val))
+	default:
+		return 0
+	}
+}
+
+// parseRecordIDString 文字列表現のレコードIDを解釈する。
+// go-oraはNUMBERを "1" だけでなく "1.00" のような小数表記で返すことがあるため、
+// 整数として読めなければ浮動小数点としても試す。
+func parseRecordIDString(s string) uint64 {
+	trimmed := strings.TrimSpace(s)
+	if trimmed == "" {
+		return 0
+	}
+	if n, err := strconv.ParseUint(trimmed, 10, 64); err == nil {
+		return n
+	}
+	if f, err := strconv.ParseFloat(trimmed, 64); err == nil && f >= 0 {
+		return uint64(f)
+	}
+	return 0
 }

@@ -14,10 +14,10 @@ func TestIsValidDBType(t *testing.T) {
 		expected bool
 	}{
 		{"postgresql is valid", "postgresql", true},
-		{"mysql is invalid", "mysql", false},
-		{"oracle is invalid", "oracle", false},
-		{"sqlserver is invalid", "sqlserver", false},
-		{"unknown type", "mongodb", false},
+		{"mysql is valid", "mysql", true},
+		{"oracle is valid", "oracle", true},
+		{"sqlserver is valid", "sqlserver", true},
+		{"invalid type", "mongodb", false},
 		{"empty string", "", false},
 		{"uppercase is invalid", "POSTGRESQL", false},
 	}
@@ -37,6 +37,9 @@ func TestGetDefaultPort(t *testing.T) {
 		expected int
 	}{
 		{"postgresql default port", DBTypePostgreSQL, 5432},
+		{"mysql default port", DBTypeMySQL, 3306},
+		{"oracle default port", DBTypeOracle, 1521},
+		{"sqlserver default port", DBTypeSQLServer, 1433},
 		{"unknown type", DBType("unknown"), 0},
 	}
 
@@ -79,7 +82,10 @@ func TestDataSource_ToResponse(t *testing.T) {
 }
 
 func TestValidDBTypes(t *testing.T) {
-	// PostgreSQL のみがサポート対象
-	assert.Len(t, ValidDBTypes, 1)
+	// ValidDBTypesが正しい値を含んでいることを確認
+	assert.Len(t, ValidDBTypes, 4)
 	assert.Contains(t, ValidDBTypes, DBTypePostgreSQL)
+	assert.Contains(t, ValidDBTypes, DBTypeMySQL)
+	assert.Contains(t, ValidDBTypes, DBTypeOracle)
+	assert.Contains(t, ValidDBTypes, DBTypeSQLServer)
 }

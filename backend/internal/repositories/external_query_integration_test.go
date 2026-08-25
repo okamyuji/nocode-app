@@ -146,6 +146,45 @@ func TestExternalQueryExecutor_PostgreSQL_Integration(t *testing.T) {
 
 		assert.Equal(t, int64(3), total, "レコード数が一致しません")
 		assert.Len(t, records, 3, "取得されたレコード数が一致しません")
+		assert.NotZero(t, records[0].ID, "レコードIDが0です（ID列の型変換に失敗しています）")
+	})
+
+	t.Run("GetAggregatedData", func(t *testing.T) {
+		fields := createTestFields()
+
+		countRes, err := executor.GetAggregatedData(ctx, ds, container.Password, "test_table", fields,
+			&models.ChartDataRequest{
+				ChartType: "bar",
+				XAxis:     models.ChartAxis{Field: "name", Label: "名前"},
+				YAxis:     models.ChartAxis{Label: "件数", Aggregation: "count"},
+			})
+		require.NoError(t, err, "集計データ(count)の取得に失敗しました")
+		require.Len(t, countRes.Datasets, 1, "データセット数が一致しません")
+		assert.NotEmpty(t, countRes.Labels, "ラベルが空です")
+		require.Len(t, countRes.Datasets[0].Data, len(countRes.Labels), "ラベル数と値の数が一致しません")
+
+		var countTotal float64
+		for _, v := range countRes.Datasets[0].Data {
+			countTotal += v
+		}
+		assert.Equal(t, float64(3), countTotal, "countの合計が挿入行数と一致しません")
+
+		sumRes, err := executor.GetAggregatedData(ctx, ds, container.Password, "test_table", fields,
+			&models.ChartDataRequest{
+				ChartType: "bar",
+				XAxis:     models.ChartAxis{Field: "name", Label: "名前"},
+				YAxis:     models.ChartAxis{Field: "salary", Label: "給与合計", Aggregation: "sum"},
+			})
+		require.NoError(t, err, "集計データ(sum)の取得に失敗しました")
+		require.Len(t, sumRes.Datasets, 1, "データセット数が一致しません")
+		assert.NotEmpty(t, sumRes.Labels, "ラベルが空です")
+		require.Len(t, sumRes.Datasets[0].Data, len(sumRes.Labels), "ラベル数と値の数が一致しません")
+
+		var salaryTotal float64
+		for _, v := range sumRes.Datasets[0].Data {
+			salaryTotal += v
+		}
+		assert.InDelta(t, 155000.0, salaryTotal, 0.01, "salaryの合計が一致しません")
 	})
 
 	t.Run("CountRecords", func(t *testing.T) {
@@ -156,7 +195,612 @@ func TestExternalQueryExecutor_PostgreSQL_Integration(t *testing.T) {
 	})
 }
 
-// createTestFields PostgreSQL 用のテストフィールドセットを作成する
+// TestExternalQueryExecutor_MySQL_Integration MySQLの統合テスト
+func TestExternalQueryExecutor_MySQL_Integration(t *testing.T) {
+	if testing.Short() {
+		t.Skip("統合テストはショートモードでスキップされます")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	// MySQLコンテナをセットアップ
+	container, err := testhelpers.SetupMySQLExternalContainer(ctx)
+	require.NoError(t, err, "MySQLコンテナのセットアップに失敗しました")
+	defer func() {
+		if termErr := container.Terminate(ctx); termErr != nil {
+			t.Logf("コンテナの終了に失敗しました: %v", termErr)
+		}
+	}()
+
+	// テストテーブルを作成
+	err = container.CreateTestTable(ctx)
+	require.NoError(t, err, "テストテーブルの作成に失敗しました")
+
+	// ExternalQueryExecutorを作成
+	executor := NewExternalQueryExecutor()
+
+	// DataSourceを作成
+	ds := &models.DataSource{
+		DBType:       models.DBTypeMySQL,
+		Host:         container.Host,
+		Port:         container.Port,
+		DatabaseName: container.Database,
+		Username:     container.Username,
+	}
+
+	t.Run("TestConnection", func(t *testing.T) {
+		err := executor.TestConnection(ctx, ds, container.Password)
+		assert.NoError(t, err, "MySQL接続テストに失敗しました")
+	})
+
+	t.Run("GetTables", func(t *testing.T) {
+		tables, err := executor.GetTables(ctx, ds, container.Password)
+		require.NoError(t, err, "テーブル一覧の取得に失敗しました")
+
+		// test_tableが存在することを確認
+		found := false
+		for _, table := range tables {
+			if table.Name == "test_table" {
+				found = true
+				assert.Equal(t, models.TableTypeTable, table.Type, "test_tableのタイプがTABLEではありません")
+				break
+			}
+		}
+		assert.True(t, found, "test_tableが見つかりませんでした")
+	})
+
+	t.Run("GetTablesIncludingViews", func(t *testing.T) {
+		// テストビューを作成
+		err := container.CreateTestView(ctx)
+		require.NoError(t, err, "テストビューの作成に失敗しました")
+
+		tables, err := executor.GetTables(ctx, ds, container.Password)
+		require.NoError(t, err, "テーブル一覧の取得に失敗しました")
+
+		// test_viewが存在することを確認
+		foundView := false
+		foundTable := false
+		for _, table := range tables {
+			if table.Name == "test_view" {
+				foundView = true
+				assert.Equal(t, models.TableTypeView, table.Type, "test_viewのタイプがVIEWではありません")
+			}
+			if table.Name == "test_table" {
+				foundTable = true
+				assert.Equal(t, models.TableTypeTable, table.Type, "test_tableのタイプがTABLEではありません")
+			}
+		}
+		assert.True(t, foundView, "test_viewが見つかりませんでした")
+		assert.True(t, foundTable, "test_tableが見つかりませんでした")
+	})
+
+	t.Run("GetViewColumns", func(t *testing.T) {
+		// ビューのカラム一覧を取得
+		columns, err := executor.GetColumns(ctx, ds, container.Password, "test_view")
+		require.NoError(t, err, "ビューのカラム一覧の取得に失敗しました")
+
+		// カラムが存在することを確認（ビューはid, name, email, age, salaryの5カラム）
+		assert.GreaterOrEqual(t, len(columns), 5, "ビューのカラム数が不足しています")
+
+		// 各カラムの存在を確認
+		columnNames := make(map[string]bool)
+		for _, col := range columns {
+			columnNames[col.Name] = true
+		}
+
+		expectedColumns := []string{"id", "name", "email", "age", "salary"}
+		for _, expected := range expectedColumns {
+			assert.True(t, columnNames[expected], "カラム %s が見つかりませんでした", expected)
+		}
+	})
+
+	t.Run("GetColumns", func(t *testing.T) {
+		columns, err := executor.GetColumns(ctx, ds, container.Password, "test_table")
+		require.NoError(t, err, "カラム一覧の取得に失敗しました")
+
+		// カラムが存在することを確認
+		assert.GreaterOrEqual(t, len(columns), 7, "カラム数が不足しています")
+
+		// 各カラムの存在を確認
+		columnNames := make(map[string]bool)
+		for _, col := range columns {
+			columnNames[col.Name] = true
+		}
+
+		expectedColumns := []string{"id", "name", "email", "age", "salary", "is_active", "created_at"}
+		for _, expected := range expectedColumns {
+			assert.True(t, columnNames[expected], "カラム %s が見つかりませんでした", expected)
+		}
+	})
+
+	t.Run("GetRecords", func(t *testing.T) {
+		fields := createTestFields()
+		opts := RecordQueryOptions{
+			Page:  1,
+			Limit: 10,
+		}
+
+		records, total, err := executor.GetRecords(ctx, ds, container.Password, "test_table", fields, opts)
+		require.NoError(t, err, "レコードの取得に失敗しました")
+
+		assert.Equal(t, int64(3), total, "レコード数が一致しません")
+		assert.Len(t, records, 3, "取得されたレコード数が一致しません")
+		assert.NotZero(t, records[0].ID, "レコードIDが0です（ID列の型変換に失敗しています）")
+	})
+
+	t.Run("GetAggregatedData", func(t *testing.T) {
+		fields := createTestFields()
+
+		countRes, err := executor.GetAggregatedData(ctx, ds, container.Password, "test_table", fields,
+			&models.ChartDataRequest{
+				ChartType: "bar",
+				XAxis:     models.ChartAxis{Field: "name", Label: "名前"},
+				YAxis:     models.ChartAxis{Label: "件数", Aggregation: "count"},
+			})
+		require.NoError(t, err, "集計データ(count)の取得に失敗しました")
+		require.Len(t, countRes.Datasets, 1, "データセット数が一致しません")
+		assert.NotEmpty(t, countRes.Labels, "ラベルが空です")
+		require.Len(t, countRes.Datasets[0].Data, len(countRes.Labels), "ラベル数と値の数が一致しません")
+
+		var countTotal float64
+		for _, v := range countRes.Datasets[0].Data {
+			countTotal += v
+		}
+		assert.Equal(t, float64(3), countTotal, "countの合計が挿入行数と一致しません")
+
+		sumRes, err := executor.GetAggregatedData(ctx, ds, container.Password, "test_table", fields,
+			&models.ChartDataRequest{
+				ChartType: "bar",
+				XAxis:     models.ChartAxis{Field: "name", Label: "名前"},
+				YAxis:     models.ChartAxis{Field: "salary", Label: "給与合計", Aggregation: "sum"},
+			})
+		require.NoError(t, err, "集計データ(sum)の取得に失敗しました")
+		require.Len(t, sumRes.Datasets, 1, "データセット数が一致しません")
+		assert.NotEmpty(t, sumRes.Labels, "ラベルが空です")
+		require.Len(t, sumRes.Datasets[0].Data, len(sumRes.Labels), "ラベル数と値の数が一致しません")
+
+		var salaryTotal float64
+		for _, v := range sumRes.Datasets[0].Data {
+			salaryTotal += v
+		}
+		assert.InDelta(t, 155000.0, salaryTotal, 0.01, "salaryの合計が一致しません")
+	})
+
+	t.Run("CountRecords", func(t *testing.T) {
+		count, err := executor.CountRecords(ctx, ds, container.Password, "test_table")
+		require.NoError(t, err, "レコード数の取得に失敗しました")
+
+		assert.Equal(t, int64(3), count, "レコード数が一致しません")
+	})
+}
+
+// TestExternalQueryExecutor_SQLServer_Integration SQL Serverの統合テスト
+func TestExternalQueryExecutor_SQLServer_Integration(t *testing.T) {
+	if testing.Short() {
+		t.Skip("統合テストはショートモードでスキップされます")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	// SQL Serverコンテナをセットアップ
+	container, err := testhelpers.SetupMSSQLContainer(ctx)
+	require.NoError(t, err, "SQL Serverコンテナのセットアップに失敗しました")
+	defer func() {
+		if termErr := container.Terminate(ctx); termErr != nil {
+			t.Logf("コンテナの終了に失敗しました: %v", termErr)
+		}
+	}()
+
+	// テストテーブルを作成
+	err = container.CreateTestTable(ctx)
+	require.NoError(t, err, "テストテーブルの作成に失敗しました")
+
+	// 既定スキーマ外に同名テーブルを作り、メタデータがスキーマで絞られていることを検証できるようにする
+	err = container.CreateCrossSchemaTable(ctx)
+	require.NoError(t, err, "他スキーマのテストテーブルの作成に失敗しました")
+
+	// ExternalQueryExecutorを作成
+	executor := NewExternalQueryExecutor()
+
+	// DataSourceを作成
+	ds := &models.DataSource{
+		DBType:       models.DBTypeSQLServer,
+		Host:         container.Host,
+		Port:         container.Port,
+		DatabaseName: container.Database,
+		Username:     container.Username,
+	}
+
+	t.Run("TestConnection", func(t *testing.T) {
+		err := executor.TestConnection(ctx, ds, container.Password)
+		assert.NoError(t, err, "SQL Server接続テストに失敗しました")
+	})
+
+	t.Run("GetTables", func(t *testing.T) {
+		tables, err := executor.GetTables(ctx, ds, container.Password)
+		require.NoError(t, err, "テーブル一覧の取得に失敗しました")
+
+		// test_tableが存在することを確認
+		found := false
+		for _, table := range tables {
+			if table.Name == "test_table" {
+				found = true
+				assert.Equal(t, models.TableTypeTable, table.Type, "test_tableのタイプがTABLEではありません")
+				break
+			}
+		}
+		assert.True(t, found, "test_tableが見つかりませんでした")
+	})
+
+	t.Run("GetTablesIncludingViews", func(t *testing.T) {
+		// テストビューを作成
+		err := container.CreateTestView(ctx)
+		require.NoError(t, err, "テストビューの作成に失敗しました")
+
+		tables, err := executor.GetTables(ctx, ds, container.Password)
+		require.NoError(t, err, "テーブル一覧の取得に失敗しました")
+
+		// test_viewが存在することを確認
+		foundView := false
+		foundTable := false
+		for _, table := range tables {
+			if table.Name == "test_view" {
+				foundView = true
+				assert.Equal(t, models.TableTypeView, table.Type, "test_viewのタイプがVIEWではありません")
+			}
+			if table.Name == "test_table" {
+				foundTable = true
+				assert.Equal(t, models.TableTypeTable, table.Type, "test_tableのタイプがTABLEではありません")
+			}
+		}
+		assert.True(t, foundView, "test_viewが見つかりませんでした")
+		assert.True(t, foundTable, "test_tableが見つかりませんでした")
+	})
+
+	t.Run("GetViewColumns", func(t *testing.T) {
+		// ビューのカラム一覧を取得
+		columns, err := executor.GetColumns(ctx, ds, container.Password, "test_view")
+		require.NoError(t, err, "ビューのカラム一覧の取得に失敗しました")
+
+		// カラムが存在することを確認（ビューはid, name, email, age, salaryの5カラム）
+		assert.GreaterOrEqual(t, len(columns), 5, "ビューのカラム数が不足しています")
+
+		// 各カラムの存在を確認
+		columnNames := make(map[string]bool)
+		for _, col := range columns {
+			columnNames[col.Name] = true
+		}
+
+		expectedColumns := []string{"id", "name", "email", "age", "salary"}
+		for _, expected := range expectedColumns {
+			assert.True(t, columnNames[expected], "カラム %s が見つかりませんでした", expected)
+		}
+	})
+
+	t.Run("GetColumns", func(t *testing.T) {
+		columns, err := executor.GetColumns(ctx, ds, container.Password, "test_table")
+		require.NoError(t, err, "カラム一覧の取得に失敗しました")
+
+		// カラムが存在することを確認
+		assert.GreaterOrEqual(t, len(columns), 7, "カラム数が不足しています")
+
+		// 各カラムの存在を確認
+		columnNames := make(map[string]bool)
+		for _, col := range columns {
+			columnNames[col.Name] = true
+		}
+
+		expectedColumns := []string{"id", "name", "email", "age", "salary", "is_active", "created_at"}
+		for _, expected := range expectedColumns {
+			assert.True(t, columnNames[expected], "カラム %s が見つかりませんでした", expected)
+		}
+	})
+
+	t.Run("CrossSchemaIsolation", func(t *testing.T) {
+		// 非修飾の [test_table] は dbo に解決される。メタデータもdboだけを返すべきで、
+		// other.test_table のカラム・主キー・行が混ざってはならない。
+		tables, err := executor.GetTables(ctx, ds, container.Password)
+		require.NoError(t, err, "テーブル一覧の取得に失敗しました")
+		for _, table := range tables {
+			assert.NotEqual(t, "other", table.Schema,
+				"既定スキーマ以外のテーブル %s.%s が一覧に含まれています", table.Schema, table.Name)
+		}
+
+		columns, err := executor.GetColumns(ctx, ds, container.Password, "test_table")
+		require.NoError(t, err, "カラム一覧の取得に失敗しました")
+
+		var columnNames []string
+		var primaryKeys []string
+		for _, col := range columns {
+			columnNames = append(columnNames, col.Name)
+			if col.IsPrimaryKey {
+				primaryKeys = append(primaryKeys, col.Name)
+			}
+		}
+
+		assert.Equal(t,
+			[]string{"id", "name", "email", "age", "salary", "is_active", "created_at"},
+			columnNames, "dboのカラムだけが定義順で返されるべきです")
+		assert.Equal(t, []string{"id"}, primaryKeys, "主キー列が想定と一致しません")
+
+		// other.test_table は4行。混入すると7になる。
+		count, err := executor.CountRecords(ctx, ds, container.Password, "test_table")
+		require.NoError(t, err, "レコード数の取得に失敗しました")
+		assert.Equal(t, int64(3), count, "dbo以外の行が数えられています")
+	})
+
+	t.Run("GetRecords", func(t *testing.T) {
+		fields := createTestFields()
+		opts := RecordQueryOptions{
+			Page:  1,
+			Limit: 10,
+			Sort:  "id",
+			Order: "asc",
+		}
+
+		records, total, err := executor.GetRecords(ctx, ds, container.Password, "test_table", fields, opts)
+		require.NoError(t, err, "レコードの取得に失敗しました")
+
+		assert.Equal(t, int64(3), total, "レコード数が一致しません")
+		assert.Len(t, records, 3, "取得されたレコード数が一致しません")
+		assert.NotZero(t, records[0].ID, "レコードIDが0です（ID列の型変換に失敗しています）")
+	})
+
+	t.Run("GetRecordsWithoutSort", func(t *testing.T) {
+		// SQL ServerのOFFSET/FETCHはORDER BY必須のため、並び替え未指定時は
+		// ORDER BY (SELECT NULL) が補われる。そのフォールバック経路を通す。
+		fields := createTestFields()
+		opts := RecordQueryOptions{
+			Page:  1,
+			Limit: 2,
+		}
+
+		records, total, err := executor.GetRecords(ctx, ds, container.Password, "test_table", fields, opts)
+		require.NoError(t, err, "並び替え未指定でのレコード取得に失敗しました")
+
+		assert.Equal(t, int64(3), total, "レコード数が一致しません")
+		assert.Len(t, records, 2, "ページサイズ分のレコードが返されていません")
+		assert.NotZero(t, records[0].ID, "レコードIDが0です")
+	})
+
+	t.Run("GetAggregatedData", func(t *testing.T) {
+		fields := createTestFields()
+
+		countRes, err := executor.GetAggregatedData(ctx, ds, container.Password, "test_table", fields,
+			&models.ChartDataRequest{
+				ChartType: "bar",
+				XAxis:     models.ChartAxis{Field: "name", Label: "名前"},
+				YAxis:     models.ChartAxis{Label: "件数", Aggregation: "count"},
+			})
+		require.NoError(t, err, "集計データ(count)の取得に失敗しました")
+		require.Len(t, countRes.Datasets, 1, "データセット数が一致しません")
+		assert.NotEmpty(t, countRes.Labels, "ラベルが空です")
+		require.Len(t, countRes.Datasets[0].Data, len(countRes.Labels), "ラベル数と値の数が一致しません")
+
+		var countTotal float64
+		for _, v := range countRes.Datasets[0].Data {
+			countTotal += v
+		}
+		assert.Equal(t, float64(3), countTotal, "countの合計が挿入行数と一致しません")
+
+		sumRes, err := executor.GetAggregatedData(ctx, ds, container.Password, "test_table", fields,
+			&models.ChartDataRequest{
+				ChartType: "bar",
+				XAxis:     models.ChartAxis{Field: "name", Label: "名前"},
+				YAxis:     models.ChartAxis{Field: "salary", Label: "給与合計", Aggregation: "sum"},
+			})
+		require.NoError(t, err, "集計データ(sum)の取得に失敗しました")
+		require.Len(t, sumRes.Datasets, 1, "データセット数が一致しません")
+		assert.NotEmpty(t, sumRes.Labels, "ラベルが空です")
+		require.Len(t, sumRes.Datasets[0].Data, len(sumRes.Labels), "ラベル数と値の数が一致しません")
+
+		var salaryTotal float64
+		for _, v := range sumRes.Datasets[0].Data {
+			salaryTotal += v
+		}
+		assert.InDelta(t, 155000.0, salaryTotal, 0.01, "salaryの合計が一致しません")
+	})
+
+	t.Run("CountRecords", func(t *testing.T) {
+		count, err := executor.CountRecords(ctx, ds, container.Password, "test_table")
+		require.NoError(t, err, "レコード数の取得に失敗しました")
+
+		assert.Equal(t, int64(3), count, "レコード数が一致しません")
+	})
+}
+
+// TestExternalQueryExecutor_Oracle_Integration Oracleの統合テスト
+func TestExternalQueryExecutor_Oracle_Integration(t *testing.T) {
+	if testing.Short() {
+		t.Skip("統合テストはショートモードでスキップされます")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute) // Oracleは起動に時間がかかる
+	defer cancel()
+
+	// Oracleコンテナをセットアップ
+	container, err := testhelpers.SetupOracleContainer(ctx)
+	require.NoError(t, err, "Oracleコンテナのセットアップに失敗しました")
+	defer func() {
+		if termErr := container.Terminate(ctx); termErr != nil {
+			t.Logf("コンテナの終了に失敗しました: %v", termErr)
+		}
+	}()
+
+	// テストテーブルを作成
+	err = container.CreateTestTable(ctx)
+	require.NoError(t, err, "テストテーブルの作成に失敗しました")
+
+	// ExternalQueryExecutorを作成
+	executor := NewExternalQueryExecutor()
+
+	// DataSourceを作成
+	ds := &models.DataSource{
+		DBType:       models.DBTypeOracle,
+		Host:         container.Host,
+		Port:         container.Port,
+		DatabaseName: container.Database,
+		Username:     container.Username,
+	}
+
+	t.Run("TestConnection", func(t *testing.T) {
+		err := executor.TestConnection(ctx, ds, container.Password)
+		assert.NoError(t, err, "Oracle接続テストに失敗しました")
+	})
+
+	t.Run("GetTables", func(t *testing.T) {
+		tables, err := executor.GetTables(ctx, ds, container.Password)
+		require.NoError(t, err, "テーブル一覧の取得に失敗しました")
+
+		// TEST_TABLEが存在することを確認（Oracleは大文字）
+		found := false
+		for _, table := range tables {
+			if table.Name == "TEST_TABLE" {
+				found = true
+				assert.Equal(t, models.TableTypeTable, table.Type, "TEST_TABLEのタイプがTABLEではありません")
+				break
+			}
+		}
+		assert.True(t, found, "TEST_TABLEが見つかりませんでした")
+	})
+
+	t.Run("GetTablesIncludingViews", func(t *testing.T) {
+		// テストビューを作成
+		err := container.CreateTestView(ctx)
+		require.NoError(t, err, "テストビューの作成に失敗しました")
+
+		tables, err := executor.GetTables(ctx, ds, container.Password)
+		require.NoError(t, err, "テーブル一覧の取得に失敗しました")
+
+		// TEST_VIEWが存在することを確認（Oracleは大文字）
+		foundView := false
+		foundTable := false
+		for _, table := range tables {
+			if table.Name == "TEST_VIEW" {
+				foundView = true
+				assert.Equal(t, models.TableTypeView, table.Type, "TEST_VIEWのタイプがVIEWではありません")
+			}
+			if table.Name == "TEST_TABLE" {
+				foundTable = true
+				assert.Equal(t, models.TableTypeTable, table.Type, "TEST_TABLEのタイプがTABLEではありません")
+			}
+		}
+		assert.True(t, foundView, "TEST_VIEWが見つかりませんでした")
+		assert.True(t, foundTable, "TEST_TABLEが見つかりませんでした")
+	})
+
+	t.Run("GetViewColumns", func(t *testing.T) {
+		// ビューのカラム一覧を取得（Oracleは大文字）
+		columns, err := executor.GetColumns(ctx, ds, container.Password, "TEST_VIEW")
+		require.NoError(t, err, "ビューのカラム一覧の取得に失敗しました")
+
+		// カラムが存在することを確認（ビューはID, NAME, EMAIL, AGE, SALARYの5カラム）
+		assert.GreaterOrEqual(t, len(columns), 5, "ビューのカラム数が不足しています")
+
+		// 各カラムの存在を確認（Oracleは大文字）
+		columnNames := make(map[string]bool)
+		for _, col := range columns {
+			columnNames[col.Name] = true
+		}
+
+		expectedColumns := []string{"ID", "NAME", "EMAIL", "AGE", "SALARY"}
+		for _, expected := range expectedColumns {
+			assert.True(t, columnNames[expected], "カラム %s が見つかりませんでした", expected)
+		}
+	})
+
+	t.Run("GetColumns", func(t *testing.T) {
+		columns, err := executor.GetColumns(ctx, ds, container.Password, "TEST_TABLE")
+		require.NoError(t, err, "カラム一覧の取得に失敗しました")
+
+		// カラムが存在することを確認
+		assert.GreaterOrEqual(t, len(columns), 7, "カラム数が不足しています")
+
+		// 各カラムの存在を確認（Oracleは大文字）
+		columnNames := make(map[string]bool)
+		for _, col := range columns {
+			columnNames[col.Name] = true
+		}
+
+		expectedColumns := []string{"ID", "NAME", "EMAIL", "AGE", "SALARY", "IS_ACTIVE", "CREATED_AT"}
+		for _, expected := range expectedColumns {
+			assert.True(t, columnNames[expected], "カラム %s が見つかりませんでした", expected)
+		}
+
+		// 主キーはID列ただ1つ。他スキーマの同名制約を拾うとここが崩れる。
+		var primaryKeys []string
+		for _, col := range columns {
+			if col.IsPrimaryKey {
+				primaryKeys = append(primaryKeys, col.Name)
+			}
+		}
+		assert.Equal(t, []string{"ID"}, primaryKeys, "主キー列が想定と一致しません")
+	})
+
+	t.Run("GetRecords", func(t *testing.T) {
+		fields := createOracleTestFields()
+		opts := RecordQueryOptions{
+			Page:  1,
+			Limit: 10,
+		}
+
+		records, total, err := executor.GetRecords(ctx, ds, container.Password, "TEST_TABLE", fields, opts)
+		require.NoError(t, err, "レコードの取得に失敗しました")
+
+		assert.Equal(t, int64(3), total, "レコード数が一致しません")
+		assert.Len(t, records, 3, "取得されたレコード数が一致しません")
+		assert.NotZero(t, records[0].ID, "レコードIDが0です（ID列の型変換に失敗しています）")
+	})
+
+	t.Run("GetAggregatedData", func(t *testing.T) {
+		fields := createOracleTestFields()
+
+		countRes, err := executor.GetAggregatedData(ctx, ds, container.Password, "TEST_TABLE", fields,
+			&models.ChartDataRequest{
+				ChartType: "bar",
+				XAxis:     models.ChartAxis{Field: "name", Label: "名前"},
+				YAxis:     models.ChartAxis{Label: "件数", Aggregation: "count"},
+			})
+		require.NoError(t, err, "集計データ(count)の取得に失敗しました")
+		require.Len(t, countRes.Datasets, 1, "データセット数が一致しません")
+		assert.NotEmpty(t, countRes.Labels, "ラベルが空です")
+		require.Len(t, countRes.Datasets[0].Data, len(countRes.Labels), "ラベル数と値の数が一致しません")
+
+		var countTotal float64
+		for _, v := range countRes.Datasets[0].Data {
+			countTotal += v
+		}
+		assert.Equal(t, float64(3), countTotal, "countの合計が挿入行数と一致しません")
+
+		sumRes, err := executor.GetAggregatedData(ctx, ds, container.Password, "TEST_TABLE", fields,
+			&models.ChartDataRequest{
+				ChartType: "bar",
+				XAxis:     models.ChartAxis{Field: "name", Label: "名前"},
+				YAxis:     models.ChartAxis{Field: "salary", Label: "給与合計", Aggregation: "sum"},
+			})
+		require.NoError(t, err, "集計データ(sum)の取得に失敗しました")
+		require.Len(t, sumRes.Datasets, 1, "データセット数が一致しません")
+		assert.NotEmpty(t, sumRes.Labels, "ラベルが空です")
+		require.Len(t, sumRes.Datasets[0].Data, len(sumRes.Labels), "ラベル数と値の数が一致しません")
+
+		var salaryTotal float64
+		for _, v := range sumRes.Datasets[0].Data {
+			salaryTotal += v
+		}
+		assert.InDelta(t, 155000.0, salaryTotal, 0.01, "salaryの合計が一致しません")
+	})
+
+	t.Run("CountRecords", func(t *testing.T) {
+		count, err := executor.CountRecords(ctx, ds, container.Password, "TEST_TABLE")
+		require.NoError(t, err, "レコード数の取得に失敗しました")
+
+		assert.Equal(t, int64(3), count, "レコード数が一致しません")
+	})
+}
+
+// createTestFields テストフィールドセットを作成する（PostgreSQL / MySQL / SQL Server 用）
 func createTestFields() []models.AppField {
 	idCol := "id"
 	nameCol := "name"
@@ -165,6 +809,27 @@ func createTestFields() []models.AppField {
 	salaryCol := "salary"
 	isActiveCol := "is_active"
 	createdAtCol := "created_at"
+
+	return []models.AppField{
+		{FieldCode: "id", FieldName: "ID", FieldType: "number", SourceColumnName: &idCol},
+		{FieldCode: "name", FieldName: "名前", FieldType: "text", SourceColumnName: &nameCol},
+		{FieldCode: "email", FieldName: "メール", FieldType: "text", SourceColumnName: &emailCol},
+		{FieldCode: "age", FieldName: "年齢", FieldType: "number", SourceColumnName: &ageCol},
+		{FieldCode: "salary", FieldName: "給与", FieldType: "number", SourceColumnName: &salaryCol},
+		{FieldCode: "is_active", FieldName: "有効", FieldType: "checkbox", SourceColumnName: &isActiveCol},
+		{FieldCode: "created_at", FieldName: "作成日時", FieldType: "datetime", SourceColumnName: &createdAtCol},
+	}
+}
+
+// createOracleTestFields テスト用のフィールド定義を作成する（Oracle用、大文字）
+func createOracleTestFields() []models.AppField {
+	idCol := "ID"
+	nameCol := "NAME"
+	emailCol := "EMAIL"
+	ageCol := "AGE"
+	salaryCol := "SALARY"
+	isActiveCol := "IS_ACTIVE"
+	createdAtCol := "CREATED_AT"
 
 	return []models.AppField{
 		{FieldCode: "id", FieldName: "ID", FieldType: "number", SourceColumnName: &idCol},
