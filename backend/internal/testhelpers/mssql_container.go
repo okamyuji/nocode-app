@@ -40,7 +40,7 @@ func SetupMSSQLContainer(ctx context.Context) (*MSSQLTestContainer, error) {
 					WithStartupTimeout(120*time.Second),
 				wait.ForLog("SQL Server is now ready for client connections").
 					WithStartupTimeout(120*time.Second),
-			).WithStartupTimeout(120*time.Second)),
+			).WithDeadline(120*time.Second)),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("SQL Serverコンテナの起動に失敗しました: %w", err)

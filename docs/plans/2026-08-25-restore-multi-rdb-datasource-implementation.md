@@ -49,7 +49,7 @@ git -C /path/to/nocode-app diff c0bd653^1 HEAD -- backend/internal/models/dataso
 
 - [ ] Step 3: `models/datasource.go`を復元する。定数4種、`ValidDBTypes`、validateタグ、`GetDefaultPort`。現行の他フィールド・コメントは維持する。
 
-- [ ] Step 4: `backend/migrations/init.sql`の`CHECK (db_type IN ('postgresql'))`を`CHECK (db_type IN ('postgresql', 'mysql', 'oracle', 'sqlserver'))`に変更する。他行は変更しない。
+- [ ] Step 4: `backend/migrations/init.sql`の`CHECK (db_type IN ('postgresql'))`を`CHECK (db_type IN ('postgresql', 'mysql', 'oracle', 'sqlserver'))`に変更する。他行は変更しない。あわせて既存インストール向けに`backend/migrations/004_widen_data_sources_db_type.sql`（`data_sources_db_type_check`をDROPして4値のCHECKで再作成）を追加し、旧制約のテーブルに適用して`mysql`のINSERTが通ることをPostgreSQLコンテナで確認する。
 
 - [ ] Step 5: 依存を追加する
 

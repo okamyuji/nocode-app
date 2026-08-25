@@ -35,7 +35,7 @@
 | 統合テスト | 4RDB、`//go:build integration` | PGのみ、同タグ+`testing.Short()`ガード | 4RDB、同タグ+同ガード |
 | testhelpers | `mysql_external_container.go` / `mssql_container.go` / `oracle_container.go` / `external_db_helper.go` | `app_db.go`（`openTestDB`を内包）/ `postgres_container.go` | 3ファイルを復元する。`external_db_helper.go`は`app_db.go`の`openTestDB`と重複するため復元しない |
 | `models/datasource.go` | 4種 | 1種 | 4種に戻す（定数・`ValidDBTypes`・validate `oneof`・`GetDefaultPort`） |
-| `migrations/init.sql` | — | `CHECK (db_type IN ('postgresql'))` | `CHECK (db_type IN ('postgresql','mysql','oracle','sqlserver'))`。アプリにマイグレーションランナーは無く、init.sqlは初期投入専用のため追加マイグレーションは作らない |
+| `migrations/init.sql` | — | `CHECK (db_type IN ('postgresql'))` | `CHECK (db_type IN ('postgresql','mysql','oracle','sqlserver'))`。init.sqlは初期投入専用で既存テーブルを変更しないため、既存インストール向けに`004_widen_data_sources_db_type.sql`（制約の付け替え）を追加し、READMEに適用手順を書く |
 | frontend | 4種 | 1種 | 縮約前の型・定数・セレクトを復元する。コンポーネントの現行スタイルは維持 |
 
 ## 3. 依存関係
