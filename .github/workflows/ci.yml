@@ -31,7 +31,7 @@ jobs:
     uses: okamyuji/reusable-workflows/.github/workflows/go-ci.yml@v1
     with:
       working-directory: backend
-      test-command: "go test -race -count=1 -tags=integration -timeout 40m ./internal/repositories/..."
+      test-command: "go test -race -count=1 -v -tags=integration -timeout 40m ./internal/repositories/..."
 
   backend-fmt:
     name: Backend gofmt (no diff)
