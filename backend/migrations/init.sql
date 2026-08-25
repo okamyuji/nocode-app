@@ -31,7 +31,7 @@ CREATE TRIGGER trg_users_updated_at
 CREATE TABLE IF NOT EXISTS data_sources (
     id BIGSERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL UNIQUE,
-    db_type VARCHAR(20) NOT NULL CHECK (db_type IN ('postgresql')),
+    db_type VARCHAR(20) NOT NULL CHECK (db_type IN ('postgresql', 'mysql', 'oracle', 'sqlserver')),
     host VARCHAR(255) NOT NULL,
     port INT NOT NULL,
     database_name VARCHAR(100) NOT NULL,
