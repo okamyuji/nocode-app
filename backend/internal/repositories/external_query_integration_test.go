@@ -397,6 +397,10 @@ func TestExternalQueryExecutor_SQLServer_Integration(t *testing.T) {
 	err = container.CreateTestTable(ctx)
 	require.NoError(t, err, "テストテーブルの作成に失敗しました")
 
+	// 既定スキーマ外に同名テーブルを作り、メタデータがスキーマで絞られていることを検証できるようにする
+	err = container.CreateCrossSchemaTable(ctx)
+	require.NoError(t, err, "他スキーマのテストテーブルの作成に失敗しました")
+
 	// ExternalQueryExecutorを作成
 	executor := NewExternalQueryExecutor()
 
@@ -492,6 +496,39 @@ func TestExternalQueryExecutor_SQLServer_Integration(t *testing.T) {
 		for _, expected := range expectedColumns {
 			assert.True(t, columnNames[expected], "カラム %s が見つかりませんでした", expected)
 		}
+	})
+
+	t.Run("CrossSchemaIsolation", func(t *testing.T) {
+		// 非修飾の [test_table] は dbo に解決される。メタデータもdboだけを返すべきで、
+		// other.test_table のカラム・主キー・行が混ざってはならない。
+		tables, err := executor.GetTables(ctx, ds, container.Password)
+		require.NoError(t, err, "テーブル一覧の取得に失敗しました")
+		for _, table := range tables {
+			assert.NotEqual(t, "other", table.Schema,
+				"既定スキーマ以外のテーブル %s.%s が一覧に含まれています", table.Schema, table.Name)
+		}
+
+		columns, err := executor.GetColumns(ctx, ds, container.Password, "test_table")
+		require.NoError(t, err, "カラム一覧の取得に失敗しました")
+
+		var columnNames []string
+		var primaryKeys []string
+		for _, col := range columns {
+			columnNames = append(columnNames, col.Name)
+			if col.IsPrimaryKey {
+				primaryKeys = append(primaryKeys, col.Name)
+			}
+		}
+
+		assert.Equal(t,
+			[]string{"id", "name", "email", "age", "salary", "is_active", "created_at"},
+			columnNames, "dboのカラムだけが定義順で返されるべきです")
+		assert.Equal(t, []string{"id"}, primaryKeys, "主キー列が想定と一致しません")
+
+		// other.test_table は4行。混入すると7になる。
+		count, err := executor.CountRecords(ctx, ds, container.Password, "test_table")
+		require.NoError(t, err, "レコード数の取得に失敗しました")
+		assert.Equal(t, int64(3), count, "dbo以外の行が数えられています")
 	})
 
 	t.Run("GetRecords", func(t *testing.T) {

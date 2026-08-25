@@ -1346,7 +1346,7 @@ refactor: ハンドラーの共通処理を抽出
 | `backend/**` | `gofmt -l .`（差分なし）, `go vet ./...`, `go test -short ./...` |
 | `frontend/**` | `pnpm run typecheck`, `pnpm run lint`, `pnpm run format:check`, `pnpm test -- --run` |
 
-CI（GitHub Actions、`.github/workflows/ci.yml`）も同じスイートをPR時に実行します。フックを通すことはCIが通ることを意味します。
+CI（GitHub Actions、`.github/workflows/ci.yml`）はPR時に同じスイートを実行し、さらにtestcontainersによる4RDB統合テスト（`-tags=integration`）も実行します。フックは`go test -short`のため統合テストを含みません。
 
 ---
 

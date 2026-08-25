@@ -139,9 +139,9 @@ func (m *MSSQLTestContainer) CreateTestTable(ctx context.Context) error {
 
 	// テストテーブルを作成
 	_, err = db2.ExecContext(ctx, `
-		IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'test_table')
+		IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'test_table' AND schema_id = SCHEMA_ID('dbo'))
 		BEGIN
-			CREATE TABLE test_table (
+			CREATE TABLE dbo.test_table (
 				id INT IDENTITY(1,1) PRIMARY KEY,
 				name NVARCHAR(100) NOT NULL,
 				email NVARCHAR(255),
@@ -168,6 +168,63 @@ func (m *MSSQLTestContainer) CreateTestTable(ctx context.Context) error {
 	`)
 	if err != nil {
 		return fmt.Errorf("テストデータの挿入に失敗しました: %w", err)
+	}
+
+	return nil
+}
+
+// CreateCrossSchemaTable 既定スキーマ (dbo) 以外に同名テーブルを作成する。
+//
+// メタデータ取得がスキーマで絞られていないと、この other.test_table のカラムと主キーが
+// dbo.test_table の結果に混ざる。その回帰を検出するためのフィクスチャ。
+// カラム名も主キー列もdbo側と重ならないようにしてあるので、混入すればテストが落ちる。
+func (m *MSSQLTestContainer) CreateCrossSchemaTable(ctx context.Context) error {
+	connStr := fmt.Sprintf("sqlserver://%s:%s@%s:%d?database=%s",
+		url.QueryEscape(m.Username), url.QueryEscape(m.Password), m.Host, m.Port, m.Database)
+
+	db, err := openTestDB("sqlserver", connStr)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = db.Close() }()
+
+	// CREATE SCHEMA はバッチの先頭にしか書けないため EXEC で包む。
+	_, err = db.ExecContext(ctx, `
+		IF SCHEMA_ID('other') IS NULL
+		BEGIN
+			EXEC('CREATE SCHEMA other')
+		END
+	`)
+	if err != nil {
+		return fmt.Errorf("otherスキーマの作成に失敗しました: %w", err)
+	}
+
+	_, err = db.ExecContext(ctx, `
+		IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'test_table' AND schema_id = SCHEMA_ID('other'))
+		BEGIN
+			CREATE TABLE other.test_table (
+				other_id INT IDENTITY(1,1) PRIMARY KEY,
+				other_label NVARCHAR(50) NOT NULL,
+				other_amount INT
+			)
+		END
+	`)
+	if err != nil {
+		return fmt.Errorf("other.test_tableの作成に失敗しました: %w", err)
+	}
+
+	_, err = db.ExecContext(ctx, `
+		IF NOT EXISTS (SELECT * FROM other.test_table)
+		BEGIN
+			INSERT INTO other.test_table (other_label, other_amount) VALUES
+			('X', 1),
+			('Y', 2),
+			('Z', 3),
+			('W', 4)
+		END
+	`)
+	if err != nil {
+		return fmt.Errorf("other.test_tableへのテストデータ挿入に失敗しました: %w", err)
 	}
 
 	return nil

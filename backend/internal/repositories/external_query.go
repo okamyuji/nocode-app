@@ -197,10 +197,13 @@ func (e *ExternalQueryExecutor) GetTables(ctx context.Context, ds *models.DataSo
 			ORDER BY 1`
 
 	case models.DBTypeSQLServer:
+		// GetRecords等が発行する非修飾の [table] は接続既定スキーマ (SCHEMA_NAME()) に解決されるため、
+		// メタデータ側も同じスキーマに絞らないと、参照できない同名テーブルを一覧に出してしまう。
 		query = `SELECT table_name, table_schema,
 			CASE WHEN table_type = 'BASE TABLE' THEN 'TABLE' ELSE 'VIEW' END as table_type
 			FROM information_schema.tables
 			WHERE table_type IN ('BASE TABLE', 'VIEW')
+			AND table_schema = SCHEMA_NAME()
 			ORDER BY table_schema, table_name`
 
 	default:
@@ -307,6 +310,8 @@ func (e *ExternalQueryExecutor) GetColumns(ctx context.Context, ds *models.DataS
 		args = []interface{}{oracleTable, oracleTable}
 
 	case models.DBTypeSQLServer:
+		// 非修飾の [table] は SCHEMA_NAME() に解決されるため、カラムもPK判定も同じスキーマに絞る。
+		// 絞らないと他スキーマの同名テーブルのカラムとPKフラグが混ざる。
 		query = `SELECT
 			c.COLUMN_NAME,
 			c.DATA_TYPE,
@@ -315,13 +320,19 @@ func (e *ExternalQueryExecutor) GetColumns(ctx context.Context, ds *models.DataS
 			ISNULL(c.COLUMN_DEFAULT, '') as default_value
 		FROM INFORMATION_SCHEMA.COLUMNS c
 		LEFT JOIN (
-			SELECT ku.COLUMN_NAME, ku.TABLE_NAME
+			SELECT ku.TABLE_CATALOG, ku.TABLE_SCHEMA, ku.TABLE_NAME, ku.COLUMN_NAME
 			FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS tc
 			JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE ku
-				ON tc.CONSTRAINT_NAME = ku.CONSTRAINT_NAME
+				ON tc.CONSTRAINT_CATALOG = ku.CONSTRAINT_CATALOG
+				AND tc.CONSTRAINT_SCHEMA = ku.CONSTRAINT_SCHEMA
+				AND tc.CONSTRAINT_NAME = ku.CONSTRAINT_NAME
 			WHERE tc.CONSTRAINT_TYPE = 'PRIMARY KEY'
-		) pk ON c.TABLE_NAME = pk.TABLE_NAME AND c.COLUMN_NAME = pk.COLUMN_NAME
-		WHERE c.TABLE_NAME = @p1
+		) pk
+			ON pk.TABLE_CATALOG = c.TABLE_CATALOG
+			AND pk.TABLE_SCHEMA = c.TABLE_SCHEMA
+			AND pk.TABLE_NAME = c.TABLE_NAME
+			AND pk.COLUMN_NAME = c.COLUMN_NAME
+		WHERE c.TABLE_NAME = @p1 AND c.TABLE_SCHEMA = SCHEMA_NAME()
 		ORDER BY c.ORDINAL_POSITION`
 		args = []interface{}{tableName}
 
