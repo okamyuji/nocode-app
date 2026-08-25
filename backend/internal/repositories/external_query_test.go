@@ -1,12 +1,15 @@
 package repositories
 
 import (
+	"net/url"
 	"strings"
 	"testing"
 
 	"nocode-app/backend/internal/models"
 
+	"github.com/go-sql-driver/mysql"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestQuoteIdentifierForDB 各データベースタイプでの識別子クォートをテストする
@@ -453,7 +456,7 @@ func TestBuildDSN(t *testing.T) {
 			},
 			password:       "testpass",
 			expectedDriver: "postgres",
-			expectedDSN:    "host=localhost port=5432 user=testuser password=testpass dbname=testdb sslmode=disable",
+			expectedDSN:    "host=localhost port=5432 user=testuser password='testpass' dbname=testdb sslmode=disable",
 			expectedError:  false,
 		},
 		{
@@ -467,7 +470,7 @@ func TestBuildDSN(t *testing.T) {
 			},
 			password:       "test'pass\\word",
 			expectedDriver: "postgres",
-			expectedDSN:    "host=localhost port=5432 user=testuser password=test\\'pass\\\\word dbname=testdb sslmode=disable",
+			expectedDSN:    "host=localhost port=5432 user=testuser password='test\\'pass\\\\word' dbname=testdb sslmode=disable",
 			expectedError:  false,
 		},
 		{
@@ -481,7 +484,7 @@ func TestBuildDSN(t *testing.T) {
 			},
 			password:       "testpass",
 			expectedDriver: "postgres",
-			expectedDSN:    "host=localhost port=5432 user=testuser password=testpass dbname=テストDB sslmode=disable",
+			expectedDSN:    "host=localhost port=5432 user=testuser password='testpass' dbname=テストDB sslmode=disable",
 			expectedError:  false,
 		},
 
@@ -511,7 +514,7 @@ func TestBuildDSN(t *testing.T) {
 			},
 			password:       "testpass",
 			expectedDriver: "mysql",
-			expectedDSN:    "testuser:testpass@tcp(localhost:3306)/テストDB?parseTime=true",
+			expectedDSN:    "testuser:testpass@tcp(localhost:3306)/%E3%83%86%E3%82%B9%E3%83%88DB?parseTime=true",
 			expectedError:  false,
 		},
 
@@ -575,6 +578,129 @@ func TestBuildDSN(t *testing.T) {
 			expectedError:  false,
 		},
 
+		{
+			name: "PostgreSQL: 空白とクォートを含むパスワードは引用符で囲まれる",
+			dataSource: &models.DataSource{
+				DBType:       models.DBTypePostgreSQL,
+				Host:         "localhost",
+				Port:         5432,
+				Username:     "testuser",
+				DatabaseName: "testdb",
+			},
+			password:       "pa ss'wd",
+			expectedDriver: "postgres",
+			expectedDSN:    `host=localhost port=5432 user=testuser password='pa ss\'wd' dbname=testdb sslmode=disable`,
+			expectedError:  false,
+		},
+		{
+			name: "MySQL: DatabaseNameのクエリ文字列はエスケープされる",
+			dataSource: &models.DataSource{
+				DBType:       models.DBTypeMySQL,
+				Host:         "localhost",
+				Port:         3306,
+				Username:     "testuser",
+				DatabaseName: "db?allowAllFiles=true",
+			},
+			password:       "testpass",
+			expectedDriver: "mysql",
+			expectedDSN:    "testuser:testpass@tcp(localhost:3306)/db%3FallowAllFiles=true?parseTime=true",
+			expectedError:  false,
+		},
+		{
+			name: "Oracle: サービス名のクエリ文字列はエスケープされる",
+			dataSource: &models.DataSource{
+				DBType:       models.DBTypeOracle,
+				Host:         "localhost",
+				Port:         1521,
+				Username:     "testuser",
+				DatabaseName: "FREEPDB1?TRACE FILE=/tmp/x",
+			},
+			password:       "testpass",
+			expectedDriver: "oracle",
+			expectedDSN:    "oracle://testuser:testpass@localhost:1521/FREEPDB1%3FTRACE%20FILE=%2Ftmp%2Fx",
+			expectedError:  false,
+		},
+		{
+			name: "SQLServer: DatabaseNameの追加パラメータはエスケープされる",
+			dataSource: &models.DataSource{
+				DBType:       models.DBTypeSQLServer,
+				Host:         "localhost",
+				Port:         1433,
+				Username:     "testuser",
+				DatabaseName: "db&log=63",
+			},
+			password:       "testpass",
+			expectedDriver: "sqlserver",
+			expectedDSN:    "sqlserver://testuser:testpass@localhost:1433?database=db%26log%3D63",
+			expectedError:  false,
+		},
+		{
+			name: "SQLServer: 空白を含むパスワードは+ではなく%20になる",
+			dataSource: &models.DataSource{
+				DBType:       models.DBTypeSQLServer,
+				Host:         "localhost",
+				Port:         1433,
+				Username:     "testuser",
+				DatabaseName: "testdb",
+			},
+			password:       "pa ss@wd",
+			expectedDriver: "sqlserver",
+			expectedDSN:    "sqlserver://testuser:pa%20ss%40wd@localhost:1433?database=testdb",
+			expectedError:  false,
+		},
+		{
+			name: "SQLServer: IPv6ホストはブラケットで囲まれる",
+			dataSource: &models.DataSource{
+				DBType:       models.DBTypeSQLServer,
+				Host:         "::1",
+				Port:         1433,
+				Username:     "testuser",
+				DatabaseName: "testdb",
+			},
+			password:       "testpass",
+			expectedDriver: "sqlserver",
+			expectedDSN:    "sqlserver://testuser:testpass@[::1]:1433?database=testdb",
+			expectedError:  false,
+		},
+
+		// ホストに含めてはならない文字
+		{
+			name: "PostgreSQL: ホストに@が含まれるとエラー",
+			dataSource: &models.DataSource{
+				DBType: models.DBTypePostgreSQL, Host: "localhost@evil", Port: 5432,
+				Username: "testuser", DatabaseName: "testdb",
+			},
+			password:      "testpass",
+			expectedError: true,
+		},
+		{
+			name: "MySQL: ホストに/が含まれるとエラー",
+			dataSource: &models.DataSource{
+				DBType: models.DBTypeMySQL, Host: "localhost/evil", Port: 3306,
+				Username: "testuser", DatabaseName: "testdb",
+			},
+			password:      "testpass",
+			expectedError: true,
+		},
+		{
+			name: "Oracle: ホストに?が含まれるとエラー",
+			dataSource: &models.DataSource{
+				DBType: models.DBTypeOracle, Host: "localhost?x=1", Port: 1521,
+				Username: "testuser", DatabaseName: "ORCL",
+			},
+			password:      "testpass",
+			expectedError: true,
+		},
+		{
+			name: "SQLServer: ホストに@が含まれるとエラー",
+			dataSource: &models.DataSource{
+				DBType: models.DBTypeSQLServer, Host: "localhost@evil", Port: 1433,
+				Username: "testuser", DatabaseName: "testdb",
+			},
+			password:      "testpass",
+			expectedError: true,
+		},
+
 		// 不明なデータベースタイプ
 		{
 			name: "Unknown: エラーを返す",
@@ -611,12 +737,13 @@ func TestEscapePostgresPassword(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{name: "通常のパスワード", input: "password123", expected: "password123"},
-		{name: "シングルクォートを含む", input: "pass'word", expected: "pass\\'word"},
-		{name: "バックスラッシュを含む", input: "pass\\word", expected: "pass\\\\word"},
-		{name: "両方を含む", input: "pass'\\word", expected: "pass\\'\\\\word"},
-		{name: "日本語パスワード", input: "パスワード123", expected: "パスワード123"},
-		{name: "空文字列", input: "", expected: ""},
+		{name: "通常のパスワード", input: "password123", expected: `'password123'`},
+		{name: "シングルクォートを含む", input: "pass'word", expected: `'pass\'word'`},
+		{name: "バックスラッシュを含む", input: `pass\word`, expected: `'pass\\word'`},
+		{name: "両方を含む", input: `pass'\word`, expected: `'pass\'\\word'`},
+		{name: "空白を含む", input: "pa ss wd", expected: `'pa ss wd'`},
+		{name: "日本語パスワード", input: "パスワード123", expected: `'パスワード123'`},
+		{name: "空文字列", input: "", expected: `''`},
 	}
 
 	for _, tt := range tests {
@@ -647,6 +774,131 @@ func TestConvertScannedValue(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := convertScannedValue(tt.input)
 			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+// TestBuildDSN_HardeningRoundTrip DatabaseNameやパスワードに混入した特殊文字が
+// 接続オプションとして解釈されず、値としてそのまま往復することを確認する。
+func TestBuildDSN_HardeningRoundTrip(t *testing.T) {
+	t.Run("MySQL: DatabaseNameでallowAllFilesを有効化できない", func(t *testing.T) {
+		_, dsn, err := buildDSN(&models.DataSource{
+			DBType:       models.DBTypeMySQL,
+			Host:         "localhost",
+			Port:         3306,
+			Username:     "testuser",
+			DatabaseName: "db?allowAllFiles=true",
+		}, "testpass")
+		require.NoError(t, err)
+
+		cfg, parseErr := mysql.ParseDSN(dsn)
+		require.NoError(t, parseErr)
+		assert.Equal(t, "db?allowAllFiles=true", cfg.DBName)
+		assert.False(t, cfg.AllowAllFiles)
+		assert.True(t, cfg.ParseTime)
+		assert.True(t, cfg.AllowNativePasswords)
+	})
+
+	t.Run("Oracle: サービス名にクエリを混入できない", func(t *testing.T) {
+		_, dsn, err := buildDSN(&models.DataSource{
+			DBType:       models.DBTypeOracle,
+			Host:         "localhost",
+			Port:         1521,
+			Username:     "testuser",
+			DatabaseName: "FREEPDB1?TRACE FILE=/tmp/x",
+		}, "testpass")
+		require.NoError(t, err)
+
+		u, parseErr := url.Parse(dsn)
+		require.NoError(t, parseErr)
+		assert.Equal(t, "/FREEPDB1%3FTRACE%20FILE=%2Ftmp%2Fx", u.EscapedPath())
+		assert.Equal(t, "/FREEPDB1?TRACE FILE=/tmp/x", u.Path)
+		assert.Empty(t, u.RawQuery)
+		assert.Equal(t, "localhost:1521", u.Host)
+	})
+
+	t.Run("Oracle: 空白と@を含むパスワードが往復する", func(t *testing.T) {
+		_, dsn, err := buildDSN(&models.DataSource{
+			DBType:       models.DBTypeOracle,
+			Host:         "::1",
+			Port:         1521,
+			Username:     "testuser",
+			DatabaseName: "FREEPDB1",
+		}, "pa ss@wd")
+		require.NoError(t, err)
+
+		u, parseErr := url.Parse(dsn)
+		require.NoError(t, parseErr)
+		assert.Equal(t, "[::1]:1521", u.Host)
+		pw, ok := u.User.Password()
+		require.True(t, ok)
+		assert.Equal(t, "pa ss@wd", pw)
+	})
+
+	t.Run("SQLServer: DatabaseNameで別パラメータを追加できない", func(t *testing.T) {
+		_, dsn, err := buildDSN(&models.DataSource{
+			DBType:       models.DBTypeSQLServer,
+			Host:         "localhost",
+			Port:         1433,
+			Username:     "testuser",
+			DatabaseName: "db&log=63",
+		}, "testpass")
+		require.NoError(t, err)
+
+		u, parseErr := url.Parse(dsn)
+		require.NoError(t, parseErr)
+		q := u.Query()
+		assert.Equal(t, "db&log=63", q.Get("database"))
+		assert.NotContains(t, q, "log")
+		assert.Len(t, q, 1)
+	})
+
+	t.Run("SQLServer: 空白と@を含むパスワードが往復する", func(t *testing.T) {
+		_, dsn, err := buildDSN(&models.DataSource{
+			DBType:       models.DBTypeSQLServer,
+			Host:         "::1",
+			Port:         1433,
+			Username:     "testuser",
+			DatabaseName: "testdb",
+		}, "pa ss@wd")
+		require.NoError(t, err)
+
+		u, parseErr := url.Parse(dsn)
+		require.NoError(t, parseErr)
+		assert.Equal(t, "[::1]:1433", u.Host)
+		pw, ok := u.User.Password()
+		require.True(t, ok)
+		assert.Equal(t, "pa ss@wd", pw)
+	})
+}
+
+// TestParseRecordID スキャン値からレコードIDへの変換をテストする。
+func TestParseRecordID(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    interface{}
+		expected uint64
+	}{
+		{name: "int64", input: int64(42), expected: 42},
+		{name: "uint64", input: uint64(43), expected: 43},
+		{name: "float64", input: float64(44), expected: 44},
+		{name: "int", input: 45, expected: 45},
+		{name: "int32", input: int32(46), expected: 46},
+		{name: "string (go-oraのNUMBER)", input: "47", expected: 47},
+		{name: "string 前後空白", input: " 48 ", expected: 48},
+		{name: "string 小数点付き", input: "49.00", expected: 49},
+		{name: "[]byte", input: []byte("50"), expected: 50},
+		{name: "string 数値でない", input: "abc", expected: 0},
+		{name: "string 空", input: "", expected: 0},
+		{name: "[]byte 数値でない", input: []byte("x"), expected: 0},
+		{name: "string 負数", input: "-1", expected: 0},
+		{name: "nil", input: nil, expected: 0},
+		{name: "bool", input: true, expected: 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, parseRecordID(tt.input))
 		})
 	}
 }

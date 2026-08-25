@@ -4,12 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
-	_ "github.com/go-sql-driver/mysql"  // MySQL driver
+	"github.com/go-sql-driver/mysql"    // MySQL driver（DSN組み立てにmysql.Configを使うため非ブランクimport）
 	_ "github.com/lib/pq"               // PostgreSQL driver
 	_ "github.com/microsoft/go-mssqldb" // SQL Server driver
 	_ "github.com/sijms/go-ora/v2"      // Oracle driver (Pure Go)
@@ -36,53 +38,83 @@ func NewExternalQueryExecutor() *ExternalQueryExecutor {
 	return &ExternalQueryExecutor{}
 }
 
-// buildDSN データソース情報からDSN文字列を構築する
+// dsnForbiddenHostChars ホスト名に含まれるとDSNの構造を壊しうる文字。
+// URL形式のDSN（Oracle/SQL Server）では認証情報・パス・クエリの区切りとして解釈され、
+// キーワード形式（PostgreSQL）やmysql.Configでも接続先のすり替えにつながる。
+const dsnForbiddenHostChars = "/?@"
+
+// validateDSNHost DSNに埋め込むホスト名を検証する
+func validateDSNHost(host string) error {
+	if strings.ContainsAny(host, dsnForbiddenHostChars) {
+		return fmt.Errorf("ホスト名に使用できない文字が含まれています: %q", host)
+	}
+	return nil
+}
+
+// buildDSN データソース情報からDSN文字列を構築する。
+// DatabaseName・ユーザー名・パスワードは利用者入力であるため、各方言のエンコーダ
+// （mysql.Config.FormatDSN / url.URL / PostgreSQLの引用符付き値）を通し、
+// 接続オプションとして再解釈されないようにする。
 func buildDSN(ds *models.DataSource, password string) (string, string, error) {
+	if err := validateDSNHost(ds.Host); err != nil {
+		return "", "", err
+	}
+	addr := net.JoinHostPort(ds.Host, strconv.Itoa(ds.Port))
+
 	switch ds.DBType {
 	case models.DBTypePostgreSQL:
-		// PostgreSQLはキーワード形式を使用（特殊文字のエスケープが不要）
+		// PostgreSQLはキーワード形式を使用する。パスワードは空白を含みうるため引用符で囲む。
 		dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
 			ds.Host, ds.Port, ds.Username, escapePostgresPassword(password), ds.DatabaseName)
 		return "postgres", dsn, nil
 
 	case models.DBTypeMySQL:
-		// MySQLはDSN形式を使用
-		dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true",
-			ds.Username, password, ds.Host, ds.Port, ds.DatabaseName)
-		return "mysql", dsn, nil
+		// mysql.NewConfig()の既定値（AllowNativePasswords=true など）を土台にすることで、
+		// 文字列連結していた頃のDSNと挙動を揃える。
+		cfg := mysql.NewConfig()
+		cfg.User = ds.Username
+		cfg.Passwd = password
+		cfg.Net = "tcp"
+		cfg.Addr = addr
+		cfg.DBName = ds.DatabaseName
+		cfg.ParseTime = true
+		return "mysql", cfg.FormatDSN(), nil
 
 	case models.DBTypeOracle:
 		// go-ora v2 format: oracle://user:pass@host:port/service_name
-		// パスワードとユーザー名はURLエンコードが必要
-		dsn := fmt.Sprintf("oracle://%s:%s@%s:%d/%s",
-			url.QueryEscape(ds.Username),
-			url.QueryEscape(password),
-			ds.Host,
-			ds.Port,
-			ds.DatabaseName)
-		return "oracle", dsn, nil
+		u := url.URL{
+			Scheme: "oracle",
+			User:   url.UserPassword(ds.Username, password),
+			Host:   addr,
+		}
+		// RawPathにPathEscape済みの値を入れることで、サービス名中の "/" や "?" も
+		// パス区切り・クエリ開始として解釈されない完全エスケープ形になる。
+		u.Path = "/" + ds.DatabaseName
+		u.RawPath = "/" + url.PathEscape(ds.DatabaseName)
+		return "oracle", u.String(), nil
 
 	case models.DBTypeSQLServer:
-		// SQL ServerはURLエンコードが必要
-		dsn := fmt.Sprintf("sqlserver://%s:%s@%s:%d?database=%s",
-			url.QueryEscape(ds.Username),
-			url.QueryEscape(password),
-			ds.Host,
-			ds.Port,
-			ds.DatabaseName)
-		return "sqlserver", dsn, nil
+		// url.Valuesではなくurl.URLに組ませることで、パスワード中の空白が
+		// "+"（クエリ表現）ではなく "%20" になり、パーサが空白として復元できる。
+		u := url.URL{
+			Scheme:   "sqlserver",
+			User:     url.UserPassword(ds.Username, password),
+			Host:     addr,
+			RawQuery: url.Values{"database": {ds.DatabaseName}}.Encode(),
+		}
+		return "sqlserver", u.String(), nil
 
 	default:
 		return "", "", fmt.Errorf("サポートされていないデータベースタイプ: %s", ds.DBType)
 	}
 }
 
-// escapePostgresPassword PostgreSQLのパスワードをエスケープする
+// escapePostgresPassword PostgreSQLのキーワード形式DSN用にパスワードを引用符で囲む。
+// 引用符で囲まないと空白を含むパスワードが次のキーワードとして解釈される。
 func escapePostgresPassword(password string) string {
-	// PostgreSQLのキーワード形式では、シングルクォートとバックスラッシュをエスケープ
 	escaped := strings.ReplaceAll(password, `\`, `\\`)
 	escaped = strings.ReplaceAll(escaped, `'`, `\'`)
-	return escaped
+	return "'" + escaped + "'"
 }
 
 // openConnection 外部データベースへの接続を開く
@@ -253,8 +285,12 @@ func (e *ExternalQueryExecutor) GetColumns(ctx context.Context, ds *models.DataS
 		LEFT JOIN (
 			SELECT acc.column_name, ac.constraint_type
 			FROM all_cons_columns acc
-			JOIN all_constraints ac ON acc.constraint_name = ac.constraint_name
-			WHERE ac.constraint_type = 'P' AND acc.table_name = :1 AND acc.owner = USER
+			JOIN all_constraints ac
+				ON ac.owner = acc.owner
+				AND ac.constraint_name = acc.constraint_name
+				AND ac.table_name = acc.table_name
+			WHERE ac.constraint_type = 'P' AND acc.table_name = :1
+				AND acc.owner = USER AND ac.owner = USER
 		) cc ON c.column_name = cc.column_name
 		WHERE c.table_name = :2 AND c.owner = USER
 		ORDER BY c.column_id`
@@ -713,18 +749,65 @@ func scanExternalRecordRow(rows *sql.Rows, fields []models.AppField) (*models.Re
 	// IDを取得（idフィールドがあれば）
 	var id uint64
 	if idVal, ok := data["id"]; ok {
-		switch v := idVal.(type) {
-		case int64:
-			id = uint64(v)
-		case uint64:
-			id = v
-		case float64:
-			id = uint64(v)
-		}
+		id = parseRecordID(idVal)
 	}
 
 	return &models.RecordResponse{
 		ID:   id,
 		Data: data,
 	}, nil
+}
+
+// parseRecordID スキャン済みの値をレコードIDへ変換する。変換できない値は0を返す。
+//
+// go-oraはNUMBER列（IDENTITYのidを含む）をinterface{}にスキャンすると文字列で返すため、
+// 数値型だけを見ているとOracleのレコードIDが常に0になる。
+func parseRecordID(v interface{}) uint64 {
+	switch val := v.(type) {
+	case int64:
+		if val < 0 {
+			return 0
+		}
+		return uint64(val)
+	case int32:
+		if val < 0 {
+			return 0
+		}
+		return uint64(val)
+	case int:
+		if val < 0 {
+			return 0
+		}
+		return uint64(val)
+	case uint64:
+		return val
+	case float64:
+		if val < 0 {
+			return 0
+		}
+		return uint64(val)
+	case string:
+		return parseRecordIDString(val)
+	case []byte:
+		return parseRecordIDString(string(val))
+	default:
+		return 0
+	}
+}
+
+// parseRecordIDString 文字列表現のレコードIDを解釈する。
+// go-oraはNUMBERを "1" だけでなく "1.00" のような小数表記で返すことがあるため、
+// 整数として読めなければ浮動小数点としても試す。
+func parseRecordIDString(s string) uint64 {
+	trimmed := strings.TrimSpace(s)
+	if trimmed == "" {
+		return 0
+	}
+	if n, err := strconv.ParseUint(trimmed, 10, 64); err == nil {
+		return n
+	}
+	if f, err := strconv.ParseFloat(trimmed, 64); err == nil && f >= 0 {
+		return uint64(f)
+	}
+	return 0
 }
