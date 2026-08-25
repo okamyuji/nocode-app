@@ -48,7 +48,7 @@
 | `github.com/testcontainers/testcontainers-go/modules/mysql` | v0.42.0 | 既存`testcontainers-go v0.42.0`に合わせる |
 | `github.com/testcontainers/testcontainers-go/modules/mssql` | v0.42.0 | 同上 |
 
-コンテナイメージは縮約前と同じです: `mysql:8.0`、`mcr.microsoft.com/mssql/server:2022-latest`、`gvenzl/oracle-xe:21-slim`。
+コンテナイメージのうち`mysql:8.0`と`mcr.microsoft.com/mssql/server:2022-latest`は縮約前と同じです。Oracleは`gvenzl/oracle-free:23-slim`を使います（service名FREEPDB1、arm64/amd64両対応）。
 
 ## 4. テスト戦略
 

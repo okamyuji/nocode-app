@@ -9,7 +9,7 @@
 
 動的にデータベーステーブルを作成・管理できるWebアプリケーションプラットフォーム
 
-> 保管DBはPostgreSQL16のみをサポートします。外部データソースはPostgreSQL、MySQL、Oracle、SQL Serverの4種に接続できます。
+> 保管DBはPostgreSQL 16のみをサポートします。外部データソースはPostgreSQL、MySQL、Oracle、SQL Serverの4種に接続できます。
 
 ## 目次
 
