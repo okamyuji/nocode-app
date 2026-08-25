@@ -32,8 +32,10 @@ func SetupMSSQLContainer(ctx context.Context) (*MSSQLTestContainer, error) {
 		mssql.WithAcceptEULA(),
 		mssql.WithPassword(dbPassword),
 		testcontainers.WithWaitStrategy(
-			wait.ForLog("SQL Server is now ready for client connections").
-				WithStartupTimeout(120*time.Second)),
+			wait.ForAll(
+				wait.ForListeningPort("1433/tcp"),
+				wait.ForLog("SQL Server is now ready for client connections"),
+			).WithStartupTimeout(120*time.Second)),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("SQL Serverコンテナの起動に失敗しました: %w", err)
@@ -67,7 +69,11 @@ func (m *MSSQLTestContainer) Terminate(ctx context.Context) error {
 	return nil
 }
 
-// CreateTestTable テスト用のテーブルを作成する
+// CreateTestTable テスト用のテーブルを作成する。
+//
+// 副作用として m.Database を master から testdb へ切り替える。
+// 接続情報（Database を含む）を読んでDataSourceを組み立てる処理は、必ず本メソッドの
+// 呼び出し後に行うこと。先に読むと master を指したままになる。
 func (m *MSSQLTestContainer) CreateTestTable(ctx context.Context) error {
 	// パスワードにURLエンコードが必要
 	connStr := fmt.Sprintf("sqlserver://%s:%s@%s:%d?database=%s",
@@ -88,13 +94,21 @@ func (m *MSSQLTestContainer) CreateTestTable(ctx context.Context) error {
 	}
 	defer func() { _ = db.Close() }()
 
-	// テストデータベースを作成
-	_, err = db.ExecContext(ctx, `
-		IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = 'testdb')
-		BEGIN
-			CREATE DATABASE testdb
-		END
-	`)
+	// テストデータベースを作成する。
+	// ログインを受け付けた直後でもmasterのリカバリが終わっておらずCREATE DATABASEが
+	// 失敗することがあるため、接続リトライと同じ様式で再試行する。
+	for i := 0; i < 30; i++ {
+		_, err = db.ExecContext(ctx, `
+			IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = 'testdb')
+			BEGIN
+				CREATE DATABASE testdb
+			END
+		`)
+		if err == nil {
+			break
+		}
+		time.Sleep(2 * time.Second)
+	}
 	if err != nil {
 		return fmt.Errorf("テストデータベースの作成に失敗しました: %w", err)
 	}
@@ -104,9 +118,17 @@ func (m *MSSQLTestContainer) CreateTestTable(ctx context.Context) error {
 	connStr = fmt.Sprintf("sqlserver://%s:%s@%s:%d?database=%s",
 		url.QueryEscape(m.Username), url.QueryEscape(m.Password), m.Host, m.Port, m.Database)
 
-	db2, err := openTestDB("sqlserver", connStr)
+	// 作成直後のtestdbはオンラインになるまで数秒かかることがある
+	var db2 *sql.DB
+	for i := 0; i < 30; i++ {
+		db2, err = openTestDB("sqlserver", connStr)
+		if err == nil {
+			break
+		}
+		time.Sleep(2 * time.Second)
+	}
 	if err != nil {
-		return err
+		return fmt.Errorf("testdbへの接続に失敗しました: %w", err)
 	}
 	defer func() { _ = db2.Close() }()
 
