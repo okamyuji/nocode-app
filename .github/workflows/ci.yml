@@ -26,6 +26,13 @@ jobs:
       working-directory: backend
       test-command: "go test -short -race -count=1 ./..."
 
+  backend-integration:
+    name: Backend integration (testcontainers, 4 RDB)
+    uses: okamyuji/reusable-workflows/.github/workflows/go-ci.yml@v1
+    with:
+      working-directory: backend
+      test-command: "go test -race -count=1 -tags=integration -timeout 40m ./internal/repositories/..."
+
   backend-fmt:
     name: Backend gofmt (no diff)
     runs-on: ubuntu-latest

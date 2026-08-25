@@ -9,7 +9,7 @@
 
 動的にデータベーステーブルを作成・管理できるWebアプリケーションプラットフォーム
 
-> **DB 一択化（2026-04-25）:** 本プロジェクトは **PostgreSQL 16 のみ** をサポートします。MySQL からの移行手順は [`docs/plans/2026-04-25-postgres-only-data-migration.md`](docs/plans/2026-04-25-postgres-only-data-migration.md) を参照してください。
+> 保管DBはPostgreSQL16のみをサポートします。外部データソースはPostgreSQL、MySQL、Oracle、SQL Serverの4種に接続できます。
 
 ## 目次
 
@@ -74,8 +74,9 @@ Nocode Appは、プログラミング知識なしでビジネスアプリケー�
 | データベース | ドライバー | 備考 |
 |-------------|-----------|------|
 | PostgreSQL | lib/pq | Pure Go実装 |
-
-**重要**: 2026-04-25 の DB 一択化により、外部データソースとしてサポートする RDB は PostgreSQL のみです。MySQL / Oracle / SQL Server のサポートは廃止されました。
+| MySQL | go-sql-driver/mysql | Pure Go実装 |
+| Oracle | sijms/go-ora v2 | Pure Go実装 |
+| SQL Server | microsoft/go-mssqldb | Pure Go実装 |
 
 ### 機能仕様
 
@@ -674,7 +675,7 @@ erDiagram
 |---------|-----|------|------|
 | id | BIGSERIAL | PK | 主キー |
 | name | VARCHAR(100) | UNIQUE, NOT NULL | データソース名 |
-| db_type | VARCHAR(20) CHECK (db_type IN ('postgresql')) | NOT NULL | データベースタイプ（PostgreSQL のみ） |
+| db_type | VARCHAR(20) CHECK (db_type IN ('postgresql','mysql','oracle','sqlserver')) | NOT NULL | データベースタイプ |
 | host | VARCHAR(255) | NOT NULL | ホスト名/IPアドレス |
 | port | INT | NOT NULL | ポート番号 |
 | database_name | VARCHAR(100) | NOT NULL | データベース名 |
