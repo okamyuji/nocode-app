@@ -104,7 +104,7 @@ git -C /path/to/nocode-app diff c0bd653 HEAD -- backend/internal/repositories/ex
   - `getPlaceholder` / `buildLimitOffset`: 縮約前のswitchを復元。
   - `GetTables` / `GetColumns`: 縮約前のswitchでクエリを分岐する。PGのcaseは現行のクエリをそのまま使う。Oracleの`GetColumns`はLONG型回避（`b2e1bcd`）を含む縮約前の実装を使う。
   - `GetRecords` / `GetRecordByID` / `GetAggregatedData` / `CountRecords`: 現行の実装をベースに、`quoteIdentifierForDB(ds.DBType, ...)`、`getPlaceholder(ds.DBType, ...)`、`buildLimitOffset(ds.DBType, ...)`を渡す。縮約前にあった方言固有の処理（SQL ServerのOFFSETに必須の`ORDER BY`、Oracleの大文字識別子）を復元する。
-  - 各関数のdocコメントから「PostgreSQL のみ」の文言を外す。
+  - 各関数のdocコメントにある`PostgreSQL のみ`という文言を外す。
 
 - [ ] Step 4: 検証
 
@@ -181,7 +181,7 @@ git -C /path/to/nocode-app diff c0bd653^1 HEAD -- frontend/src/types/datasource.
 
 - [ ] Step 2: テストを先に戻す。`datasource.test.ts`と`datasources.test.ts`に縮約前の4種ケースを復元し、`pnpm test`が失敗することを確認する。
 
-- [ ] Step 3: `datasource.ts`のユニオン・ラベル・ポートを4種に戻す。`DataSourceForm.tsx`の`DB_TYPES`を`["postgresql", "mysql", "oracle", "sqlserver"]`に戻す。`DataSourceList.tsx`のバッジを`DB_TYPE_LABELS[ds.db_type]`で表示する形に戻す（縮約前の差分を参照）。コメントの「PostgreSQL のみサポート」を外す。
+- [ ] Step 3: `datasource.ts`のユニオン・ラベル・ポートを4種に戻す。`DataSourceForm.tsx`の`DB_TYPES`を`["postgresql", "mysql", "oracle", "sqlserver"]`に戻す。`DataSourceList.tsx`のバッジを`DB_TYPE_LABELS[ds.db_type]`で表示する形に戻す（縮約前の差分を参照）。コメントにある`PostgreSQL のみサポート`という文言を外す。
 
 - [ ] Step 4: 検証
 
@@ -211,9 +211,9 @@ Files:
 ```
 
 - [ ] Step 2: `README.md`を更新する。
-  - 12行目付近の「DB 一択化（2026-04-25）」の注記を、保管DBはPostgreSQL固定、外部データソースは4種対応である旨に書き換える。
+  - 12行目付近の`DB 一択化（2026-04-25）`で始まる注記を、保管DBはPostgreSQL固定、外部データソースは4種対応である旨に書き換える。
   - 外部データソース節の対応RDB表を4行（PostgreSQL lib/pq、MySQL go-sql-driver/mysql、Oracle go-ora、SQL Server microsoft/go-mssqldb）にする。
-  - 「MySQL / Oracle / SQL Server のサポートは廃止されました」の段落を削除する。
+  - `MySQL / Oracle / SQL Server のサポートは廃止されました`と書かれた段落を削除する。
   - `db_type`列の説明を`CHECK (db_type IN ('postgresql','mysql','oracle','sqlserver'))`にする。
   - 経緯や履歴は書かず、現在の仕様だけを書く。
 
