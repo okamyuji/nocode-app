@@ -2,17 +2,23 @@
  * データソース関連の型定義
  */
 
-/** データベースタイプ (PostgreSQL のみサポート) */
-export type DBType = "postgresql";
+/** データベースタイプ */
+export type DBType = "postgresql" | "mysql" | "oracle" | "sqlserver";
 
 /** データベースタイプの表示名 */
 export const DB_TYPE_LABELS: Record<DBType, string> = {
   postgresql: "PostgreSQL",
+  mysql: "MySQL",
+  oracle: "Oracle",
+  sqlserver: "SQL Server",
 };
 
 /** デフォルトポート番号 */
 export const DEFAULT_PORTS: Record<DBType, number> = {
   postgresql: 5432,
+  mysql: 3306,
+  oracle: 1521,
+  sqlserver: 1433,
 };
 
 /** データソース */
