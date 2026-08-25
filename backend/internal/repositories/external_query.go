@@ -258,7 +258,11 @@ func (e *ExternalQueryExecutor) GetColumns(ctx context.Context, ds *models.DataS
 		) cc ON c.column_name = cc.column_name
 		WHERE c.table_name = :2 AND c.owner = USER
 		ORDER BY c.column_id`
-		args = []interface{}{tableName, tableName}
+		// データディクショナリは非クォート識別子を大文字で保持するため、バインド値も大文字化する。
+		// これを怠るとquoteIdentifierForDBが大文字化するGetRecordsは成功するのに
+		// カラム一覧だけ空になる、という食い違いが起きる。
+		oracleTable := oracleObjectName(tableName)
+		args = []interface{}{oracleTable, oracleTable}
 
 	case models.DBTypeSQLServer:
 		query = `SELECT
@@ -602,6 +606,14 @@ func (e *ExternalQueryExecutor) CountRecords(ctx context.Context, ds *models.Dat
 		return 0, fmt.Errorf("レコード数の取得に失敗しました: %w", err)
 	}
 	return count, nil
+}
+
+// oracleObjectName Oracleのデータディクショナリ（all_tab_columns等）へバインドする
+// オブジェクト名を大文字化する。Oracleは非クォート識別子を大文字で格納するため、
+// quoteIdentifierForDBのOracle分岐と同じ規則を適用しないと、
+// メタデータ検索だけが空振りして実データ取得と結果が食い違う。
+func oracleObjectName(name string) string {
+	return strings.ToUpper(name)
 }
 
 // quoteIdentifierForDB 識別子を検証してデータベースタイプに応じてクォートする。

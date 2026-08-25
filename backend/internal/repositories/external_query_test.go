@@ -186,6 +186,36 @@ func TestQuoteIdentifierForDB(t *testing.T) {
 }
 
 // TestQuoteIdentifierForDB_UnsupportedDBType 未対応のデータベースタイプでエラーを返すことをテストする
+// TestOracleObjectName データディクショナリ検索用の名前がquoteIdentifierForDBのOracle分岐と
+// 同じ大文字化規則になることをテストする
+func TestOracleObjectName(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{name: "小文字は大文字化される", input: "employees", expected: "EMPLOYEES"},
+		{name: "大文字はそのまま", input: "EMPLOYEES", expected: "EMPLOYEES"},
+		{name: "混在は大文字化される", input: "Test_Table", expected: "TEST_TABLE"},
+		{name: "数字と記号を含む名前", input: "tbl_2024$x", expected: "TBL_2024$X"},
+		{name: "空文字はそのまま", input: "", expected: ""},
+		{name: "日本語は変化しない", input: "社員", expected: "社員"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, oracleObjectName(tt.input))
+
+			if tt.input != "" {
+				quoted, err := quoteIdentifierForDB(models.DBTypeOracle, tt.input)
+				assert.NoError(t, err)
+				assert.Equal(t, `"`+tt.expected+`"`, quoted,
+					"メタデータ検索の名前とクォート済み識別子の中身は一致する必要がある")
+			}
+		})
+	}
+}
+
 func TestQuoteIdentifierForDB_UnsupportedDBType(t *testing.T) {
 	_, err := quoteIdentifierForDB("unknown", "users")
 	assert.Error(t, err)
