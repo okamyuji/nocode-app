@@ -9,7 +9,7 @@
 
 動的にデータベーステーブルを作成・管理できるWebアプリケーションプラットフォーム
 
-> **DB 一択化（2026-04-25）:** 本プロジェクトは **PostgreSQL 16 のみ** をサポートします。MySQL からの移行手順は [`docs/plans/2026-04-25-postgres-only-data-migration.md`](docs/plans/2026-04-25-postgres-only-data-migration.md) を参照してください。
+> 保管DBはPostgreSQL16のみをサポートします。外部データソースはPostgreSQL、MySQL、Oracle、SQL Serverの4種に接続できます。
 
 ## 目次
 
@@ -74,16 +74,17 @@ Nocode Appは、プログラミング知識なしでビジネスアプリケー�
 | データベース | ドライバー | 備考 |
 |-------------|-----------|------|
 | PostgreSQL | lib/pq | Pure Go実装 |
-
-**重要**: 2026-04-25 の DB 一択化により、外部データソースとしてサポートする RDB は PostgreSQL のみです。MySQL / Oracle / SQL Server のサポートは廃止されました。
+| MySQL | go-sql-driver/mysql | Pure Go実装 |
+| Oracle | sijms/go-ora v2 | Pure Go実装 |
+| SQL Server | microsoft/go-mssqldb | Pure Go実装 |
 
 ### 機能仕様
 
 #### データソース管理
 
-- **システム全体で共有**: 管理者が登録したデータソースは複数のアプリで再利用可能
-- **接続情報の暗号化**: パスワードはAES-256-GCMで暗号化して保存
-- **テスト接続**: データソース登録前に接続テストを実行可能
+- システム全体で共有: 管理者が登録したデータソースは複数のアプリで再利用可能
+- 接続情報の暗号化: パスワードはAES-256-GCMで暗号化して保存
+- テスト接続: データソース登録前に接続テストを実行可能
 
 #### アプリ作成フロー
 
@@ -114,7 +115,7 @@ flowchart TB
 
 #### カラム別名設定
 
-外部テーブルのカラムに対して表示用の別名を設定できます：
+外部テーブルのカラムに対して表示用の別名を設定できます。設定項目は次のとおりです。
 
 | 設定項目 | 説明 |
 |---------|------|
@@ -125,7 +126,7 @@ flowchart TB
 
 #### 読み取り専用制限
 
-外部データソースから作成されたアプリは**読み取り専用**となります：
+外部データソースから作成されたアプリは読み取り専用となります。操作可否は次のとおりです。
 
 | 操作 | 新規テーブル | 外部データソース |
 |-----|:----------:|:--------------:|
@@ -136,7 +137,7 @@ flowchart TB
 | レコード削除 | ✅ (admin) | ❌ |
 | グラフ表示 | ✅ | ✅ |
 
-**注意**: 外部データソースからのデータは、管理者・一般ユーザーを問わず変更操作が禁止されています。
+外部データソースからのデータは、管理者・一般ユーザーを問わず変更操作を禁止しています。
 
 ### セキュリティ
 
@@ -261,7 +262,7 @@ sequenceDiagram
 
 #### 認可の実装
 
-- **バックエンド**
+##### バックエンド
 
 ```go
 // RequireAdmin ミドルウェアで管理者権限をチェック
@@ -281,7 +282,7 @@ func RequireAdmin(next http.HandlerFunc) http.HandlerFunc {
 }
 ```
 
-- **フロントエンド**
+##### フロントエンド
 
 ```tsx
 // useAuth フックで isAdmin を提供
@@ -674,7 +675,7 @@ erDiagram
 |---------|-----|------|------|
 | id | BIGSERIAL | PK | 主キー |
 | name | VARCHAR(100) | UNIQUE, NOT NULL | データソース名 |
-| db_type | VARCHAR(20) CHECK (db_type IN ('postgresql')) | NOT NULL | データベースタイプ（PostgreSQL のみ） |
+| db_type | VARCHAR(20) CHECK (db_type IN ('postgresql','mysql','oracle','sqlserver')) | NOT NULL | データベースタイプ |
 | host | VARCHAR(255) | NOT NULL | ホスト名/IPアドレス |
 | port | INT | NOT NULL | ポート番号 |
 | database_name | VARCHAR(100) | NOT NULL | データベース名 |
@@ -746,11 +747,11 @@ erDiagram
 | created_at | TIMESTAMP | | 作成日時 |
 | updated_at | TIMESTAMP | | 更新日時 |
 
-**ユニーク制約**: `(user_id, app_id)` - 同一ユーザー・アプリの組み合わせは1つのみ
+ユニーク制約は`(user_id, app_id)`で、同一ユーザー・アプリの組み合わせを1つに制限します。
 
 #### app_data_xxx（動的テーブル）
 
-アプリ作成時に動的に生成されるテーブル。命名規則: `app_data_{app_id}`
+アプリ作成時に動的に生成されるテーブルで、命名規則は`app_data_{app_id}`です。
 
 | カラム名 | 型 | 制約 | 説明 |
 |---------|-----|------|------|
@@ -1221,11 +1222,11 @@ flowchart TB
 └──────────────────────────────────────────────────────────────┘
 ```
 
-**ダッシュボード機能**:
+##### ダッシュボード機能
 
-- **ウィジェット表示**: 各アプリのデータをテーブル/リスト/グラフ形式で表示
-- **DnD並び替え**: @dnd-kitによるドラッグ&ドロップでウィジェット順序を変更
-- **表示設定**: アプリ設定ページでウィジェットの表示形式・サイズ・表示ON/OFFを設定
+- ウィジェット表示: 各アプリのデータをテーブル/リスト/グラフ形式で表示
+- DnD並び替え: @dnd-kitによるドラッグ&ドロップでウィジェット順序を変更
+- 表示設定: アプリ設定ページでウィジェットの表示形式・サイズ・表示ON/OFFを設定
 
 ---
 
@@ -1307,10 +1308,10 @@ VITE_API_URL=http://localhost:8080/api/v1
 
 #### TypeScript/React
 
-- ESLint + Prettier による自動フォーマット
+- ESLint + Prettierによる自動フォーマット
 - コンポーネントは関数コンポーネント + Hooks
-- 型定義は types/ ディレクトリに集約
-- カスタムフックは use プレフィックス
+- 型定義はtypes/ディレクトリに集約
+- カスタムフックはuseプレフィックス
 
 ### Git運用
 
@@ -1319,7 +1320,7 @@ VITE_API_URL=http://localhost:8080/api/v1
 - feature/xxx: 機能開発
 - fix/xxx: バグ修正
 
-コミットメッセージは Conventional Commits 形式:
+コミットメッセージはConventional Commits形式で書きます。
 
 ```text
 feat: アプリ作成機能を追加
@@ -1330,20 +1331,20 @@ refactor: ハンドラーの共通処理を抽出
 
 ### Pre-commit フック
 
-クローン直後に一度だけ以下を実行すると、`git commit` の前にバックエンド／フロントエンドの品質検証が自動で走り、失敗するとコミットを中断する:
+クローン直後に一度だけ以下を実行すると、`git commit`の前にバックエンド／フロントエンドの品質検証が自動で走り、失敗するとコミットを中断します。
 
 ```bash
 ./scripts/setup-hooks.sh
 ```
 
-これは `git config core.hooksPath .githooks` を設定し、`.githooks/pre-commit` を有効化するだけのスクリプト。フックは変更ファイルの場所を見て関連スイートだけを走らせる:
+これは `git config core.hooksPath .githooks` を設定し、`.githooks/pre-commit` を有効化するだけのスクリプト。フックは変更ファイルの場所を見て関連スイートだけを走らせます。対応関係は次のとおりです。
 
 | 変更場所 | 走る検証 |
 |---|---|
 | `backend/**` | `gofmt -l .`（差分なし）, `go vet ./...`, `go test -short ./...` |
 | `frontend/**` | `pnpm run typecheck`, `pnpm run lint`, `pnpm run format:check`, `pnpm test -- --run` |
 
-CI（GitHub Actions, `.github/workflows/ci.yml`）も同じスイートを PR 時に実行する。フックを通すこと = CI が通ることを意味する。
+CI（GitHub Actions、`.github/workflows/ci.yml`）も同じスイートをPR時に実行します。フックを通すことはCIが通ることを意味します。
 
 ---
 
@@ -1420,11 +1421,11 @@ pnpm exec playwright show-report
 
 #### 冪等性の保証
 
-E2Eテストは冪等性を保証するため、以下の戦略を採用しています：
+E2Eテストは冪等性を保証するため、次の戦略を採用しています。
 
-1. **テストごとの独立したデータ**: 各テストはタイムスタンプ付きのユニークなデータを作成
-2. **テスト後のクリーンアップ**: 作成したリソースはテスト終了時に削除
-3. **順序非依存**: テストは任意の順序で実行可能
+1. テストごとの独立したデータ: 各テストはタイムスタンプ付きのユニークなデータを作成
+2. テスト後のクリーンアップ: 作成したリソースはテスト終了時に削除
+3. 順序非依存: テストは任意の順序で実行可能
 
 ---
 
