@@ -31,14 +31,16 @@ func SetupMSSQLContainer(ctx context.Context) (*MSSQLTestContainer, error) {
 		"mcr.microsoft.com/mssql/server:2022-latest",
 		mssql.WithAcceptEULA(),
 		mssql.WithPassword(dbPassword),
+		// 各子ストラテジは自前の既定タイムアウト60sを持ち、WaitUntilReady内で
+		// 親から渡されたcontextをさらに60sで包み直す。ForAll側のタイムアウトは
+		// 全体の締切を伸ばすだけで内側の60sを上書きしないため、子ごとに指定する。
 		testcontainers.WithWaitStrategy(
 			wait.ForAll(
-				wait.ForListeningPort("1433/tcp"),
-				wait.ForLog("SQL Server is now ready for client connections"),
-			// WithStartupTimeoutDefaultは各子ストラテジの既定60sを上書きし、
-			// WithStartupTimeoutはForAll全体の締切を設定する。両方指定しないと
-			// 個々のログ待ちが60sで先に打ち切られる。
-			).WithStartupTimeoutDefault(120*time.Second).WithStartupTimeout(120*time.Second)),
+				wait.ForListeningPort("1433/tcp").
+					WithStartupTimeout(120*time.Second),
+				wait.ForLog("SQL Server is now ready for client connections").
+					WithStartupTimeout(120*time.Second),
+			).WithStartupTimeout(120*time.Second)),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("SQL Serverコンテナの起動に失敗しました: %w", err)

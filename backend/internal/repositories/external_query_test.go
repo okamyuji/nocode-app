@@ -456,7 +456,7 @@ func TestBuildDSN(t *testing.T) {
 			},
 			password:       "testpass",
 			expectedDriver: "postgres",
-			expectedDSN:    "host=localhost port=5432 user=testuser password='testpass' dbname=testdb sslmode=disable",
+			expectedDSN:    "host='localhost' port=5432 user='testuser' password='testpass' dbname='testdb' sslmode=disable",
 			expectedError:  false,
 		},
 		{
@@ -470,7 +470,7 @@ func TestBuildDSN(t *testing.T) {
 			},
 			password:       "test'pass\\word",
 			expectedDriver: "postgres",
-			expectedDSN:    "host=localhost port=5432 user=testuser password='test\\'pass\\\\word' dbname=testdb sslmode=disable",
+			expectedDSN:    "host='localhost' port=5432 user='testuser' password='test\\'pass\\\\word' dbname='testdb' sslmode=disable",
 			expectedError:  false,
 		},
 		{
@@ -484,7 +484,7 @@ func TestBuildDSN(t *testing.T) {
 			},
 			password:       "testpass",
 			expectedDriver: "postgres",
-			expectedDSN:    "host=localhost port=5432 user=testuser password='testpass' dbname=テストDB sslmode=disable",
+			expectedDSN:    "host='localhost' port=5432 user='testuser' password='testpass' dbname='テストDB' sslmode=disable",
 			expectedError:  false,
 		},
 
@@ -589,7 +589,7 @@ func TestBuildDSN(t *testing.T) {
 			},
 			password:       "pa ss'wd",
 			expectedDriver: "postgres",
-			expectedDSN:    `host=localhost port=5432 user=testuser password='pa ss\'wd' dbname=testdb sslmode=disable`,
+			expectedDSN:    `host='localhost' port=5432 user='testuser' password='pa ss\'wd' dbname='testdb' sslmode=disable`,
 			expectedError:  false,
 		},
 		{
@@ -663,6 +663,49 @@ func TestBuildDSN(t *testing.T) {
 			expectedError:  false,
 		},
 
+		{
+			name: "PostgreSQL: DatabaseNameの空白でキーワードを注入できない",
+			dataSource: &models.DataSource{
+				DBType:       models.DBTypePostgreSQL,
+				Host:         "localhost",
+				Port:         5432,
+				Username:     "testuser",
+				DatabaseName: "testdb sslmode=require",
+			},
+			password:       "testpass",
+			expectedDriver: "postgres",
+			expectedDSN:    `host='localhost' port=5432 user='testuser' password='testpass' dbname='testdb sslmode=require' sslmode=disable`,
+			expectedError:  false,
+		},
+		{
+			name: "PostgreSQL: ホストの空白でキーワードを注入できない",
+			dataSource: &models.DataSource{
+				DBType:       models.DBTypePostgreSQL,
+				Host:         "localhost sslmode=require",
+				Port:         5432,
+				Username:     "testuser",
+				DatabaseName: "testdb",
+			},
+			password:       "testpass",
+			expectedDriver: "postgres",
+			expectedDSN:    `host='localhost sslmode=require' port=5432 user='testuser' password='testpass' dbname='testdb' sslmode=disable`,
+			expectedError:  false,
+		},
+		{
+			name: "PostgreSQL: ユーザー名の空白でキーワードを注入できない",
+			dataSource: &models.DataSource{
+				DBType:       models.DBTypePostgreSQL,
+				Host:         "localhost",
+				Port:         5432,
+				Username:     "testuser sslmode=require",
+				DatabaseName: "testdb",
+			},
+			password:       "testpass",
+			expectedDriver: "postgres",
+			expectedDSN:    `host='localhost' port=5432 user='testuser sslmode=require' password='testpass' dbname='testdb' sslmode=disable`,
+			expectedError:  false,
+		},
+
 		// ホストに含めてはならない文字
 		{
 			name: "PostgreSQL: ホストに@が含まれるとエラー",
@@ -730,8 +773,8 @@ func TestBuildDSN(t *testing.T) {
 	}
 }
 
-// TestEscapePostgresPassword PostgreSQLパスワードエスケープをテストする
-func TestEscapePostgresPassword(t *testing.T) {
+// TestQuotePostgresValue PostgreSQLキーワード形式DSNの値の引用をテストする
+func TestQuotePostgresValue(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    string
@@ -748,7 +791,7 @@ func TestEscapePostgresPassword(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := escapePostgresPassword(tt.input)
+			result := quotePostgresValue(tt.input)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
@@ -781,6 +824,21 @@ func TestConvertScannedValue(t *testing.T) {
 // TestBuildDSN_HardeningRoundTrip DatabaseNameやパスワードに混入した特殊文字が
 // 接続オプションとして解釈されず、値としてそのまま往復することを確認する。
 func TestBuildDSN_HardeningRoundTrip(t *testing.T) {
+	t.Run("PostgreSQL: 値に含まれるキーワードは値のまま残る", func(t *testing.T) {
+		_, dsn, err := buildDSN(&models.DataSource{
+			DBType:       models.DBTypePostgreSQL,
+			Host:         "localhost",
+			Port:         5432,
+			Username:     "testuser",
+			DatabaseName: "testdb sslmode=require",
+		}, "testpass")
+		require.NoError(t, err)
+
+		assert.Contains(t, dsn, "dbname='testdb sslmode=require'")
+		assert.Equal(t, 1, strings.Count(dsn, "sslmode=disable"), "sslmode=disableは1回だけ現れるべきです")
+		assert.True(t, strings.HasSuffix(dsn, "sslmode=disable"), "注入されたキーワードが値の外に出ています")
+	})
+
 	t.Run("MySQL: DatabaseNameでallowAllFilesを有効化できない", func(t *testing.T) {
 		_, dsn, err := buildDSN(&models.DataSource{
 			DBType:       models.DBTypeMySQL,

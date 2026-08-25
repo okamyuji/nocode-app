@@ -63,9 +63,14 @@ func buildDSN(ds *models.DataSource, password string) (string, string, error) {
 
 	switch ds.DBType {
 	case models.DBTypePostgreSQL:
-		// PostgreSQLはキーワード形式を使用する。パスワードは空白を含みうるため引用符で囲む。
+		// PostgreSQLはキーワード形式を使用する。空白を含む値は次のキーワードとして
+		// 解釈されるため、利用者入力である4つの値すべてを引用符で囲む。
 		dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
-			ds.Host, ds.Port, ds.Username, escapePostgresPassword(password), ds.DatabaseName)
+			quotePostgresValue(ds.Host),
+			ds.Port,
+			quotePostgresValue(ds.Username),
+			quotePostgresValue(password),
+			quotePostgresValue(ds.DatabaseName))
 		return "postgres", dsn, nil
 
 	case models.DBTypeMySQL:
@@ -109,10 +114,11 @@ func buildDSN(ds *models.DataSource, password string) (string, string, error) {
 	}
 }
 
-// escapePostgresPassword PostgreSQLのキーワード形式DSN用にパスワードを引用符で囲む。
-// 引用符で囲まないと空白を含むパスワードが次のキーワードとして解釈される。
-func escapePostgresPassword(password string) string {
-	escaped := strings.ReplaceAll(password, `\`, `\\`)
+// quotePostgresValue PostgreSQLのキーワード形式DSN用に値を引用符で囲む。
+// libpqは単一引用符で囲まれた値の中の空白を値の一部として扱うため、
+// 引用符で囲まない値に空白があると以降が別のキーワードとして解釈される。
+func quotePostgresValue(value string) string {
+	escaped := strings.ReplaceAll(value, `\`, `\\`)
 	escaped = strings.ReplaceAll(escaped, `'`, `\'`)
 	return "'" + escaped + "'"
 }
