@@ -9,56 +9,197 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestQuoteIdentifierForDB 識別子クォート（PostgreSQL）をテストする
+// TestQuoteIdentifierForDB 各データベースタイプでの識別子クォートをテストする
 func TestQuoteIdentifierForDB(t *testing.T) {
 	tests := []struct {
 		name     string
+		dbType   models.DBType
 		input    string
 		expected string
 	}{
+		// PostgreSQL テスト
 		{
 			name:     "PostgreSQL: 英語の単純な名前",
+			dbType:   models.DBTypePostgreSQL,
 			input:    "users",
 			expected: `"users"`,
 		},
 		{
 			name:     "PostgreSQL: 日本語テーブル名",
+			dbType:   models.DBTypePostgreSQL,
 			input:    "顧客マスタ",
 			expected: `"顧客マスタ"`,
 		},
 		{
 			name:     "PostgreSQL: 日本語カラム名",
+			dbType:   models.DBTypePostgreSQL,
 			input:    "プロセス名",
 			expected: `"プロセス名"`,
 		},
 		{
 			name:     "PostgreSQL: ダブルクォートを含む名前",
+			dbType:   models.DBTypePostgreSQL,
 			input:    `user"name`,
 			expected: `"user""name"`,
 		},
 		{
 			name:     "PostgreSQL: スペースを含む名前",
+			dbType:   models.DBTypePostgreSQL,
 			input:    "user name",
 			expected: `"user name"`,
 		},
 		{
 			name:     "PostgreSQL: 予約語",
+			dbType:   models.DBTypePostgreSQL,
 			input:    "select",
 			expected: `"select"`,
+		},
+
+		// MySQL テスト
+		{
+			name:     "MySQL: 英語の単純な名前",
+			dbType:   models.DBTypeMySQL,
+			input:    "users",
+			expected: "`users`",
+		},
+		{
+			name:     "MySQL: 日本語テーブル名",
+			dbType:   models.DBTypeMySQL,
+			input:    "顧客マスタ",
+			expected: "`顧客マスタ`",
+		},
+		{
+			name:     "MySQL: 日本語カラム名",
+			dbType:   models.DBTypeMySQL,
+			input:    "プロセス名",
+			expected: "`プロセス名`",
+		},
+		{
+			name:     "MySQL: バッククォートを含む名前",
+			dbType:   models.DBTypeMySQL,
+			input:    "user`name",
+			expected: "`user``name`",
+		},
+		{
+			name:     "MySQL: スペースを含む名前",
+			dbType:   models.DBTypeMySQL,
+			input:    "user name",
+			expected: "`user name`",
+		},
+		{
+			name:     "MySQL: 予約語",
+			dbType:   models.DBTypeMySQL,
+			input:    "select",
+			expected: "`select`",
+		},
+
+		// Oracle テスト（大文字変換あり）
+		{
+			name:     "Oracle: 英語の単純な名前",
+			dbType:   models.DBTypeOracle,
+			input:    "users",
+			expected: `"USERS"`,
+		},
+		{
+			name:     "Oracle: 日本語テーブル名（大文字変換なし）",
+			dbType:   models.DBTypeOracle,
+			input:    "顧客マスタ",
+			expected: `"顧客マスタ"`,
+		},
+		{
+			name:     "Oracle: 日本語カラム名（大文字変換なし）",
+			dbType:   models.DBTypeOracle,
+			input:    "プロセス名",
+			expected: `"プロセス名"`,
+		},
+		{
+			name:     "Oracle: 混合（大文字英語+日本語）",
+			dbType:   models.DBTypeOracle,
+			input:    "SPR2_プロセスマスタ",
+			expected: `"SPR2_プロセスマスタ"`,
+		},
+		{
+			name:     "Oracle: 混合（小文字英語+日本語）大文字変換を確認",
+			dbType:   models.DBTypeOracle,
+			input:    "spr2_プロセスマスタ",
+			expected: `"SPR2_プロセスマスタ"`,
+		},
+		{
+			name:     "Oracle: ダブルクォートを含む名前",
+			dbType:   models.DBTypeOracle,
+			input:    `user"name`,
+			expected: `"USER""NAME"`,
+		},
+		{
+			name:     "Oracle: スペースを含む名前",
+			dbType:   models.DBTypeOracle,
+			input:    "user name",
+			expected: `"USER NAME"`,
+		},
+
+		// SQL Server テスト
+		{
+			name:     "SQLServer: 英語の単純な名前",
+			dbType:   models.DBTypeSQLServer,
+			input:    "users",
+			expected: "[users]",
+		},
+		{
+			name:     "SQLServer: 日本語テーブル名",
+			dbType:   models.DBTypeSQLServer,
+			input:    "顧客マスタ",
+			expected: "[顧客マスタ]",
+		},
+		{
+			name:     "SQLServer: 日本語カラム名",
+			dbType:   models.DBTypeSQLServer,
+			input:    "プロセス名",
+			expected: "[プロセス名]",
+		},
+		{
+			name:     "SQLServer: 閉じ括弧を含む名前",
+			dbType:   models.DBTypeSQLServer,
+			input:    "user]name",
+			expected: "[user]]name]",
+		},
+		{
+			name:     "SQLServer: スペースを含む名前",
+			dbType:   models.DBTypeSQLServer,
+			input:    "user name",
+			expected: "[user name]",
+		},
+		{
+			name:     "SQLServer: 予約語",
+			dbType:   models.DBTypeSQLServer,
+			input:    "select",
+			expected: "[select]",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := quoteIdentifierForDB(tt.input)
+			result, err := quoteIdentifierForDB(tt.dbType, tt.input)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
 
-// TestQuoteIdentifierForDBRejectsInvalid 制御文字・空文字など不正な識別子を拒否することをテストする
-func TestQuoteIdentifierForDBRejectsInvalid(t *testing.T) {
+// TestQuoteIdentifierForDB_UnsupportedDBType 未対応のデータベースタイプでエラーを返すことをテストする
+func TestQuoteIdentifierForDB_UnsupportedDBType(t *testing.T) {
+	_, err := quoteIdentifierForDB("unknown", "users")
+	assert.Error(t, err)
+}
+
+// TestQuoteIdentifierForDB_RejectsInvalid 制御文字・空文字など不正な識別子を全方言で拒否することをテストする
+func TestQuoteIdentifierForDB_RejectsInvalid(t *testing.T) {
+	dbTypes := []models.DBType{
+		models.DBTypePostgreSQL,
+		models.DBTypeMySQL,
+		models.DBTypeOracle,
+		models.DBTypeSQLServer,
+	}
+
 	tests := []struct {
 		name  string
 		input string
@@ -71,55 +212,101 @@ func TestQuoteIdentifierForDBRejectsInvalid(t *testing.T) {
 		{name: "長すぎる識別子", input: strings.Repeat("a", maxExternalIdentifierLength+1)},
 	}
 
+	for _, dbType := range dbTypes {
+		for _, tt := range tests {
+			t.Run(string(dbType)+": "+tt.name, func(t *testing.T) {
+				_, err := quoteIdentifierForDB(dbType, tt.input)
+				assert.Error(t, err)
+			})
+		}
+	}
+}
+
+// TestQuoteIdentifierForDBWithJapaneseEdgeCases 日本語の境界ケースをテストする
+func TestQuoteIdentifierForDBWithJapaneseEdgeCases(t *testing.T) {
+	tests := []struct {
+		name   string
+		dbType models.DBType
+		input  string
+	}{
+		{name: "PostgreSQL: ひらがな", dbType: models.DBTypePostgreSQL, input: "てすと"},
+		{name: "MySQL: カタカナ", dbType: models.DBTypeMySQL, input: "テスト"},
+		{name: "Oracle: 漢字", dbType: models.DBTypeOracle, input: "顧客管理"},
+		{name: "SQLServer: 全角数字", dbType: models.DBTypeSQLServer, input: "テーブル１２３"},
+		{name: "PostgreSQL: 全角記号", dbType: models.DBTypePostgreSQL, input: "テスト＿テーブル"},
+		{name: "MySQL: 混合名", dbType: models.DBTypeMySQL, input: "user_テーブル_123"},
+		{name: "Oracle: 長い日本語名", dbType: models.DBTypeOracle, input: "非常に長い日本語のテーブル名前をテストする"},
+		{name: "SQLServer: 絵文字を含む", dbType: models.DBTypeSQLServer, input: "テスト😀テーブル"},
+	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := quoteIdentifierForDB(tt.input)
-			assert.Error(t, err)
+			result, err := quoteIdentifierForDB(tt.dbType, tt.input)
+			assert.NoError(t, err)
+			assert.NotEmpty(t, result)
+			// 入力が結果に含まれていることを確認（クォート文字を除く）
+			assert.Contains(t, result, tt.input)
 		})
 	}
 }
 
-// TestGetPlaceholder PostgreSQL の $N プレースホルダをテストする
+// TestGetPlaceholder 各データベースタイプでのプレースホルダーをテストする
 func TestGetPlaceholder(t *testing.T) {
 	tests := []struct {
 		name     string
+		dbType   models.DBType
 		index    int
 		expected string
 	}{
-		{name: "index 1", index: 1, expected: "$1"},
-		{name: "index 5", index: 5, expected: "$5"},
-		{name: "index 100", index: 100, expected: "$100"},
+		{name: "PostgreSQL: index 1", dbType: models.DBTypePostgreSQL, index: 1, expected: "$1"},
+		{name: "PostgreSQL: index 5", dbType: models.DBTypePostgreSQL, index: 5, expected: "$5"},
+		{name: "PostgreSQL: index 100", dbType: models.DBTypePostgreSQL, index: 100, expected: "$100"},
+		{name: "MySQL: index 1", dbType: models.DBTypeMySQL, index: 1, expected: "?"},
+		{name: "MySQL: index 5", dbType: models.DBTypeMySQL, index: 5, expected: "?"},
+		{name: "Oracle: index 1", dbType: models.DBTypeOracle, index: 1, expected: ":1"},
+		{name: "Oracle: index 5", dbType: models.DBTypeOracle, index: 5, expected: ":5"},
+		{name: "SQLServer: index 1", dbType: models.DBTypeSQLServer, index: 1, expected: "@p1"},
+		{name: "SQLServer: index 5", dbType: models.DBTypeSQLServer, index: 5, expected: "@p5"},
+		{name: "Unknown: MySQL形式にフォールバック", dbType: "unknown", index: 1, expected: "?"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := getPlaceholder(models.DBTypePostgreSQL, tt.index)
+			result := getPlaceholder(tt.dbType, tt.index)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
 
-// TestBuildLimitOffset PostgreSQL の LIMIT/OFFSET 句をテストする
+// TestBuildLimitOffset 各データベースタイプでのLIMIT/OFFSET句をテストする
 func TestBuildLimitOffset(t *testing.T) {
 	tests := []struct {
 		name     string
+		dbType   models.DBType
 		limit    int
 		offset   int
 		expected string
 	}{
-		{name: "limit 10 offset 0", limit: 10, offset: 0, expected: " LIMIT 10 OFFSET 0"},
-		{name: "limit 20 offset 40", limit: 20, offset: 40, expected: " LIMIT 20 OFFSET 40"},
+		{name: "PostgreSQL: limit 10 offset 0", dbType: models.DBTypePostgreSQL, limit: 10, offset: 0, expected: " LIMIT 10 OFFSET 0"},
+		{name: "PostgreSQL: limit 20 offset 40", dbType: models.DBTypePostgreSQL, limit: 20, offset: 40, expected: " LIMIT 20 OFFSET 40"},
+		{name: "PostgreSQL: limit 10 offset 20", dbType: models.DBTypePostgreSQL, limit: 10, offset: 20, expected: " LIMIT 10 OFFSET 20"},
+		{name: "MySQL: limit 10 offset 0", dbType: models.DBTypeMySQL, limit: 10, offset: 0, expected: " LIMIT 10 OFFSET 0"},
+		{name: "MySQL: limit 10 offset 20", dbType: models.DBTypeMySQL, limit: 10, offset: 20, expected: " LIMIT 10 OFFSET 20"},
+		{name: "Oracle: limit 10 offset 0", dbType: models.DBTypeOracle, limit: 10, offset: 0, expected: " OFFSET 0 ROWS FETCH NEXT 10 ROWS ONLY"},
+		{name: "Oracle: limit 10 offset 20", dbType: models.DBTypeOracle, limit: 10, offset: 20, expected: " OFFSET 20 ROWS FETCH NEXT 10 ROWS ONLY"},
+		{name: "SQLServer: limit 10 offset 0", dbType: models.DBTypeSQLServer, limit: 10, offset: 0, expected: " OFFSET 0 ROWS FETCH NEXT 10 ROWS ONLY"},
+		{name: "SQLServer: limit 10 offset 20", dbType: models.DBTypeSQLServer, limit: 10, offset: 20, expected: " OFFSET 20 ROWS FETCH NEXT 10 ROWS ONLY"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := buildLimitOffset(models.DBTypePostgreSQL, tt.limit, tt.offset)
+			result := buildLimitOffset(tt.dbType, tt.limit, tt.offset)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
 
-// TestBuildDSN PostgreSQL の DSN 構築と非対応 DB のエラーをテストする
+// TestBuildDSN 各データベースタイプでのDSN構築をテストする
 func TestBuildDSN(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -129,6 +316,7 @@ func TestBuildDSN(t *testing.T) {
 		expectedDSN    string
 		expectedError  bool
 	}{
+		// PostgreSQL
 		{
 			name: "PostgreSQL: 基本的なDSN",
 			dataSource: &models.DataSource{
@@ -171,6 +359,98 @@ func TestBuildDSN(t *testing.T) {
 			expectedDSN:    "host=localhost port=5432 user=testuser password=testpass dbname=テストDB sslmode=disable",
 			expectedError:  false,
 		},
+
+		// MySQL
+		{
+			name: "MySQL: 基本的なDSN",
+			dataSource: &models.DataSource{
+				DBType:       models.DBTypeMySQL,
+				Host:         "localhost",
+				Port:         3306,
+				Username:     "testuser",
+				DatabaseName: "testdb",
+			},
+			password:       "testpass",
+			expectedDriver: "mysql",
+			expectedDSN:    "testuser:testpass@tcp(localhost:3306)/testdb?parseTime=true",
+			expectedError:  false,
+		},
+		{
+			name: "MySQL: 日本語データベース名",
+			dataSource: &models.DataSource{
+				DBType:       models.DBTypeMySQL,
+				Host:         "localhost",
+				Port:         3306,
+				Username:     "testuser",
+				DatabaseName: "テストDB",
+			},
+			password:       "testpass",
+			expectedDriver: "mysql",
+			expectedDSN:    "testuser:testpass@tcp(localhost:3306)/テストDB?parseTime=true",
+			expectedError:  false,
+		},
+
+		// Oracle
+		{
+			name: "Oracle: 基本的なDSN",
+			dataSource: &models.DataSource{
+				DBType:       models.DBTypeOracle,
+				Host:         "localhost",
+				Port:         1521,
+				Username:     "testuser",
+				DatabaseName: "ORCL",
+			},
+			password:       "testpass",
+			expectedDriver: "oracle",
+			expectedDSN:    "oracle://testuser:testpass@localhost:1521/ORCL",
+			expectedError:  false,
+		},
+		{
+			name: "Oracle: 特殊文字を含むパスワード",
+			dataSource: &models.DataSource{
+				DBType:       models.DBTypeOracle,
+				Host:         "localhost",
+				Port:         1521,
+				Username:     "testuser",
+				DatabaseName: "ORCL",
+			},
+			password:       "test@pass/word",
+			expectedDriver: "oracle",
+			expectedDSN:    "oracle://testuser:test%40pass%2Fword@localhost:1521/ORCL",
+			expectedError:  false,
+		},
+
+		// SQL Server
+		{
+			name: "SQLServer: 基本的なDSN",
+			dataSource: &models.DataSource{
+				DBType:       models.DBTypeSQLServer,
+				Host:         "localhost",
+				Port:         1433,
+				Username:     "testuser",
+				DatabaseName: "testdb",
+			},
+			password:       "testpass",
+			expectedDriver: "sqlserver",
+			expectedDSN:    "sqlserver://testuser:testpass@localhost:1433?database=testdb",
+			expectedError:  false,
+		},
+		{
+			name: "SQLServer: 特殊文字を含むパスワード",
+			dataSource: &models.DataSource{
+				DBType:       models.DBTypeSQLServer,
+				Host:         "localhost",
+				Port:         1433,
+				Username:     "testuser",
+				DatabaseName: "testdb",
+			},
+			password:       "test@pass/word",
+			expectedDriver: "sqlserver",
+			expectedDSN:    "sqlserver://testuser:test%40pass%2Fword@localhost:1433?database=testdb",
+			expectedError:  false,
+		},
+
+		// 不明なデータベースタイプ
 		{
 			name: "Unknown: エラーを返す",
 			dataSource: &models.DataSource{
@@ -242,32 +522,6 @@ func TestConvertScannedValue(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := convertScannedValue(tt.input)
 			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
-
-// TestQuoteIdentifierForDBWithJapaneseEdgeCases 日本語の境界ケースをテストする
-func TestQuoteIdentifierForDBWithJapaneseEdgeCases(t *testing.T) {
-	tests := []struct {
-		name  string
-		input string
-	}{
-		{name: "PostgreSQL: ひらがな", input: "てすと"},
-		{name: "PostgreSQL: カタカナ", input: "テスト"},
-		{name: "PostgreSQL: 漢字", input: "顧客管理"},
-		{name: "PostgreSQL: 全角数字", input: "テーブル１２３"},
-		{name: "PostgreSQL: 全角記号", input: "テスト＿テーブル"},
-		{name: "PostgreSQL: 混合名", input: "user_テーブル_123"},
-		{name: "PostgreSQL: 長い日本語名", input: "非常に長い日本語のテーブル名前をテストする"},
-		{name: "PostgreSQL: 絵文字を含む", input: "テスト😀テーブル"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result, err := quoteIdentifierForDB(tt.input)
-			assert.NoError(t, err)
-			assert.NotEmpty(t, result)
-			assert.Contains(t, result, tt.input)
 		})
 	}
 }
