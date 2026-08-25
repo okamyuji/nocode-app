@@ -306,6 +306,101 @@ func TestBuildLimitOffset(t *testing.T) {
 	}
 }
 
+// TestBuildOrderAndLimit ORDER BY句とLIMIT/OFFSET句の組み立てを各データベースタイプでテストする
+func TestBuildOrderAndLimit(t *testing.T) {
+	tests := []struct {
+		name     string
+		dbType   models.DBType
+		sortSQL  string
+		limit    int
+		offset   int
+		expected string
+	}{
+		// 並び替え指定あり: 全方言でORDER BYをそのまま出す
+		{
+			name:     "PostgreSQL: ソートあり",
+			dbType:   models.DBTypePostgreSQL,
+			sortSQL:  `"id" ASC`,
+			limit:    10,
+			offset:   20,
+			expected: ` ORDER BY "id" ASC LIMIT 10 OFFSET 20`,
+		},
+		{
+			name:     "MySQL: ソートあり",
+			dbType:   models.DBTypeMySQL,
+			sortSQL:  "`id` DESC",
+			limit:    10,
+			offset:   20,
+			expected: " ORDER BY `id` DESC LIMIT 10 OFFSET 20",
+		},
+		{
+			name:     "Oracle: ソートあり",
+			dbType:   models.DBTypeOracle,
+			sortSQL:  `"ID" ASC`,
+			limit:    10,
+			offset:   20,
+			expected: ` ORDER BY "ID" ASC OFFSET 20 ROWS FETCH NEXT 10 ROWS ONLY`,
+		},
+		{
+			name:     "SQLServer: ソートあり（フォールバックしない）",
+			dbType:   models.DBTypeSQLServer,
+			sortSQL:  "[id] ASC",
+			limit:    10,
+			offset:   20,
+			expected: " ORDER BY [id] ASC OFFSET 20 ROWS FETCH NEXT 10 ROWS ONLY",
+		},
+
+		// 並び替え指定なし: SQL ServerだけORDER BY (SELECT NULL)を補う
+		{
+			name:     "PostgreSQL: ソートなしはORDER BYを付けない",
+			dbType:   models.DBTypePostgreSQL,
+			sortSQL:  "",
+			limit:    10,
+			offset:   20,
+			expected: " LIMIT 10 OFFSET 20",
+		},
+		{
+			name:     "MySQL: ソートなしはORDER BYを付けない",
+			dbType:   models.DBTypeMySQL,
+			sortSQL:  "",
+			limit:    10,
+			offset:   20,
+			expected: " LIMIT 10 OFFSET 20",
+		},
+		{
+			name:     "Oracle: ソートなしはORDER BYを付けない",
+			dbType:   models.DBTypeOracle,
+			sortSQL:  "",
+			limit:    10,
+			offset:   20,
+			expected: " OFFSET 20 ROWS FETCH NEXT 10 ROWS ONLY",
+		},
+		{
+			name:     "SQLServer: ソートなしはORDER BY (SELECT NULL)を補う",
+			dbType:   models.DBTypeSQLServer,
+			sortSQL:  "",
+			limit:    10,
+			offset:   20,
+			expected: " ORDER BY (SELECT NULL) OFFSET 20 ROWS FETCH NEXT 10 ROWS ONLY",
+		},
+		{
+			name:     "SQLServer: ソートなし・offset 0",
+			dbType:   models.DBTypeSQLServer,
+			sortSQL:  "",
+			limit:    25,
+			offset:   0,
+			expected: " ORDER BY (SELECT NULL) OFFSET 0 ROWS FETCH NEXT 25 ROWS ONLY",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := buildOrderAndLimit(tt.dbType, tt.sortSQL, tt.limit, tt.offset)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
 // TestBuildDSN 各データベースタイプでのDSN構築をテストする
 func TestBuildDSN(t *testing.T) {
 	tests := []struct {

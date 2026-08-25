@@ -348,7 +348,8 @@ func (e *ExternalQueryExecutor) GetRecords(ctx context.Context, ds *models.DataS
 		strings.Join(columns, ", "),
 		quotedTable)
 
-	// ORDER BY
+	// ORDER BY の並び替え式（クォート済みカラム + 方向）を組み立てる
+	sortSQL := ""
 	if opts.Sort != "" {
 		sortCol := opts.Sort
 		// フィールドからsource_column_nameを取得
@@ -368,12 +369,12 @@ func (e *ExternalQueryExecutor) GetRecords(ctx context.Context, ds *models.DataS
 		if opts.Order == "desc" {
 			order = "DESC"
 		}
-		query += fmt.Sprintf(" ORDER BY %s %s", quotedSort, order)
+		sortSQL = fmt.Sprintf("%s %s", quotedSort, order)
 	}
 
-	// LIMIT/OFFSET
+	// ORDER BY と LIMIT/OFFSET
 	offset := (opts.Page - 1) * opts.Limit
-	query += buildLimitOffset(ds.DBType, opts.Limit, offset)
+	query += buildOrderAndLimit(ds.DBType, sortSQL, opts.Limit, offset)
 
 	rows, err := db.QueryContext(ctx, query)
 	if err != nil {
@@ -662,6 +663,22 @@ func buildLimitOffset(dbType models.DBType, limit, offset int) string {
 	default: // PostgreSQL, MySQL
 		return fmt.Sprintf(" LIMIT %d OFFSET %d", limit, offset)
 	}
+}
+
+// buildOrderAndLimit ORDER BY句とLIMIT/OFFSET句を組み立てる。
+// sortSQLは検証・クォート済みの並び替え式（例: `"id" ASC`）で、空なら並び替えを指定しない。
+//
+// SQL ServerはOFFSET/FETCHをORDER BY無しで受け付けないため、並び替え指定が無い場合だけ
+// ORDER BY (SELECT NULL) を補って構文を成立させる。他の方言の出力は変えない。
+func buildOrderAndLimit(dbType models.DBType, sortSQL string, limit, offset int) string {
+	orderBy := ""
+	switch {
+	case sortSQL != "":
+		orderBy = " ORDER BY " + sortSQL
+	case dbType == models.DBTypeSQLServer:
+		orderBy = " ORDER BY (SELECT NULL)"
+	}
+	return orderBy + buildLimitOffset(dbType, limit, offset)
 }
 
 // scanExternalRecordRow 外部DBの行からレコードをスキャンする
