@@ -188,7 +188,6 @@ func TestQuoteIdentifierForDB(t *testing.T) {
 	}
 }
 
-// TestQuoteIdentifierForDB_UnsupportedDBType 未対応のデータベースタイプでエラーを返すことをテストする
 // TestOracleObjectName データディクショナリ検索用の名前がquoteIdentifierForDBのOracle分岐と
 // 同じ大文字化規則になることをテストする
 func TestOracleObjectName(t *testing.T) {
@@ -219,6 +218,7 @@ func TestOracleObjectName(t *testing.T) {
 	}
 }
 
+// TestQuoteIdentifierForDB_UnsupportedDBType 未対応のデータベースタイプでエラーを返すことをテストする
 func TestQuoteIdentifierForDB_UnsupportedDBType(t *testing.T) {
 	_, err := quoteIdentifierForDB("unknown", "users")
 	assert.Error(t, err)
