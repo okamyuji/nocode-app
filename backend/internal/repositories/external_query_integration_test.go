@@ -146,6 +146,45 @@ func TestExternalQueryExecutor_PostgreSQL_Integration(t *testing.T) {
 
 		assert.Equal(t, int64(3), total, "レコード数が一致しません")
 		assert.Len(t, records, 3, "取得されたレコード数が一致しません")
+		assert.NotZero(t, records[0].ID, "レコードIDが0です（ID列の型変換に失敗しています）")
+	})
+
+	t.Run("GetAggregatedData", func(t *testing.T) {
+		fields := createTestFields()
+
+		countRes, err := executor.GetAggregatedData(ctx, ds, container.Password, "test_table", fields,
+			&models.ChartDataRequest{
+				ChartType: "bar",
+				XAxis:     models.ChartAxis{Field: "name", Label: "名前"},
+				YAxis:     models.ChartAxis{Label: "件数", Aggregation: "count"},
+			})
+		require.NoError(t, err, "集計データ(count)の取得に失敗しました")
+		require.Len(t, countRes.Datasets, 1, "データセット数が一致しません")
+		assert.NotEmpty(t, countRes.Labels, "ラベルが空です")
+		require.Len(t, countRes.Datasets[0].Data, len(countRes.Labels), "ラベル数と値の数が一致しません")
+
+		var countTotal float64
+		for _, v := range countRes.Datasets[0].Data {
+			countTotal += v
+		}
+		assert.Equal(t, float64(3), countTotal, "countの合計が挿入行数と一致しません")
+
+		sumRes, err := executor.GetAggregatedData(ctx, ds, container.Password, "test_table", fields,
+			&models.ChartDataRequest{
+				ChartType: "bar",
+				XAxis:     models.ChartAxis{Field: "name", Label: "名前"},
+				YAxis:     models.ChartAxis{Field: "salary", Label: "給与合計", Aggregation: "sum"},
+			})
+		require.NoError(t, err, "集計データ(sum)の取得に失敗しました")
+		require.Len(t, sumRes.Datasets, 1, "データセット数が一致しません")
+		assert.NotEmpty(t, sumRes.Labels, "ラベルが空です")
+		require.Len(t, sumRes.Datasets[0].Data, len(sumRes.Labels), "ラベル数と値の数が一致しません")
+
+		var salaryTotal float64
+		for _, v := range sumRes.Datasets[0].Data {
+			salaryTotal += v
+		}
+		assert.InDelta(t, 155000.0, salaryTotal, 0.01, "salaryの合計が一致しません")
 	})
 
 	t.Run("CountRecords", func(t *testing.T) {
@@ -287,6 +326,45 @@ func TestExternalQueryExecutor_MySQL_Integration(t *testing.T) {
 
 		assert.Equal(t, int64(3), total, "レコード数が一致しません")
 		assert.Len(t, records, 3, "取得されたレコード数が一致しません")
+		assert.NotZero(t, records[0].ID, "レコードIDが0です（ID列の型変換に失敗しています）")
+	})
+
+	t.Run("GetAggregatedData", func(t *testing.T) {
+		fields := createTestFields()
+
+		countRes, err := executor.GetAggregatedData(ctx, ds, container.Password, "test_table", fields,
+			&models.ChartDataRequest{
+				ChartType: "bar",
+				XAxis:     models.ChartAxis{Field: "name", Label: "名前"},
+				YAxis:     models.ChartAxis{Label: "件数", Aggregation: "count"},
+			})
+		require.NoError(t, err, "集計データ(count)の取得に失敗しました")
+		require.Len(t, countRes.Datasets, 1, "データセット数が一致しません")
+		assert.NotEmpty(t, countRes.Labels, "ラベルが空です")
+		require.Len(t, countRes.Datasets[0].Data, len(countRes.Labels), "ラベル数と値の数が一致しません")
+
+		var countTotal float64
+		for _, v := range countRes.Datasets[0].Data {
+			countTotal += v
+		}
+		assert.Equal(t, float64(3), countTotal, "countの合計が挿入行数と一致しません")
+
+		sumRes, err := executor.GetAggregatedData(ctx, ds, container.Password, "test_table", fields,
+			&models.ChartDataRequest{
+				ChartType: "bar",
+				XAxis:     models.ChartAxis{Field: "name", Label: "名前"},
+				YAxis:     models.ChartAxis{Field: "salary", Label: "給与合計", Aggregation: "sum"},
+			})
+		require.NoError(t, err, "集計データ(sum)の取得に失敗しました")
+		require.Len(t, sumRes.Datasets, 1, "データセット数が一致しません")
+		assert.NotEmpty(t, sumRes.Labels, "ラベルが空です")
+		require.Len(t, sumRes.Datasets[0].Data, len(sumRes.Labels), "ラベル数と値の数が一致しません")
+
+		var salaryTotal float64
+		for _, v := range sumRes.Datasets[0].Data {
+			salaryTotal += v
+		}
+		assert.InDelta(t, 155000.0, salaryTotal, 0.01, "salaryの合計が一致しません")
 	})
 
 	t.Run("CountRecords", func(t *testing.T) {
@@ -430,6 +508,62 @@ func TestExternalQueryExecutor_SQLServer_Integration(t *testing.T) {
 
 		assert.Equal(t, int64(3), total, "レコード数が一致しません")
 		assert.Len(t, records, 3, "取得されたレコード数が一致しません")
+		assert.NotZero(t, records[0].ID, "レコードIDが0です（ID列の型変換に失敗しています）")
+	})
+
+	t.Run("GetRecordsWithoutSort", func(t *testing.T) {
+		// SQL ServerのOFFSET/FETCHはORDER BY必須のため、並び替え未指定時は
+		// ORDER BY (SELECT NULL) が補われる。そのフォールバック経路を通す。
+		fields := createTestFields()
+		opts := RecordQueryOptions{
+			Page:  1,
+			Limit: 2,
+		}
+
+		records, total, err := executor.GetRecords(ctx, ds, container.Password, "test_table", fields, opts)
+		require.NoError(t, err, "並び替え未指定でのレコード取得に失敗しました")
+
+		assert.Equal(t, int64(3), total, "レコード数が一致しません")
+		assert.Len(t, records, 2, "ページサイズ分のレコードが返されていません")
+		assert.NotZero(t, records[0].ID, "レコードIDが0です")
+	})
+
+	t.Run("GetAggregatedData", func(t *testing.T) {
+		fields := createTestFields()
+
+		countRes, err := executor.GetAggregatedData(ctx, ds, container.Password, "test_table", fields,
+			&models.ChartDataRequest{
+				ChartType: "bar",
+				XAxis:     models.ChartAxis{Field: "name", Label: "名前"},
+				YAxis:     models.ChartAxis{Label: "件数", Aggregation: "count"},
+			})
+		require.NoError(t, err, "集計データ(count)の取得に失敗しました")
+		require.Len(t, countRes.Datasets, 1, "データセット数が一致しません")
+		assert.NotEmpty(t, countRes.Labels, "ラベルが空です")
+		require.Len(t, countRes.Datasets[0].Data, len(countRes.Labels), "ラベル数と値の数が一致しません")
+
+		var countTotal float64
+		for _, v := range countRes.Datasets[0].Data {
+			countTotal += v
+		}
+		assert.Equal(t, float64(3), countTotal, "countの合計が挿入行数と一致しません")
+
+		sumRes, err := executor.GetAggregatedData(ctx, ds, container.Password, "test_table", fields,
+			&models.ChartDataRequest{
+				ChartType: "bar",
+				XAxis:     models.ChartAxis{Field: "name", Label: "名前"},
+				YAxis:     models.ChartAxis{Field: "salary", Label: "給与合計", Aggregation: "sum"},
+			})
+		require.NoError(t, err, "集計データ(sum)の取得に失敗しました")
+		require.Len(t, sumRes.Datasets, 1, "データセット数が一致しません")
+		assert.NotEmpty(t, sumRes.Labels, "ラベルが空です")
+		require.Len(t, sumRes.Datasets[0].Data, len(sumRes.Labels), "ラベル数と値の数が一致しません")
+
+		var salaryTotal float64
+		for _, v := range sumRes.Datasets[0].Data {
+			salaryTotal += v
+		}
+		assert.InDelta(t, 155000.0, salaryTotal, 0.01, "salaryの合計が一致しません")
 	})
 
 	t.Run("CountRecords", func(t *testing.T) {
@@ -557,6 +691,15 @@ func TestExternalQueryExecutor_Oracle_Integration(t *testing.T) {
 		for _, expected := range expectedColumns {
 			assert.True(t, columnNames[expected], "カラム %s が見つかりませんでした", expected)
 		}
+
+		// 主キーはID列ただ1つ。他スキーマの同名制約を拾うとここが崩れる。
+		var primaryKeys []string
+		for _, col := range columns {
+			if col.IsPrimaryKey {
+				primaryKeys = append(primaryKeys, col.Name)
+			}
+		}
+		assert.Equal(t, []string{"ID"}, primaryKeys, "主キー列が想定と一致しません")
 	})
 
 	t.Run("GetRecords", func(t *testing.T) {
@@ -571,6 +714,45 @@ func TestExternalQueryExecutor_Oracle_Integration(t *testing.T) {
 
 		assert.Equal(t, int64(3), total, "レコード数が一致しません")
 		assert.Len(t, records, 3, "取得されたレコード数が一致しません")
+		assert.NotZero(t, records[0].ID, "レコードIDが0です（ID列の型変換に失敗しています）")
+	})
+
+	t.Run("GetAggregatedData", func(t *testing.T) {
+		fields := createOracleTestFields()
+
+		countRes, err := executor.GetAggregatedData(ctx, ds, container.Password, "TEST_TABLE", fields,
+			&models.ChartDataRequest{
+				ChartType: "bar",
+				XAxis:     models.ChartAxis{Field: "name", Label: "名前"},
+				YAxis:     models.ChartAxis{Label: "件数", Aggregation: "count"},
+			})
+		require.NoError(t, err, "集計データ(count)の取得に失敗しました")
+		require.Len(t, countRes.Datasets, 1, "データセット数が一致しません")
+		assert.NotEmpty(t, countRes.Labels, "ラベルが空です")
+		require.Len(t, countRes.Datasets[0].Data, len(countRes.Labels), "ラベル数と値の数が一致しません")
+
+		var countTotal float64
+		for _, v := range countRes.Datasets[0].Data {
+			countTotal += v
+		}
+		assert.Equal(t, float64(3), countTotal, "countの合計が挿入行数と一致しません")
+
+		sumRes, err := executor.GetAggregatedData(ctx, ds, container.Password, "TEST_TABLE", fields,
+			&models.ChartDataRequest{
+				ChartType: "bar",
+				XAxis:     models.ChartAxis{Field: "name", Label: "名前"},
+				YAxis:     models.ChartAxis{Field: "salary", Label: "給与合計", Aggregation: "sum"},
+			})
+		require.NoError(t, err, "集計データ(sum)の取得に失敗しました")
+		require.Len(t, sumRes.Datasets, 1, "データセット数が一致しません")
+		assert.NotEmpty(t, sumRes.Labels, "ラベルが空です")
+		require.Len(t, sumRes.Datasets[0].Data, len(sumRes.Labels), "ラベル数と値の数が一致しません")
+
+		var salaryTotal float64
+		for _, v := range sumRes.Datasets[0].Data {
+			salaryTotal += v
+		}
+		assert.InDelta(t, 155000.0, salaryTotal, 0.01, "salaryの合計が一致しません")
 	})
 
 	t.Run("CountRecords", func(t *testing.T) {

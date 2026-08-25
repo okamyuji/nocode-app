@@ -25,11 +25,13 @@ type OracleTestContainer struct {
 func SetupOracleContainer(ctx context.Context) (*OracleTestContainer, error) {
 	// Oracle Free 23c を使用（軽量版）。arm64 / amd64 の両マルチアーキイメージ。
 	// gvenzl/oracle-free は公式に近い軽量イメージ
+	dbPassword := randomTestPassword()
+
 	req := testcontainers.ContainerRequest{
 		Image:        "gvenzl/oracle-free:23-slim",
 		ExposedPorts: []string{"1521/tcp"},
 		Env: map[string]string{
-			"ORACLE_PASSWORD": "testpass",
+			"ORACLE_PASSWORD": dbPassword,
 		},
 		WaitingFor: wait.ForLog("DATABASE IS READY TO USE!").
 			WithStartupTimeout(300 * time.Second), // Oracleは起動に時間がかかる
@@ -59,7 +61,7 @@ func SetupOracleContainer(ctx context.Context) (*OracleTestContainer, error) {
 		Port:      int(mappedPort.Num()),
 		Database:  "FREEPDB1", // Oracle Free のデフォルトPDB
 		Username:  "system",
-		Password:  "testpass",
+		Password:  dbPassword,
 	}, nil
 }
 

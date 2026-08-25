@@ -26,7 +26,7 @@ type MySQLExternalTestContainer struct {
 func SetupMySQLExternalContainer(ctx context.Context) (*MySQLExternalTestContainer, error) {
 	dbName := "external_testdb"
 	dbUser := "extuser"
-	dbPassword := "testpass"
+	dbPassword := randomTestPassword()
 
 	container, err := mysql.Run(ctx,
 		"mysql:8.0",

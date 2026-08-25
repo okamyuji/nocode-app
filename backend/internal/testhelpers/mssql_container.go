@@ -25,7 +25,7 @@ type MSSQLTestContainer struct {
 
 // SetupMSSQLContainer SQL Serverテストコンテナをセットアップする
 func SetupMSSQLContainer(ctx context.Context) (*MSSQLTestContainer, error) {
-	dbPassword := "testpass"
+	dbPassword := randomTestPassword()
 
 	container, err := mssql.Run(ctx,
 		"mcr.microsoft.com/mssql/server:2022-latest",
@@ -35,7 +35,10 @@ func SetupMSSQLContainer(ctx context.Context) (*MSSQLTestContainer, error) {
 			wait.ForAll(
 				wait.ForListeningPort("1433/tcp"),
 				wait.ForLog("SQL Server is now ready for client connections"),
-			).WithStartupTimeout(120*time.Second)),
+			// WithStartupTimeoutDefaultは各子ストラテジの既定60sを上書きし、
+			// WithStartupTimeoutはForAll全体の締切を設定する。両方指定しないと
+			// 個々のログ待ちが60sで先に打ち切られる。
+			).WithStartupTimeoutDefault(120*time.Second).WithStartupTimeout(120*time.Second)),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("SQL Serverコンテナの起動に失敗しました: %w", err)
