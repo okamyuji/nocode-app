@@ -262,7 +262,7 @@ sequenceDiagram
 
 #### 認可の実装
 
-##### バックエンド
+##### バックエンドの認可
 
 ```go
 // RequireAdmin ミドルウェアで管理者権限をチェック
@@ -282,7 +282,7 @@ func RequireAdmin(next http.HandlerFunc) http.HandlerFunc {
 }
 ```
 
-##### フロントエンド
+##### フロントエンドの認可
 
 ```tsx
 // useAuth フックで isAdmin を提供
@@ -685,7 +685,13 @@ erDiagram
 | created_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 作成日時 |
 | updated_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP（`set_updated_at()` BEFORE UPDATE トリガで自動更新） | 更新日時 |
 
-既存インストールでは、`init.sql`の`CREATE TABLE IF NOT EXISTS`がすでにある`data_sources`テーブルを変更しません。`db_type`のCHECK制約が4種類を許可していない場合は、PostgreSQL以外のデータソースを作成する前に`psql -d nocode_app -f backend/migrations/004_widen_data_sources_db_type.sql`を実行して制約を広げてください。
+既存インストールでは、`init.sql`の`CREATE TABLE IF NOT EXISTS`はすでにある`data_sources`テーブルを変更しません。
+
+`db_type`のCHECK制約が4種類を許可していない場合は、PostgreSQL以外のデータソースを作成する前に次を実行して制約を広げてください。
+
+```bash
+psql -d nocode_app -f backend/migrations/004_widen_data_sources_db_type.sql
+```
 
 #### apps テーブル
 
@@ -1346,7 +1352,9 @@ refactor: ハンドラーの共通処理を抽出
 | `backend/**` | `gofmt -l .`（差分なし）, `go vet ./...`, `go test -short ./...` |
 | `frontend/**` | `pnpm run typecheck`, `pnpm run lint`, `pnpm run format:check`, `pnpm test -- --run` |
 
-CI（GitHub Actions、`.github/workflows/ci.yml`）はPR時に同じスイートを実行し、さらにtestcontainersによる4RDB統合テスト（`-tags=integration`）も実行します。フックは`go test -short`のため統合テストを含みません。
+CI（GitHub Actions、`.github/workflows/ci.yml`）はPR時に同じスイートを実行し、testcontainersによる4RDB統合テスト（`-tags=integration`）も実行します。
+
+フックは`go test -short`のため統合テストを含みません。
 
 ---
 
