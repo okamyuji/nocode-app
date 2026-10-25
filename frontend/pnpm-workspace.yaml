@@ -1,0 +1,68 @@
+# 公開から7日未満の版を入れない。依存の乗っ取りへの備え。緊急時だけminimumReleaseAgeExcludeにname@versionで1版ずつ足す
+minimumReleaseAge: 10080
+# @vitest/*はvitestの完全一致のpeerを持つ。vitestだけを上げて版がずれたら、警告で済ませず解決を失敗させる
+strictPeerDependencies: true
+allowBuilds:
+  msw: false
+overrides:
+  brace-expansion@<1.1.18: ">=1.1.18 <2.0.0"
+  brace-expansion@>=2.0.0 <2.1.4: ">=2.1.4 <3.0.0"
+  brace-expansion@>=3.0.0 <5.0.9: ">=5.0.9 <6.0.0"
+  ws@>=8.0.0 <8.20.1: ">=8.20.1"
+  js-yaml@<4.2.0: ">=4.2.0"
+  js-yaml@>=5.0.0 <5.2.2: ">=5.2.2"
+  form-data@<4.0.6: ">=4.0.6"
+  markdown-it@<14.3.3: ">=14.3.3 <15.0.0"
+  postcss@<8.5.18: ">=8.5.18 <9.0.0"
+  nanoid@<3.3.18: ">=3.3.18 <4.0.0"
+  turbo-stream@<3.0.0: ">=3.0.0"
+  source-map-js@<1.2.2: ">=1.2.2 <2.0.0"
+  katex@<0.18.2: ">=0.18.2 <0.19.0"
+  smol-toml@<1.9.0: ">=1.9.0 <2.0.0"
+# 7日未満の版の例外。1版ずつ書き、7日を過ぎたら消す
+minimumReleaseAgeExclude:
+  - "@babel/helper-string-parser@7.29.11"
+  - "@babel/parser@7.29.11"
+  - "@babel/types@7.29.11"
+  - "@inquirer/confirm@6.3.4"
+  - "@inquirer/core@12.0.5"
+  - "@oxc-project/types@0.155.0"
+  - "@rolldown/binding-android-arm-eabi@1.2.15"
+  - "@rolldown/binding-android-arm64@1.2.15"
+  - "@rolldown/binding-darwin-arm64@1.2.15"
+  - "@rolldown/binding-darwin-x64@1.2.15"
+  - "@rolldown/binding-freebsd-x64@1.2.15"
+  - "@rolldown/binding-linux-arm-gnueabihf@1.2.15"
+  - "@rolldown/binding-linux-arm64-gnu@1.2.15"
+  - "@rolldown/binding-linux-arm64-musl@1.2.15"
+  - "@rolldown/binding-linux-ppc64-gnu@1.2.15"
+  - "@rolldown/binding-linux-s390x-gnu@1.2.15"
+  - "@rolldown/binding-linux-x64-gnu@1.2.15"
+  - "@rolldown/binding-linux-x64-musl@1.2.15"
+  - "@rolldown/binding-openharmony-arm64@1.2.15"
+  - "@rolldown/binding-win32-arm64-msvc@1.2.15"
+  - "@rolldown/binding-win32-x64-msvc@1.2.15"
+  - "@tanstack/query-core@5.104.5"
+  - "@tanstack/react-query@5.104.5"
+  - "@types/lodash@4.17.27"
+  - "@typescript-eslint/eslint-plugin@8.72.0"
+  - "@typescript-eslint/parser@8.72.0"
+  - "@typescript-eslint/project-service@8.72.0"
+  - "@typescript-eslint/scope-manager@8.72.0"
+  - "@typescript-eslint/tsconfig-utils@8.72.0"
+  - "@typescript-eslint/type-utils@8.72.0"
+  - "@typescript-eslint/types@8.72.0"
+  - "@typescript-eslint/typescript-estree@8.72.0"
+  - "@typescript-eslint/utils@8.72.0"
+  - "@typescript-eslint/visitor-keys@8.72.0"
+  - argparse@3.0.4
+  - ignore@7.0.14
+  - postcss@8.5.31
+  - rolldown@1.2.15
+  - set-cookie-parser@2.7.3
+  - set-cookie-parser@3.2.1
+  - tldts-core@7.4.19
+  - tldts@7.4.19
+  - typescript-eslint@8.72.0
+  - vite@8.3.5
+  - zustand@5.0.16
