@@ -205,15 +205,13 @@ export function ExternalAppFormBuilder({
 
     const selectedFields = fieldMappings
       .filter((f) => f.selected)
-      .map(
-        (f, index): CreateExternalFieldRequest => ({
-          source_column_name: f.source_column_name,
-          field_code: f.field_code,
-          field_name: f.field_name,
-          field_type: f.field_type,
-          display_order: index,
-        })
-      );
+      .map((f, index): CreateExternalFieldRequest => ({
+        source_column_name: f.source_column_name,
+        field_code: f.field_code,
+        field_name: f.field_name,
+        field_type: f.field_type,
+        display_order: index,
+      }));
 
     const request: CreateExternalAppRequest = {
       name: appName,

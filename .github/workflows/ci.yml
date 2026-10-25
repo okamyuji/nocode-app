@@ -92,6 +92,17 @@ jobs:
     with:
       working-directory: frontend
 
+  # E2E は compose の全スタックを要するため CI では実行しない。ここでは依存の frozen install と、
+  # テストの読み込み(型と import の解決)が通ることだけを確かめる。
+  e2e-deps:
+    name: E2E deps (Playwright)
+    permissions:
+      contents: read
+    uses: okamyuji/reusable-workflows/.github/workflows/node-ci.yml@v1
+    with:
+      working-directory: e2e
+      test-command: "exec playwright test --list"
+
   frontend-build:
     name: Frontend format:check + build
     runs-on: ubuntu-latest
@@ -103,7 +114,7 @@ jobs:
 
       - uses: pnpm/action-setup@v4
         with:
-          version: 10
+          package_json_file: frontend/package.json
 
       - uses: actions/setup-node@v4
         with:

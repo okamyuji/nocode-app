@@ -2,12 +2,12 @@
 FROM node:22-alpine AS builder
 
 # pnpm用にcorepackを有効化
-RUN corepack enable && corepack prepare pnpm@10.24.0 --activate
+RUN corepack enable
 
 WORKDIR /app
 
 # パッケージファイルをコピー
-COPY package.json pnpm-lock.yaml* ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
 # 依存関係をインストール
 RUN pnpm install --frozen-lockfile

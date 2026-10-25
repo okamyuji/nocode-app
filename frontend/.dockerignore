@@ -1,0 +1,4 @@
+# ホストのnode_modulesを取り込むと、pnpm 11が依存の状態を不整合とみなしてビルドを止める
+node_modules
+dist
+coverage
