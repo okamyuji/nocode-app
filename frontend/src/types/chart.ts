@@ -8,7 +8,13 @@ import { FilterItem } from "./record";
  * チャート種類
  */
 export type ChartType =
-  "bar" | "horizontal_bar" | "line" | "pie" | "doughnut" | "scatter" | "area";
+  | "bar"
+  | "horizontal_bar"
+  | "line"
+  | "pie"
+  | "doughnut"
+  | "scatter"
+  | "area";
 
 /**
  * チャート軸
