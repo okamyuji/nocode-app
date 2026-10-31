@@ -1050,7 +1050,8 @@ function AppSettingsDetail({ app, onBack }: AppSettingsDetailProps) {
       setWidgetSize(existingWidget.widget_size);
       // チャート設定IDを復元
       const chartConfigId = existingWidget.config?.chart_config_id as
-        number | undefined;
+        | number
+        | undefined;
       setSelectedChartConfigId(chartConfigId || null);
     } else {
       setShowOnDashboard(false);
