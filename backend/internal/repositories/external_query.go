@@ -96,6 +96,8 @@ func buildDSN(ds *models.DataSource, password string) (string, string, error) {
 		// パス区切り・クエリ開始として解釈されない完全エスケープ形になる。
 		u.Path = "/" + ds.DatabaseName
 		u.RawPath = "/" + url.PathEscape(ds.DatabaseName)
+		// go-ora v3.0.1 の FastLogin は、2 本目以降の接続で Oracle 23c に EOF で切られる（sijms/go-ora#732）
+		u.RawQuery = url.Values{"FAST LOGIN": {"false"}}.Encode()
 		return "oracle", u.String(), nil
 
 	case models.DBTypeSQLServer:

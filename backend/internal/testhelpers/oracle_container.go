@@ -75,7 +75,7 @@ func (o *OracleTestContainer) Terminate(ctx context.Context) error {
 
 // CreateTestTable テスト用のテーブルを作成する
 func (o *OracleTestContainer) CreateTestTable(ctx context.Context) error {
-	connStr := fmt.Sprintf("oracle://%s:%s@%s:%d/%s",
+	connStr := fmt.Sprintf("oracle://%s:%s@%s:%d/%s?FAST+LOGIN=false",
 		o.Username, o.Password, o.Host, o.Port, o.Database)
 
 	db, err := openTestDB("oracle", connStr)
@@ -133,7 +133,7 @@ func (o *OracleTestContainer) CreateTestTable(ctx context.Context) error {
 
 // CreateTestView テスト用のビューを作成する
 func (o *OracleTestContainer) CreateTestView(ctx context.Context) error {
-	connStr := fmt.Sprintf("oracle://%s:%s@%s:%d/%s",
+	connStr := fmt.Sprintf("oracle://%s:%s@%s:%d/%s?FAST+LOGIN=false",
 		o.Username, o.Password, o.Host, o.Port, o.Database)
 
 	db, err := openTestDB("oracle", connStr)
