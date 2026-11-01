@@ -80,7 +80,7 @@ export function DashboardPage() {
             <Card.Body>
               <Stat.Root>
                 <HStack justify="space-between">
-                  <Box>
+                  <Box display="flex" flexDirection="column">
                     <Stat.Label color="gray.500">{stat.label}</Stat.Label>
                     <Stat.ValueText fontSize="3xl">
                       {stat.value === null ? (
