@@ -105,14 +105,14 @@ func (r *UserRepository) GetAll(ctx context.Context, page, limit int) ([]models.
 	err = r.db.NewSelect().
 		Model(&users).
 		Order("id ASC").
-		Limit(limit).
-		Offset(offset).
+		Limit(int64(limit)).
+		Offset(int64(offset)).
 		Scan(ctx)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	return users, int64(count), nil
+	return users, count, nil
 }
 
 // EmailExistsExcludingUser 指定ユーザー以外でメールアドレスが存在するか確認する
@@ -136,5 +136,5 @@ func (r *UserRepository) Count(ctx context.Context) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	return int64(count), nil
+	return count, nil
 }
