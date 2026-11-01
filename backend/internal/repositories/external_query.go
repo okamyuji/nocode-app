@@ -14,7 +14,7 @@ import (
 	"github.com/go-sql-driver/mysql"    // MySQL driver（DSN組み立てにmysql.Configを使うため非ブランクimport）
 	_ "github.com/lib/pq"               // PostgreSQL driver
 	_ "github.com/microsoft/go-mssqldb" // SQL Server driver
-	_ "github.com/sijms/go-ora/v2"      // Oracle driver (Pure Go)
+	_ "github.com/sijms/go-ora/v3"      // Oracle driver (Pure Go)
 
 	"nocode-app/backend/internal/models"
 )
@@ -86,7 +86,7 @@ func buildDSN(ds *models.DataSource, password string) (string, string, error) {
 		return "mysql", cfg.FormatDSN(), nil
 
 	case models.DBTypeOracle:
-		// go-ora v2 format: oracle://user:pass@host:port/service_name
+		// go-ora format: oracle://user:pass@host:port/service_name
 		u := url.URL{
 			Scheme: "oracle",
 			User:   url.UserPassword(ds.Username, password),
@@ -96,6 +96,8 @@ func buildDSN(ds *models.DataSource, password string) (string, string, error) {
 		// パス区切り・クエリ開始として解釈されない完全エスケープ形になる。
 		u.Path = "/" + ds.DatabaseName
 		u.RawPath = "/" + url.PathEscape(ds.DatabaseName)
+		// go-ora v3.0.1 の FastLogin は、2 本目以降の接続で Oracle 23c に EOF で切られる（sijms/go-ora#732）
+		u.RawQuery = url.Values{"FAST LOGIN": {"false"}}.Encode()
 		return "oracle", u.String(), nil
 
 	case models.DBTypeSQLServer:
@@ -283,13 +285,13 @@ func (e *ExternalQueryExecutor) GetColumns(ctx context.Context, ds *models.DataS
 
 	case models.DBTypeOracle:
 		// DATA_DEFAULTはLONG型のため、TO_CHARは使用できない
-		// 代わりに空文字を返す（デフォルト値は必須ではない）
+		// 代わりにNULLを返す（デフォルト値は必須ではない）。'' は長さ0の列になり、go-ora v3.0.1 が読めない
 		query = `SELECT
 			c.column_name,
 			c.data_type,
 			CASE WHEN c.nullable = 'Y' THEN 1 ELSE 0 END as is_nullable,
 			CASE WHEN cc.constraint_type = 'P' THEN 1 ELSE 0 END as is_primary_key,
-			'' as default_value
+			CAST(NULL AS VARCHAR2(4000)) as default_value
 		FROM all_tab_columns c
 		LEFT JOIN (
 			SELECT acc.column_name, ac.constraint_type
