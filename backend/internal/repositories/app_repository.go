@@ -69,13 +69,13 @@ func (r *AppRepository) GetAll(ctx context.Context, page, limit int) ([]models.A
 	count, err := r.db.NewSelect().
 		Model(&apps).
 		Order("created_at DESC").
-		Limit(limit).
-		Offset((page - 1) * limit).
+		Limit(int64(limit)).
+		Offset(int64((page - 1) * limit)).
 		ScanAndCount(ctx)
 	if err != nil {
 		return nil, 0, err
 	}
-	return apps, int64(count), nil
+	return apps, count, nil
 }
 
 // GetByUserID ユーザーが作成した全アプリを取得する
@@ -85,13 +85,13 @@ func (r *AppRepository) GetByUserID(ctx context.Context, userID uint64, page, li
 		Model(&apps).
 		Where("created_by = ?", userID).
 		Order("created_at DESC").
-		Limit(limit).
-		Offset((page - 1) * limit).
+		Limit(int64(limit)).
+		Offset(int64((page - 1) * limit)).
 		ScanAndCount(ctx)
 	if err != nil {
 		return nil, 0, err
 	}
-	return apps, int64(count), nil
+	return apps, count, nil
 }
 
 // Update アプリを更新する

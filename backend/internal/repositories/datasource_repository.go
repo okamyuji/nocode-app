@@ -57,14 +57,14 @@ func (r *DataSourceRepository) GetAll(ctx context.Context, page, limit int) ([]m
 	err = r.db.NewSelect().
 		Model(&dataSources).
 		Order("created_at DESC").
-		Limit(limit).
-		Offset(offset).
+		Limit(int64(limit)).
+		Offset(int64(offset)).
 		Scan(ctx)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	return dataSources, int64(count), nil
+	return dataSources, count, nil
 }
 
 // Update データソースを更新する
