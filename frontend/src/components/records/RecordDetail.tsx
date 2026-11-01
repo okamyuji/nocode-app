@@ -1,7 +1,7 @@
 import { FieldValue } from "@/components/fields";
 import { Field, RecordItem } from "@/types";
 import { formatDateTime } from "@/utils";
-import { Badge, Box, Divider, HStack, Text, VStack } from "@chakra-ui/react";
+import { Badge, Box, Separator, HStack, Text, VStack } from "@chakra-ui/react";
 
 interface RecordDetailProps {
   record: RecordItem;
@@ -10,24 +10,24 @@ interface RecordDetailProps {
 
 export function RecordDetail({ record, fields }: RecordDetailProps) {
   return (
-    <VStack spacing={4} align="stretch">
+    <VStack gap={4} align="stretch">
       <HStack justify="space-between" pb={2}>
         <Text fontWeight="bold" color="gray.600">
           レコードID: {record.id}
         </Text>
-        <Badge colorScheme="gray" fontSize="xs">
+        <Badge colorPalette="gray" fontSize="xs">
           更新日: {formatDateTime(record.updated_at)}
         </Badge>
       </HStack>
 
-      <Divider />
+      <Separator />
 
       {fields.map((field) => (
         <Box key={field.id} py={2}>
           <Text fontSize="sm" fontWeight="bold" color="gray.500" mb={1}>
             {field.field_name}
             {field.required && (
-              <Badge colorScheme="red" ml={1} fontSize="xs">
+              <Badge colorPalette="red" ml={1} fontSize="xs">
                 必須
               </Badge>
             )}
@@ -38,7 +38,7 @@ export function RecordDetail({ record, fields }: RecordDetailProps) {
         </Box>
       ))}
 
-      <Divider />
+      <Separator />
 
       <HStack justify="space-between" fontSize="sm" color="gray.500">
         <Text>作成者ID: {record.created_by}</Text>

@@ -5,7 +5,8 @@
 
 import { useDashboardWidgetsApi } from "@/api";
 import type { DashboardWidget } from "@/types";
-import { SimpleGrid, useToast } from "@chakra-ui/react";
+import { toaster } from "@/components/ui/toaster";
+import { SimpleGrid } from "@chakra-ui/react";
 import {
   closestCenter,
   DndContext,
@@ -31,7 +32,6 @@ interface DashboardWidgetGridProps {
 }
 
 export function DashboardWidgetGrid({ widgets }: DashboardWidgetGridProps) {
-  const toast = useToast();
   const queryClient = useQueryClient();
   const dashboardWidgetsApi = useDashboardWidgetsApi();
 
@@ -69,9 +69,9 @@ export function DashboardWidgetGrid({ widgets }: DashboardWidgetGridProps) {
       queryClient.invalidateQueries({ queryKey: ["dashboard", "widgets"] });
     },
     onError: () => {
-      toast({
+      toaster.create({
         title: "並び替えに失敗しました",
-        status: "error",
+        type: "error",
         duration: 3000,
       });
       // エラー時はドラッグステートをリセット（propsに戻す）
@@ -120,7 +120,7 @@ export function DashboardWidgetGrid({ widgets }: DashboardWidgetGridProps) {
         items={items.map((item) => item.id)}
         strategy={rectSortingStrategy}
       >
-        <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={4}>
+        <SimpleGrid columns={{ base: 1, lg: 2 }} gap={4}>
           {items.map((widget) => (
             <DashboardWidgetCard
               key={widget.id}

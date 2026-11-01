@@ -8,13 +8,13 @@ import { MAX_SIDEBAR_WIDTH, MIN_SIDEBAR_WIDTH, useUIStore } from "@/stores";
 import {
   Box,
   Button,
-  Divider,
   Icon,
   IconButton,
+  Separator,
   Text,
-  Tooltip,
   VStack,
 } from "@chakra-ui/react";
+import { Tooltip } from "@/components/ui/tooltip";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   FiChevronLeft,
@@ -47,25 +47,30 @@ function SidebarItem({
 }: SidebarItemProps) {
   const button = (
     <Button
-      as={RouterLink}
-      to={to}
+      asChild
       variant="ghost"
       justifyContent={isCollapsed ? "center" : "flex-start"}
       w="full"
-      leftIcon={isCollapsed ? undefined : <Icon as={icon} />}
       bg={isActive ? "brand.50" : "transparent"}
       color={isActive ? "brand.600" : "gray.600"}
       _hover={{ bg: "brand.50", color: "brand.600" }}
       px={isCollapsed ? 2 : 3}
     >
-      {isCollapsed ? <Icon as={icon} /> : children}
+      <RouterLink to={to}>
+        <Icon as={icon} />
+        {isCollapsed ? null : children}
+      </RouterLink>
     </Button>
   );
 
   // 折りたたみ時はツールチップを表示
   if (isCollapsed) {
     return (
-      <Tooltip label={children} placement="right" hasArrow>
+      <Tooltip
+        content={children}
+        positioning={{ placement: "right" }}
+        showArrow
+      >
         {button}
       </Tooltip>
     );
@@ -138,7 +143,7 @@ export function Sidebar() {
       w={`${effectiveWidth}px`}
       minW={`${effectiveWidth}px`}
       bg="white"
-      borderRight="1px"
+      borderRightWidth="1px"
       borderColor="gray.200"
       h="calc(100vh - 64px)"
       position="sticky"
@@ -149,7 +154,7 @@ export function Sidebar() {
     >
       {/* サイドバーコンテンツ */}
       <VStack
-        spacing={1}
+        gap={1}
         align="stretch"
         p={sidebarCollapsed ? 2 : 4}
         flex={1}
@@ -164,7 +169,7 @@ export function Sidebar() {
           ダッシュボード
         </SidebarItem>
 
-        <Divider my={2} />
+        <Separator my={2} />
 
         {!sidebarCollapsed && (
           <Text fontSize="xs" fontWeight="bold" color="gray.500" px={3} py={2}>
@@ -192,7 +197,7 @@ export function Sidebar() {
           </SidebarItem>
         )}
 
-        <Divider my={2} />
+        <Separator my={2} />
 
         {!sidebarCollapsed && (
           <Text fontSize="xs" fontWeight="bold" color="gray.500" px={3} py={2}>
@@ -220,23 +225,22 @@ export function Sidebar() {
       </VStack>
 
       {/* 折りたたみボタン */}
-      <Box p={2} borderTop="1px" borderColor="gray.200">
+      <Box p={2} borderTopWidth="1px" borderColor="gray.200">
         <Tooltip
-          label={
+          content={
             sidebarCollapsed ? "サイドバーを展開" : "サイドバーを折りたたむ"
           }
-          placement="right"
+          positioning={{ placement: "right" }}
         >
           <IconButton
             aria-label={sidebarCollapsed ? "展開" : "折りたたむ"}
-            icon={
-              <Icon as={sidebarCollapsed ? FiChevronRight : FiChevronLeft} />
-            }
             variant="ghost"
             size="sm"
             w="full"
             onClick={toggleSidebarCollapsed}
-          />
+          >
+            <Icon as={sidebarCollapsed ? FiChevronRight : FiChevronLeft} />
+          </IconButton>
         </Tooltip>
       </Box>
 

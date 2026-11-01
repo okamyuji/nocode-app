@@ -1,21 +1,22 @@
 import { FieldValue } from "@/components/fields";
 import { Field, RecordItem } from "@/types";
 import { formatShortDate } from "@/utils";
-import { DeleteIcon, EditIcon, ViewIcon } from "@chakra-ui/icons";
+import { DeleteIcon } from "@chakra-ui/icons/Delete";
+import { EditIcon } from "@chakra-ui/icons/Edit";
+import { ViewIcon } from "@chakra-ui/icons/View";
 import {
   Badge,
   Box,
   Card,
-  CardBody,
   Grid,
   GridItem,
   HStack,
   IconButton,
   SimpleGrid,
   Text,
-  Tooltip,
   VStack,
 } from "@chakra-ui/react";
+import { Tooltip } from "@/components/ui/tooltip";
 
 interface ListViewProps {
   records: RecordItem[];
@@ -47,9 +48,9 @@ export function ListView({
   }
 
   return (
-    <SimpleGrid columns={{ base: 1, md: 2, lg: 3, xl: 4 }} spacing={3} p={4}>
+    <SimpleGrid columns={{ base: 1, md: 2, lg: 3, xl: 4 }} gap={3} p={4}>
       {records.map((record) => (
-        <Card
+        <Card.Root
           key={record.id}
           variant="outline"
           size="sm"
@@ -58,51 +59,54 @@ export function ListView({
           cursor="pointer"
           onClick={() => onView?.(record)}
         >
-          <CardBody py={3} px={4}>
-            <VStack align="stretch" spacing={2}>
+          <Card.Body py={3} px={4}>
+            <VStack align="stretch" gap={2}>
               {/* Header */}
               <HStack justify="space-between" align="start">
-                <VStack align="start" spacing={0} flex={1} minW={0}>
-                  <Badge colorScheme="gray" fontSize="2xs">
+                <VStack align="start" gap={0} flex={1} minW={0}>
+                  <Badge colorPalette="gray" fontSize="2xs">
                     ID: {record.id}
                   </Badge>
                   {primaryField && (
-                    <Text fontWeight="bold" fontSize="md" noOfLines={1}>
+                    <Text fontWeight="bold" fontSize="md" lineClamp={1}>
                       {String(record.data[primaryField.field_code] || "-")}
                     </Text>
                   )}
                 </VStack>
 
-                <HStack spacing={0} onClick={(e) => e.stopPropagation()}>
-                  <Tooltip label="詳細">
+                <HStack gap={0} onClick={(e) => e.stopPropagation()}>
+                  <Tooltip content="詳細">
                     <IconButton
-                      icon={<ViewIcon />}
                       aria-label="詳細"
                       size="xs"
                       variant="ghost"
                       onClick={() => onView?.(record)}
-                    />
+                    >
+                      <ViewIcon />
+                    </IconButton>
                   </Tooltip>
                   {isAdmin && (
                     <>
-                      <Tooltip label="編集">
+                      <Tooltip content="編集">
                         <IconButton
-                          icon={<EditIcon />}
                           aria-label="編集"
                           size="xs"
                           variant="ghost"
                           onClick={() => onEdit?.(record)}
-                        />
+                        >
+                          <EditIcon />
+                        </IconButton>
                       </Tooltip>
-                      <Tooltip label="削除">
+                      <Tooltip content="削除">
                         <IconButton
-                          icon={<DeleteIcon />}
                           aria-label="削除"
                           size="xs"
                           variant="ghost"
-                          colorScheme="red"
+                          colorPalette="red"
                           onClick={() => onDelete?.(record)}
-                        />
+                        >
+                          <DeleteIcon />
+                        </IconButton>
                       </Tooltip>
                     </>
                   )}
@@ -116,7 +120,7 @@ export function ListView({
                     <Text color="gray.500" fontWeight="medium">
                       {field.field_name}:
                     </Text>
-                    <Box isTruncated>
+                    <Box truncate>
                       <FieldValue
                         field={field}
                         value={record.data[field.field_code]}
@@ -132,8 +136,8 @@ export function ListView({
                 <Text>更新: {formatShortDate(record.updated_at)}</Text>
               </HStack>
             </VStack>
-          </CardBody>
-        </Card>
+          </Card.Body>
+        </Card.Root>
       ))}
     </SimpleGrid>
   );

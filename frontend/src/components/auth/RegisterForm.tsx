@@ -2,15 +2,13 @@ import { useAuth } from "@/hooks";
 import {
   Box,
   Button,
-  FormControl,
-  FormErrorMessage,
-  FormLabel,
+  Field,
   Input,
   Link,
   Text,
-  useToast,
   VStack,
 } from "@chakra-ui/react";
+import { toaster } from "@/components/ui/toaster";
 import { useState } from "react";
 import { Link as RouterLink } from "react-router-dom";
 
@@ -27,7 +25,6 @@ export function RegisterForm() {
   }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { register } = useAuth();
-  const toast = useToast();
 
   const validate = () => {
     const newErrors: typeof errors = {};
@@ -58,21 +55,21 @@ export function RegisterForm() {
     setIsSubmitting(true);
     try {
       await register(email, password, name);
-      toast({
+      toaster.create({
         title: "登録完了",
         description: "アカウントが作成されました",
-        status: "success",
+        type: "success",
         duration: 3000,
-        isClosable: true,
+        closable: true,
       });
     } catch {
-      toast({
+      toaster.create({
         title: "登録失敗",
         description:
           "アカウントの作成に失敗しました。メールアドレスが既に使用されている可能性があります。",
-        status: "error",
+        type: "error",
         duration: 5000,
-        isClosable: true,
+        closable: true,
       });
     } finally {
       setIsSubmitting(false);
@@ -81,56 +78,56 @@ export function RegisterForm() {
 
   return (
     <Box as="form" onSubmit={handleSubmit} w="100%">
-      <VStack spacing={4}>
-        <FormControl isInvalid={!!errors.name}>
-          <FormLabel>名前</FormLabel>
+      <VStack gap={4}>
+        <Field.Root invalid={!!errors.name}>
+          <Field.Label>名前</Field.Label>
           <Input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="山田 太郎"
           />
-          <FormErrorMessage>{errors.name}</FormErrorMessage>
-        </FormControl>
+          <Field.ErrorText>{errors.name}</Field.ErrorText>
+        </Field.Root>
 
-        <FormControl isInvalid={!!errors.email}>
-          <FormLabel>メールアドレス</FormLabel>
+        <Field.Root invalid={!!errors.email}>
+          <Field.Label>メールアドレス</Field.Label>
           <Input
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="email@example.com"
           />
-          <FormErrorMessage>{errors.email}</FormErrorMessage>
-        </FormControl>
+          <Field.ErrorText>{errors.email}</Field.ErrorText>
+        </Field.Root>
 
-        <FormControl isInvalid={!!errors.password}>
-          <FormLabel>パスワード</FormLabel>
+        <Field.Root invalid={!!errors.password}>
+          <Field.Label>パスワード</Field.Label>
           <Input
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="6文字以上で入力"
           />
-          <FormErrorMessage>{errors.password}</FormErrorMessage>
-        </FormControl>
+          <Field.ErrorText>{errors.password}</Field.ErrorText>
+        </Field.Root>
 
-        <FormControl isInvalid={!!errors.confirmPassword}>
-          <FormLabel>パスワード（確認）</FormLabel>
+        <Field.Root invalid={!!errors.confirmPassword}>
+          <Field.Label>パスワード（確認）</Field.Label>
           <Input
             type="password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             placeholder="パスワードを再入力"
           />
-          <FormErrorMessage>{errors.confirmPassword}</FormErrorMessage>
-        </FormControl>
+          <Field.ErrorText>{errors.confirmPassword}</Field.ErrorText>
+        </Field.Root>
 
         <Button
           type="submit"
-          colorScheme="brand"
+          colorPalette="brand"
           w="100%"
-          isLoading={isSubmitting}
+          loading={isSubmitting}
           loadingText="登録中..."
         >
           新規登録
@@ -138,8 +135,8 @@ export function RegisterForm() {
 
         <Text fontSize="sm" color="gray.600">
           既にアカウントをお持ちの方は
-          <Link as={RouterLink} to="/login" color="brand.500" ml={1}>
-            ログイン
+          <Link asChild color="brand.500" ml={1}>
+            <RouterLink to="/login">ログイン</RouterLink>
           </Link>
         </Text>
       </VStack>

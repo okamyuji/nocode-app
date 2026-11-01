@@ -1,6 +1,6 @@
 import { Loading } from "@/components/common";
 import { useApps } from "@/hooks";
-import { AddIcon } from "@chakra-ui/icons";
+import { AddIcon } from "@chakra-ui/icons/Add";
 import { Box, Button, SimpleGrid, Text, VStack } from "@chakra-ui/react";
 import { Link as RouterLink } from "react-router-dom";
 import { AppCard } from "./AppCard";
@@ -27,22 +27,20 @@ export function AppList({ page = 1, limit = 20 }: AppListProps) {
 
   if (!data?.apps.length) {
     return (
-      <VStack spacing={4} py={10}>
+      <VStack gap={4} py={10}>
         <Text color="gray.500">アプリがありません</Text>
-        <Button
-          as={RouterLink}
-          to="/apps/new"
-          leftIcon={<AddIcon />}
-          colorScheme="brand"
-        >
-          最初のアプリを作成
+        <Button asChild colorPalette="brand">
+          <RouterLink to="/apps/new">
+            <AddIcon />
+            最初のアプリを作成
+          </RouterLink>
         </Button>
       </VStack>
     );
   }
 
   return (
-    <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={4}>
+    <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={4}>
       {data.apps.map((app) => (
         <AppCard key={app.id} app={app} />
       ))}

@@ -1,5 +1,7 @@
 import { ChartBuilder, ChartRenderer } from "@/components/charts";
 import { Loading } from "@/components/common";
+import { toaster } from "@/components/ui/toaster";
+import { Tooltip } from "@/components/ui/tooltip";
 import {
   RecordDetail,
   RecordForm,
@@ -20,33 +22,21 @@ import {
 } from "@/hooks";
 import { RecordData, RecordItem, RecordQueryOptions, ViewType } from "@/types";
 import { ChartDataRequest } from "@/types/chart";
-import { AddIcon, ChevronRightIcon, DeleteIcon } from "@chakra-ui/icons";
+import { AddIcon } from "@chakra-ui/icons/Add";
+import { ChevronRightIcon } from "@chakra-ui/icons/ChevronRight";
+import { DeleteIcon } from "@chakra-ui/icons/Delete";
 import {
-  AlertDialog,
-  AlertDialogBody,
-  AlertDialogContent,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogOverlay,
   Box,
   Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
   Button,
   Card,
-  CardBody,
+  CloseButton,
+  Dialog,
   Heading,
   HStack,
   IconButton,
-  Modal,
-  ModalBody,
-  ModalCloseButton,
-  ModalContent,
-  ModalHeader,
-  ModalOverlay,
-  Tooltip,
+  Portal,
   useDisclosure,
-  useToast,
 } from "@chakra-ui/react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { Link as RouterLink, useParams } from "react-router-dom";
@@ -67,28 +57,27 @@ export function RecordListPage() {
   const [chartConfig, setChartConfig] = useState<ChartDataRequest | null>(null);
 
   const {
-    isOpen: isFormOpen,
+    open: isFormOpen,
     onOpen: onFormOpen,
     onClose: onFormClose,
   } = useDisclosure();
   const {
-    isOpen: isDetailOpen,
+    open: isDetailOpen,
     onOpen: onDetailOpen,
     onClose: onDetailClose,
   } = useDisclosure();
   const {
-    isOpen: isDeleteOpen,
+    open: isDeleteOpen,
     onOpen: onDeleteOpen,
     onClose: onDeleteClose,
   } = useDisclosure();
   const {
-    isOpen: isBulkDeleteOpen,
+    open: isBulkDeleteOpen,
     onOpen: onBulkDeleteOpen,
     onClose: onBulkDeleteClose,
   } = useDisclosure();
 
   const cancelRef = useRef<HTMLButtonElement>(null);
-  const toast = useToast();
 
   const { data: app, isLoading: isAppLoading } = useApp(numericAppId);
   const { data: fieldsData, isLoading: isFieldsLoading } =
@@ -180,9 +169,9 @@ export function RecordListPage() {
           recordId: editingRecord.id,
           data: { data },
         });
-        toast({
+        toaster.create({
           title: "レコードを更新しました",
-          status: "success",
+          type: "success",
           duration: 3000,
         });
       } else {
@@ -190,18 +179,18 @@ export function RecordListPage() {
           appId: numericAppId,
           data: { data },
         });
-        toast({
+        toaster.create({
           title: "レコードを作成しました",
-          status: "success",
+          type: "success",
           duration: 3000,
         });
       }
       onFormClose();
       setEditingRecord(null);
     } catch {
-      toast({
+      toaster.create({
         title: editingRecord ? "更新に失敗しました" : "作成に失敗しました",
-        status: "error",
+        type: "error",
         duration: 5000,
       });
     }
@@ -214,17 +203,17 @@ export function RecordListPage() {
         appId: numericAppId,
         recordId: selectedRecord.id,
       });
-      toast({
+      toaster.create({
         title: "レコードを削除しました",
-        status: "success",
+        type: "success",
         duration: 3000,
       });
       onDeleteClose();
       setSelectedRecord(null);
     } catch {
-      toast({
+      toaster.create({
         title: "削除に失敗しました",
-        status: "error",
+        type: "error",
         duration: 5000,
       });
     }
@@ -236,17 +225,17 @@ export function RecordListPage() {
         appId: numericAppId,
         data: { ids: selectedIds },
       });
-      toast({
+      toaster.create({
         title: `${selectedIds.length}件のレコードを削除しました`,
-        status: "success",
+        type: "success",
         duration: 3000,
       });
       onBulkDeleteClose();
       setSelectedIds([]);
     } catch {
-      toast({
+      toaster.create({
         title: "一括削除に失敗しました",
-        status: "error",
+        type: "error",
         duration: 5000,
       });
     }
@@ -262,24 +251,25 @@ export function RecordListPage() {
 
   return (
     <Box>
-      <Breadcrumb
-        spacing="8px"
-        separator={<ChevronRightIcon color="gray.500" />}
-        mb={4}
-      >
-        <BreadcrumbItem>
-          <BreadcrumbLink as={RouterLink} to="/apps">
-            アプリ一覧
-          </BreadcrumbLink>
-        </BreadcrumbItem>
-        <BreadcrumbItem isCurrentPage>
-          <BreadcrumbLink>{app.name}</BreadcrumbLink>
-        </BreadcrumbItem>
-      </Breadcrumb>
+      <Breadcrumb.Root mb={4}>
+        <Breadcrumb.List gap="8px">
+          <Breadcrumb.Item>
+            <Breadcrumb.Link asChild>
+              <RouterLink to="/apps">アプリ一覧</RouterLink>
+            </Breadcrumb.Link>
+          </Breadcrumb.Item>
+          <Breadcrumb.Separator>
+            <ChevronRightIcon color="gray.500" />
+          </Breadcrumb.Separator>
+          <Breadcrumb.Item>
+            <Breadcrumb.CurrentLink>{app.name}</Breadcrumb.CurrentLink>
+          </Breadcrumb.Item>
+        </Breadcrumb.List>
+      </Breadcrumb.Root>
 
       <HStack justify="space-between" mb={6}>
         <Heading size="lg">{app.name}</Heading>
-        <HStack spacing={4}>
+        <HStack gap={4}>
           <ViewSelector
             currentView={currentView}
             onViewChange={setCurrentView}
@@ -289,30 +279,28 @@ export function RecordListPage() {
             selectedIds.length > 0 &&
             currentView === "table" &&
             !isExternalApp && (
-              <Tooltip label={`${selectedIds.length}件を削除`}>
+              <Tooltip content={`${selectedIds.length}件を削除`}>
                 <IconButton
-                  icon={<DeleteIcon />}
                   aria-label="一括削除"
-                  colorScheme="red"
+                  colorPalette="red"
                   variant="outline"
                   onClick={onBulkDeleteOpen}
-                />
+                >
+                  <DeleteIcon />
+                </IconButton>
               </Tooltip>
             )}
           {isAdmin && currentView !== "chart" && !isExternalApp && (
-            <Button
-              leftIcon={<AddIcon />}
-              colorScheme="brand"
-              onClick={handleCreateNew}
-            >
+            <Button colorPalette="brand" onClick={handleCreateNew}>
+              <AddIcon />
               レコード追加
             </Button>
           )}
         </HStack>
       </HStack>
 
-      <Card overflow="hidden">
-        <CardBody p={currentView === "chart" ? 4 : 0} minW={0}>
+      <Card.Root overflow="hidden">
+        <Card.Body p={currentView === "chart" ? 4 : 0} minW={0}>
           {isRecordsLoading && currentView !== "chart" ? (
             <Loading message="レコードを読み込み中..." />
           ) : (
@@ -401,101 +389,139 @@ export function RecordListPage() {
               )}
             </>
           )}
-        </CardBody>
-      </Card>
+        </Card.Body>
+      </Card.Root>
 
       {/* Create/Edit Modal */}
-      <Modal isOpen={isFormOpen} onClose={onFormClose} size="xl">
-        <ModalOverlay />
-        <ModalContent>
-          <ModalHeader>
-            {editingRecord ? "レコードを編集" : "新規レコード"}
-          </ModalHeader>
-          <ModalCloseButton />
-          <ModalBody pb={6}>
-            <RecordForm
-              fields={fields}
-              record={editingRecord || undefined}
-              onSubmit={handleFormSubmit}
-              onCancel={onFormClose}
-              isSubmitting={createRecord.isPending || updateRecord.isPending}
-            />
-          </ModalBody>
-        </ModalContent>
-      </Modal>
+      <Dialog.Root
+        open={isFormOpen}
+        onOpenChange={(e) => !e.open && onFormClose()}
+        size="xl"
+      >
+        <Portal>
+          <Dialog.Backdrop />
+          <Dialog.Positioner>
+            <Dialog.Content>
+              <Dialog.Header>
+                <Dialog.Title>
+                  {editingRecord ? "レコードを編集" : "新規レコード"}
+                </Dialog.Title>
+              </Dialog.Header>
+              <Dialog.CloseTrigger asChild>
+                <CloseButton size="sm" />
+              </Dialog.CloseTrigger>
+              <Dialog.Body pb={6}>
+                <RecordForm
+                  fields={fields}
+                  record={editingRecord || undefined}
+                  onSubmit={handleFormSubmit}
+                  onCancel={onFormClose}
+                  isSubmitting={
+                    createRecord.isPending || updateRecord.isPending
+                  }
+                />
+              </Dialog.Body>
+            </Dialog.Content>
+          </Dialog.Positioner>
+        </Portal>
+      </Dialog.Root>
 
       {/* Detail Modal */}
-      <Modal isOpen={isDetailOpen} onClose={onDetailClose} size="xl">
-        <ModalOverlay />
-        <ModalContent>
-          <ModalHeader>レコード詳細</ModalHeader>
-          <ModalCloseButton />
-          <ModalBody pb={6}>
-            {selectedRecord && (
-              <RecordDetail record={selectedRecord} fields={fields} />
-            )}
-          </ModalBody>
-        </ModalContent>
-      </Modal>
+      <Dialog.Root
+        open={isDetailOpen}
+        onOpenChange={(e) => !e.open && onDetailClose()}
+        size="xl"
+      >
+        <Portal>
+          <Dialog.Backdrop />
+          <Dialog.Positioner>
+            <Dialog.Content>
+              <Dialog.Header>
+                <Dialog.Title>レコード詳細</Dialog.Title>
+              </Dialog.Header>
+              <Dialog.CloseTrigger asChild>
+                <CloseButton size="sm" />
+              </Dialog.CloseTrigger>
+              <Dialog.Body pb={6}>
+                {selectedRecord && (
+                  <RecordDetail record={selectedRecord} fields={fields} />
+                )}
+              </Dialog.Body>
+            </Dialog.Content>
+          </Dialog.Positioner>
+        </Portal>
+      </Dialog.Root>
 
       {/* Delete Confirmation */}
-      <AlertDialog
-        isOpen={isDeleteOpen}
-        leastDestructiveRef={cancelRef}
-        onClose={onDeleteClose}
+      <Dialog.Root
+        role="alertdialog"
+        open={isDeleteOpen}
+        onOpenChange={(e) => !e.open && onDeleteClose()}
+        initialFocusEl={() => cancelRef.current}
       >
-        <AlertDialogOverlay>
-          <AlertDialogContent>
-            <AlertDialogHeader>レコードの削除</AlertDialogHeader>
-            <AlertDialogBody>
-              このレコードを削除しますか？この操作は取り消せません。
-            </AlertDialogBody>
-            <AlertDialogFooter>
-              <Button ref={cancelRef} onClick={onDeleteClose}>
-                キャンセル
-              </Button>
-              <Button
-                colorScheme="red"
-                onClick={handleConfirmDelete}
-                ml={3}
-                isLoading={deleteRecord.isPending}
-              >
-                削除
-              </Button>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialogOverlay>
-      </AlertDialog>
+        <Portal>
+          <Dialog.Backdrop />
+          <Dialog.Positioner>
+            <Dialog.Content>
+              <Dialog.Header fontSize="lg" fontWeight="bold">
+                <Dialog.Title>レコードの削除</Dialog.Title>
+              </Dialog.Header>
+              <Dialog.Body>
+                このレコードを削除しますか？この操作は取り消せません。
+              </Dialog.Body>
+              <Dialog.Footer>
+                <Button ref={cancelRef} onClick={onDeleteClose}>
+                  キャンセル
+                </Button>
+                <Button
+                  colorPalette="red"
+                  onClick={handleConfirmDelete}
+                  ml={3}
+                  loading={deleteRecord.isPending}
+                >
+                  削除
+                </Button>
+              </Dialog.Footer>
+            </Dialog.Content>
+          </Dialog.Positioner>
+        </Portal>
+      </Dialog.Root>
 
       {/* Bulk Delete Confirmation */}
-      <AlertDialog
-        isOpen={isBulkDeleteOpen}
-        leastDestructiveRef={cancelRef}
-        onClose={onBulkDeleteClose}
+      <Dialog.Root
+        role="alertdialog"
+        open={isBulkDeleteOpen}
+        onOpenChange={(e) => !e.open && onBulkDeleteClose()}
+        initialFocusEl={() => cancelRef.current}
       >
-        <AlertDialogOverlay>
-          <AlertDialogContent>
-            <AlertDialogHeader>レコードの一括削除</AlertDialogHeader>
-            <AlertDialogBody>
-              {selectedIds.length}
-              件のレコードを削除しますか？この操作は取り消せません。
-            </AlertDialogBody>
-            <AlertDialogFooter>
-              <Button ref={cancelRef} onClick={onBulkDeleteClose}>
-                キャンセル
-              </Button>
-              <Button
-                colorScheme="red"
-                onClick={handleBulkDelete}
-                ml={3}
-                isLoading={bulkDeleteRecords.isPending}
-              >
-                削除
-              </Button>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialogOverlay>
-      </AlertDialog>
+        <Portal>
+          <Dialog.Backdrop />
+          <Dialog.Positioner>
+            <Dialog.Content>
+              <Dialog.Header fontSize="lg" fontWeight="bold">
+                <Dialog.Title>レコードの一括削除</Dialog.Title>
+              </Dialog.Header>
+              <Dialog.Body>
+                {selectedIds.length}
+                件のレコードを削除しますか？この操作は取り消せません。
+              </Dialog.Body>
+              <Dialog.Footer>
+                <Button ref={cancelRef} onClick={onBulkDeleteClose}>
+                  キャンセル
+                </Button>
+                <Button
+                  colorPalette="red"
+                  onClick={handleBulkDelete}
+                  ml={3}
+                  loading={bulkDeleteRecords.isPending}
+                >
+                  削除
+                </Button>
+              </Dialog.Footer>
+            </Dialog.Content>
+          </Dialog.Positioner>
+        </Portal>
+      </Dialog.Root>
     </Box>
   );
 }

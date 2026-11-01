@@ -1,22 +1,18 @@
-import { Field, FieldType } from "@/types";
+import { Field as FieldModel, FieldType } from "@/types";
 import {
   Checkbox,
   CheckboxGroup,
-  FormControl,
-  FormErrorMessage,
-  FormLabel,
+  Field,
   Input,
+  NativeSelect,
   NumberInput,
-  NumberInputField,
-  Radio,
   RadioGroup,
-  Select,
   Stack,
   Textarea,
 } from "@chakra-ui/react";
 
 interface FieldRendererProps {
-  field: Field;
+  field: FieldModel;
   value: unknown;
   onChange: (value: unknown) => void;
   error?: string;
@@ -37,7 +33,7 @@ export function FieldRenderer({
           <Input
             value={(value as string) || ""}
             onChange={(e) => onChange(e.target.value)}
-            isReadOnly={isReadOnly}
+            readOnly={isReadOnly}
             placeholder={field.field_name}
           />
         );
@@ -47,7 +43,7 @@ export function FieldRenderer({
           <Textarea
             value={(value as string) || ""}
             onChange={(e) => onChange(e.target.value)}
-            isReadOnly={isReadOnly}
+            readOnly={isReadOnly}
             placeholder={field.field_name}
             rows={4}
           />
@@ -55,13 +51,16 @@ export function FieldRenderer({
 
       case "number":
         return (
-          <NumberInput
-            value={(value as number) || ""}
-            onChange={(_, num) => onChange(isNaN(num) ? null : num)}
-            isReadOnly={isReadOnly}
+          <NumberInput.Root
+            value={String((value as number) || "")}
+            onValueChange={(e) =>
+              onChange(isNaN(e.valueAsNumber) ? null : e.valueAsNumber)
+            }
+            readOnly={isReadOnly}
           >
-            <NumberInputField placeholder={field.field_name} />
-          </NumberInput>
+            <NumberInput.Control />
+            <NumberInput.Input placeholder={field.field_name} />
+          </NumberInput.Root>
         );
 
       case "date":
@@ -70,7 +69,7 @@ export function FieldRenderer({
             type="date"
             value={(value as string) || ""}
             onChange={(e) => onChange(e.target.value)}
-            isReadOnly={isReadOnly}
+            readOnly={isReadOnly}
           />
         );
 
@@ -80,37 +79,45 @@ export function FieldRenderer({
             type="datetime-local"
             value={(value as string) || ""}
             onChange={(e) => onChange(e.target.value)}
-            isReadOnly={isReadOnly}
+            readOnly={isReadOnly}
           />
         );
 
       case "select":
         return (
-          <Select
-            value={(value as string) || ""}
-            onChange={(e) => onChange(e.target.value)}
-            isReadOnly={isReadOnly}
-            placeholder="選択してください"
-          >
-            {field.options?.choices?.map((choice) => (
-              <option key={choice} value={choice}>
-                {choice}
-              </option>
-            ))}
-          </Select>
+          <NativeSelect.Root disabled={isReadOnly}>
+            <NativeSelect.Field
+              value={(value as string) || ""}
+              onChange={(e) => onChange(e.target.value)}
+              placeholder="選択してください"
+            >
+              {field.options?.choices?.map((choice) => (
+                <option key={choice} value={choice}>
+                  {choice}
+                </option>
+              ))}
+            </NativeSelect.Field>
+            <NativeSelect.Indicator />
+          </NativeSelect.Root>
         );
 
       case "multiselect":
         return (
           <CheckboxGroup
             value={(value as string[]) || []}
-            onChange={(values) => onChange(values)}
+            onValueChange={(values) => onChange(values)}
           >
-            <Stack spacing={2}>
+            <Stack gap={2}>
               {field.options?.choices?.map((choice) => (
-                <Checkbox key={choice} value={choice} isDisabled={isReadOnly}>
-                  {choice}
-                </Checkbox>
+                <Checkbox.Root
+                  key={choice}
+                  value={choice}
+                  disabled={isReadOnly}
+                >
+                  <Checkbox.HiddenInput />
+                  <Checkbox.Control />
+                  <Checkbox.Label>{choice}</Checkbox.Label>
+                </Checkbox.Root>
               ))}
             </Stack>
           </CheckboxGroup>
@@ -118,29 +125,37 @@ export function FieldRenderer({
 
       case "checkbox":
         return (
-          <Checkbox
-            isChecked={!!value}
-            onChange={(e) => onChange(e.target.checked)}
-            isDisabled={isReadOnly}
+          <Checkbox.Root
+            checked={!!value}
+            onCheckedChange={(e) => onChange(!!e.checked)}
+            disabled={isReadOnly}
           >
-            {field.field_name}
-          </Checkbox>
+            <Checkbox.HiddenInput />
+            <Checkbox.Control />
+            <Checkbox.Label>{field.field_name}</Checkbox.Label>
+          </Checkbox.Root>
         );
 
       case "radio":
         return (
-          <RadioGroup
+          <RadioGroup.Root
             value={(value as string) || ""}
-            onChange={(val) => onChange(val)}
+            onValueChange={(e) => onChange(e.value)}
           >
-            <Stack spacing={2}>
+            <Stack gap={2}>
               {field.options?.choices?.map((choice) => (
-                <Radio key={choice} value={choice} isDisabled={isReadOnly}>
-                  {choice}
-                </Radio>
+                <RadioGroup.Item
+                  key={choice}
+                  value={choice}
+                  disabled={isReadOnly}
+                >
+                  <RadioGroup.ItemHiddenInput />
+                  <RadioGroup.ItemIndicator />
+                  <RadioGroup.ItemText>{choice}</RadioGroup.ItemText>
+                </RadioGroup.Item>
               ))}
             </Stack>
-          </RadioGroup>
+          </RadioGroup.Root>
         );
 
       case "link":
@@ -149,7 +164,7 @@ export function FieldRenderer({
             type={field.options?.link_type === "email" ? "email" : "url"}
             value={(value as string) || ""}
             onChange={(e) => onChange(e.target.value)}
-            isReadOnly={isReadOnly}
+            readOnly={isReadOnly}
             placeholder={
               field.options?.link_type === "email"
                 ? "email@example.com"
@@ -168,7 +183,7 @@ export function FieldRenderer({
                 onChange({ name: file.name, size: file.size, type: file.type });
               }
             }}
-            isDisabled={isReadOnly}
+            disabled={isReadOnly}
           />
         );
 
@@ -177,7 +192,7 @@ export function FieldRenderer({
           <Input
             value={(value as string) || ""}
             onChange={(e) => onChange(e.target.value)}
-            isReadOnly={isReadOnly}
+            readOnly={isReadOnly}
           />
         );
     }
@@ -186,18 +201,18 @@ export function FieldRenderer({
   // Checkbox type doesn't need a separate label
   if (field.field_type === "checkbox") {
     return (
-      <FormControl isInvalid={!!error} isRequired={field.required}>
+      <Field.Root invalid={!!error} required={field.required}>
         {renderField()}
-        <FormErrorMessage>{error}</FormErrorMessage>
-      </FormControl>
+        <Field.ErrorText>{error}</Field.ErrorText>
+      </Field.Root>
     );
   }
 
   return (
-    <FormControl isInvalid={!!error} isRequired={field.required}>
-      <FormLabel>{field.field_name}</FormLabel>
+    <Field.Root invalid={!!error} required={field.required}>
+      <Field.Label>{field.field_name}</Field.Label>
       {renderField()}
-      <FormErrorMessage>{error}</FormErrorMessage>
-    </FormControl>
+      <Field.ErrorText>{error}</Field.ErrorText>
+    </Field.Root>
   );
 }

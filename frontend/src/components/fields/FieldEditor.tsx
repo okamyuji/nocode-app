@@ -1,26 +1,23 @@
 import { CreateFieldRequest, FIELD_TYPE_LABELS, FieldType } from "@/types";
-import { DeleteIcon, DragHandleIcon, WarningIcon } from "@chakra-ui/icons";
+import { DeleteIcon } from "@chakra-ui/icons/Delete";
+import { DragHandleIcon } from "@chakra-ui/icons/DragHandle";
+import { WarningIcon } from "@chakra-ui/icons/Warning";
 import {
   Box,
   Button,
   Checkbox,
-  FormControl,
-  FormErrorMessage,
-  FormHelperText,
-  FormLabel,
+  Field,
   HStack,
   IconButton,
   Input,
-  Select,
+  NativeSelect,
   Tag,
-  TagCloseButton,
-  TagLabel,
   Text,
-  Tooltip,
   VStack,
   Wrap,
   WrapItem,
 } from "@chakra-ui/react";
+import { Tooltip } from "@/components/ui/tooltip";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useCallback, useMemo, useState } from "react";
@@ -196,7 +193,7 @@ export function FieldEditor({
       ref={setNodeRef}
       style={style}
       bg="white"
-      border="1px"
+      borderWidth="1px"
       borderColor={
         hasErrors &&
         (touched.field_code || touched.field_name || touched.choices)
@@ -214,9 +211,9 @@ export function FieldEditor({
       {hasErrors &&
         (touched.field_code || touched.field_name || touched.choices) && (
           <Tooltip
-            label="このフィールドに入力エラーがあります"
-            placement="top"
-            hasArrow
+            content="このフィールドに入力エラーがあります"
+            positioning={{ placement: "top" }}
+            showArrow
           >
             <Box position="absolute" top={2} right={12} color="red.500">
               <WarningIcon />
@@ -225,42 +222,47 @@ export function FieldEditor({
         )}
 
       <HStack mb={3} justify="space-between">
-        <HStack spacing={2}>
+        <HStack gap={2}>
           <IconButton
             {...attributes}
             {...listeners}
-            icon={<DragHandleIcon />}
             aria-label="ドラッグ"
             size="sm"
             variant="ghost"
             cursor="grab"
-          />
+          >
+            <DragHandleIcon />
+          </IconButton>
           <Text fontWeight="bold" color="gray.600">
             フィールド {index + 1}
           </Text>
-          <Tag size="sm" colorScheme="brand">
-            {FIELD_TYPE_LABELS[field.field_type]}
-          </Tag>
+          <Tag.Root size="sm" colorPalette="brand">
+            <Tag.Label>{FIELD_TYPE_LABELS[field.field_type]}</Tag.Label>
+          </Tag.Root>
         </HStack>
         <IconButton
-          icon={<DeleteIcon />}
           aria-label="削除"
           size="sm"
           variant="ghost"
-          colorScheme="red"
+          colorPalette="red"
           onClick={onDelete}
-        />
+        >
+          <DeleteIcon />
+        </IconButton>
       </HStack>
 
-      <VStack spacing={3} align="stretch">
+      <VStack gap={3} align="stretch">
         {/* Row 1: Field Code, Field Name */}
-        <HStack spacing={4} align="flex-start">
-          <FormControl
-            isRequired
+        <HStack gap={4} align="flex-start">
+          <Field.Root
+            required
             flex={1}
-            isInvalid={touched.field_code && !!errors.field_code}
+            invalid={touched.field_code && !!errors.field_code}
           >
-            <FormLabel fontSize="sm">フィールドコード</FormLabel>
+            <Field.Label fontSize="sm">
+              フィールドコード
+              <Field.RequiredIndicator />
+            </Field.Label>
             <Input
               size="sm"
               value={field.field_code}
@@ -282,22 +284,25 @@ export function FieldEditor({
               }}
             />
             {touched.field_code && errors.field_code ? (
-              <FormErrorMessage fontSize="xs">
+              <Field.ErrorText fontSize="xs">
                 {errors.field_code}
-              </FormErrorMessage>
+              </Field.ErrorText>
             ) : (
-              <FormHelperText fontSize="xs" color="gray.500">
+              <Field.HelperText fontSize="xs" color="gray.500">
                 英字で始まり、英数字と_のみ
-              </FormHelperText>
+              </Field.HelperText>
             )}
-          </FormControl>
+          </Field.Root>
 
-          <FormControl
-            isRequired
+          <Field.Root
+            required
             flex={1}
-            isInvalid={touched.field_name && !!errors.field_name}
+            invalid={touched.field_name && !!errors.field_name}
           >
-            <FormLabel fontSize="sm">表示名</FormLabel>
+            <Field.Label fontSize="sm">
+              表示名
+              <Field.RequiredIndicator />
+            </Field.Label>
             <Input
               size="sm"
               value={field.field_name}
@@ -319,52 +324,56 @@ export function FieldEditor({
               }}
             />
             {touched.field_name && errors.field_name && (
-              <FormErrorMessage fontSize="xs">
+              <Field.ErrorText fontSize="xs">
                 {errors.field_name}
-              </FormErrorMessage>
+              </Field.ErrorText>
             )}
-          </FormControl>
+          </Field.Root>
         </HStack>
 
         {/* Row 2: Field Type, Required */}
-        <HStack spacing={4}>
-          <FormControl flex={1}>
-            <FormLabel fontSize="sm">フィールドタイプ</FormLabel>
-            <Select
-              size="sm"
-              value={field.field_type}
-              onChange={(e) =>
-                onUpdate({ field_type: e.target.value as FieldType })
-              }
-            >
-              {Object.entries(FIELD_TYPE_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </Select>
-          </FormControl>
+        <HStack gap={4}>
+          <Field.Root flex={1}>
+            <Field.Label fontSize="sm">フィールドタイプ</Field.Label>
+            <NativeSelect.Root size="sm">
+              <NativeSelect.Field
+                value={field.field_type}
+                onChange={(e) =>
+                  onUpdate({ field_type: e.target.value as FieldType })
+                }
+              >
+                {Object.entries(FIELD_TYPE_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </NativeSelect.Field>
+              <NativeSelect.Indicator />
+            </NativeSelect.Root>
+          </Field.Root>
 
-          <FormControl flex={1}>
-            <FormLabel fontSize="sm">&nbsp;</FormLabel>
-            <Checkbox
-              isChecked={field.required}
-              onChange={(e) => onUpdate({ required: e.target.checked })}
+          <Field.Root flex={1}>
+            <Field.Label fontSize="sm">&nbsp;</Field.Label>
+            <Checkbox.Root
+              checked={field.required}
+              onCheckedChange={(e) => onUpdate({ required: !!e.checked })}
             >
-              必須フィールド
-            </Checkbox>
-          </FormControl>
+              <Checkbox.HiddenInput />
+              <Checkbox.Control />
+              <Checkbox.Label>必須フィールド</Checkbox.Label>
+            </Checkbox.Root>
+          </Field.Root>
         </HStack>
 
         {/* Choices editor for select/multiselect/radio */}
         {showChoicesEditor && (
-          <FormControl isInvalid={touched.choices && !!errors.choices}>
-            <FormLabel fontSize="sm">
+          <Field.Root invalid={touched.choices && !!errors.choices}>
+            <Field.Label fontSize="sm">
               選択肢
               <Text as="span" color="red.500" ml={1}>
                 *
               </Text>
-            </FormLabel>
+            </Field.Label>
             <HStack mb={2}>
               <Input
                 size="sm"
@@ -379,54 +388,56 @@ export function FieldEditor({
                 }}
                 onBlur={() => handleBlur("choices")}
               />
-              <Button size="sm" onClick={handleAddChoice} colorScheme="brand">
+              <Button size="sm" onClick={handleAddChoice} colorPalette="brand">
                 追加
               </Button>
             </HStack>
-            <Wrap spacing={2}>
+            <Wrap gap={2}>
               {(field.options?.choices || []).map((choice) => (
                 <WrapItem key={choice}>
-                  <Tag size="sm" colorScheme="gray">
-                    <TagLabel>{choice}</TagLabel>
-                    <TagCloseButton
-                      onClick={() => handleRemoveChoice(choice)}
-                    />
-                  </Tag>
+                  <Tag.Root size="sm" colorPalette="gray">
+                    <Tag.Label>{choice}</Tag.Label>
+                    <Tag.EndElement>
+                      <Tag.CloseTrigger
+                        onClick={() => handleRemoveChoice(choice)}
+                      />
+                    </Tag.EndElement>
+                  </Tag.Root>
                 </WrapItem>
               ))}
             </Wrap>
             {touched.choices && errors.choices ? (
-              <FormErrorMessage fontSize="xs">
-                {errors.choices}
-              </FormErrorMessage>
+              <Field.ErrorText fontSize="xs">{errors.choices}</Field.ErrorText>
             ) : (field.options?.choices || []).length === 0 ? (
-              <FormHelperText fontSize="xs" color="gray.500">
+              <Field.HelperText fontSize="xs" color="gray.500">
                 選択肢を追加してください
-              </FormHelperText>
+              </Field.HelperText>
             ) : null}
-          </FormControl>
+          </Field.Root>
         )}
 
         {/* Link type editor */}
         {showLinkTypeEditor && (
-          <FormControl>
-            <FormLabel fontSize="sm">リンクタイプ</FormLabel>
-            <Select
-              size="sm"
-              value={field.options?.link_type || "url"}
-              onChange={(e) =>
-                onUpdate({
-                  options: {
-                    ...field.options,
-                    link_type: e.target.value as "url" | "email",
-                  },
-                })
-              }
-            >
-              <option value="url">URL</option>
-              <option value="email">メールアドレス</option>
-            </Select>
-          </FormControl>
+          <Field.Root>
+            <Field.Label fontSize="sm">リンクタイプ</Field.Label>
+            <NativeSelect.Root size="sm">
+              <NativeSelect.Field
+                value={field.options?.link_type || "url"}
+                onChange={(e) =>
+                  onUpdate({
+                    options: {
+                      ...field.options,
+                      link_type: e.target.value as "url" | "email",
+                    },
+                  })
+                }
+              >
+                <option value="url">URL</option>
+                <option value="email">メールアドレス</option>
+              </NativeSelect.Field>
+              <NativeSelect.Indicator />
+            </NativeSelect.Root>
+          </Field.Root>
         )}
       </VStack>
     </Box>

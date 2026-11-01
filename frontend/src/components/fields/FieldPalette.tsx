@@ -36,7 +36,7 @@ function DraggableFieldType({
       {...attributes}
       p={3}
       bg="white"
-      border="1px"
+      borderWidth="1px"
       borderColor="gray.200"
       borderRadius="md"
       cursor="grab"
@@ -46,9 +46,9 @@ function DraggableFieldType({
       onClick={() => onSelect?.(fieldType)}
       userSelect="none"
     >
-      <VStack spacing={1}>
+      <VStack gap={1}>
         <Icon as={IconComponent} boxSize={5} color="brand.500" />
-        <Text fontSize="xs" textAlign="center" noOfLines={1}>
+        <Text fontSize="xs" textAlign="center" lineClamp={1}>
           {label}
         </Text>
       </VStack>
@@ -74,14 +74,14 @@ export function PaletteItemOverlay({
     <Box
       p={4}
       bg="brand.50"
-      border="2px"
+      borderWidth="2px"
       borderColor="brand.500"
       borderRadius="md"
       shadow="xl"
       minW="120px"
       cursor="grabbing"
     >
-      <VStack spacing={2}>
+      <VStack gap={2}>
         <Icon as={IconComponent} boxSize={6} color="brand.600" />
         <Text
           fontSize="sm"
@@ -125,15 +125,15 @@ export function FieldItemOverlay({
     <Box
       p={4}
       bg="white"
-      border="2px"
+      borderWidth="2px"
       borderColor="brand.500"
       borderRadius="md"
       shadow="xl"
       minW="200px"
       cursor="grabbing"
     >
-      <VStack spacing={1} align="start">
-        <HStack spacing={2}>
+      <VStack gap={1} align="start">
+        <HStack gap={2}>
           <Icon as={IconComponent} boxSize={4} color="brand.500" />
           <Text fontSize="sm" fontWeight="bold">
             {displayName}
@@ -151,14 +151,14 @@ export function FieldPalette({ onFieldSelect }: FieldPaletteProps) {
   const fieldTypes = Object.entries(FIELD_TYPE_LABELS) as [FieldType, string][];
 
   return (
-    <VStack align="stretch" spacing={4}>
+    <VStack align="stretch" gap={4}>
       <Text fontWeight="bold" color="gray.700">
         フィールドパレット
       </Text>
       <Text fontSize="sm" color="gray.500">
         クリックまたはドラッグで追加
       </Text>
-      <SimpleGrid columns={2} spacing={2}>
+      <SimpleGrid columns={2} gap={2}>
         {fieldTypes.map(([type, label]) => (
           <DraggableFieldType
             key={type}

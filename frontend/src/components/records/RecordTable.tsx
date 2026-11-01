@@ -5,17 +5,9 @@ import {
   Checkbox,
   IconButton,
   Menu,
-  MenuButton,
-  MenuItem,
-  MenuList,
   Portal,
   Table,
-  Tbody,
-  Td,
   Text,
-  Th,
-  Thead,
-  Tr,
 } from "@chakra-ui/react";
 import { FiEdit2, FiEye, FiMoreVertical, FiTrash2 } from "react-icons/fi";
 
@@ -61,126 +53,141 @@ export function RecordTable({
 
   return (
     <Box overflowX="auto" maxW="100%" w="100%">
-      <Table variant="simple" size="sm">
-        <Thead bg="gray.50">
-          <Tr>
+      <Table.Root variant="line" size="sm">
+        <Table.Header bg="gray.50">
+          <Table.Row>
             {isAdmin && (
-              <Th w="40px" px={2}>
-                <Checkbox
-                  isChecked={allSelected}
-                  isIndeterminate={someSelected}
-                  onChange={onSelectAll}
-                />
-              </Th>
+              <Table.ColumnHeader w="40px" px={2}>
+                <Checkbox.Root
+                  checked={
+                    allSelected ? true : someSelected ? "indeterminate" : false
+                  }
+                  onCheckedChange={onSelectAll}
+                >
+                  <Checkbox.HiddenInput />
+                  <Checkbox.Control />
+                </Checkbox.Root>
+              </Table.ColumnHeader>
             )}
-            <Th w="80px">ID</Th>
+            <Table.ColumnHeader w="80px">ID</Table.ColumnHeader>
             {fields.map((field) => (
-              <Th key={field.id} minW="150px">
+              <Table.ColumnHeader key={field.id} minW="150px">
                 {field.field_name}
-              </Th>
+              </Table.ColumnHeader>
             ))}
-            <Th w="64px" sx={stickyHeaderSx}>
+            <Table.ColumnHeader w="64px" {...stickyHeaderSx}>
               操作
-            </Th>
-          </Tr>
-        </Thead>
-        <Tbody>
+            </Table.ColumnHeader>
+          </Table.Row>
+        </Table.Header>
+        <Table.Body>
           {records.length === 0 ? (
-            <Tr>
-              <Td
+            <Table.Row>
+              <Table.Cell
                 colSpan={fields.length + (isAdmin ? 3 : 2)}
                 textAlign="center"
                 py={8}
               >
                 <Text color="gray.500">レコードがありません</Text>
-              </Td>
-            </Tr>
+              </Table.Cell>
+            </Table.Row>
           ) : (
             records.map((record) => {
               const isSelected = selectedIds.includes(record.id);
               const rowBg = isSelected ? "brand.50" : "white";
               return (
-                <Tr
+                <Table.Row
                   key={record.id}
                   role="group"
                   _hover={{ bg: "gray.50" }}
                   bg={isSelected ? "brand.50" : undefined}
                 >
                   {isAdmin && (
-                    <Td px={2}>
-                      <Checkbox
-                        isChecked={isSelected}
-                        onChange={() => onSelectRecord(record.id)}
-                      />
-                    </Td>
+                    <Table.Cell px={2}>
+                      <Checkbox.Root
+                        checked={isSelected}
+                        onCheckedChange={() => onSelectRecord(record.id)}
+                      >
+                        <Checkbox.HiddenInput />
+                        <Checkbox.Control />
+                      </Checkbox.Root>
+                    </Table.Cell>
                   )}
-                  <Td fontWeight="medium" color="gray.600">
+                  <Table.Cell fontWeight="medium" color="gray.600">
                     {record.id}
-                  </Td>
+                  </Table.Cell>
                   {fields.map((field) => (
-                    <Td key={field.id}>
+                    <Table.Cell key={field.id}>
                       <FieldValue
                         field={field}
                         value={record.data[field.field_code]}
                       />
-                    </Td>
+                    </Table.Cell>
                   ))}
-                  <Td
-                    sx={{
-                      position: "sticky",
-                      right: 0,
-                      bg: rowBg,
-                      zIndex: 1,
-                      borderLeft: "1px solid",
-                      borderLeftColor: "gray.200",
-                      boxShadow: "-4px 0 6px -4px rgba(0, 0, 0, 0.05)",
-                      _groupHover: { bg: "gray.50" },
-                    }}
+                  <Table.Cell
+                    position="sticky"
+                    right={0}
+                    bg={rowBg}
+                    zIndex={1}
+                    borderLeft="1px solid"
+                    borderLeftColor="gray.200"
+                    boxShadow="-4px 0 6px -4px rgba(0, 0, 0, 0.05)"
+                    _groupHover={{ bg: "gray.50" }}
                   >
-                    <Menu placement="left-start" isLazy>
-                      <MenuButton
-                        as={IconButton}
-                        icon={<FiMoreVertical />}
-                        variant="ghost"
-                        size="sm"
-                        aria-label="行アクション"
-                      />
+                    <Menu.Root
+                      positioning={{ placement: "left-start" }}
+                      lazyMount
+                    >
+                      <Menu.Trigger asChild>
+                        <IconButton
+                          variant="ghost"
+                          size="sm"
+                          aria-label="行アクション"
+                        >
+                          <FiMoreVertical />
+                        </IconButton>
+                      </Menu.Trigger>
                       {/* Portal にレンダリングして、親 Card / main の overflow:hidden に切り取られないようにする */}
                       <Portal>
-                        <MenuList zIndex="popover">
-                          <MenuItem
-                            icon={<FiEye />}
-                            onClick={() => onView(record)}
-                          >
-                            詳細
-                          </MenuItem>
-                          {isAdmin && onEdit && (
-                            <MenuItem
-                              icon={<FiEdit2 />}
-                              onClick={() => onEdit(record)}
+                        <Menu.Positioner>
+                          <Menu.Content zIndex="popover">
+                            <Menu.Item
+                              value="view"
+                              onClick={() => onView(record)}
                             >
-                              編集
-                            </MenuItem>
-                          )}
-                          {isAdmin && onDelete && (
-                            <MenuItem
-                              icon={<FiTrash2 />}
-                              color="red.500"
-                              onClick={() => onDelete(record)}
-                            >
-                              削除
-                            </MenuItem>
-                          )}
-                        </MenuList>
+                              <FiEye />
+                              詳細
+                            </Menu.Item>
+                            {isAdmin && onEdit && (
+                              <Menu.Item
+                                value="edit"
+                                onClick={() => onEdit(record)}
+                              >
+                                <FiEdit2 />
+                                編集
+                              </Menu.Item>
+                            )}
+                            {isAdmin && onDelete && (
+                              <Menu.Item
+                                value="delete"
+                                color="red.500"
+                                onClick={() => onDelete(record)}
+                              >
+                                <FiTrash2 />
+                                削除
+                              </Menu.Item>
+                            )}
+                          </Menu.Content>
+                        </Menu.Positioner>
                       </Portal>
-                    </Menu>
-                  </Td>
-                </Tr>
+                    </Menu.Root>
+                  </Table.Cell>
+                </Table.Row>
               );
             })
           )}
-        </Tbody>
-      </Table>
+        </Table.Body>
+      </Table.Root>
     </Box>
   );
 }

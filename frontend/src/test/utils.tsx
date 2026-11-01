@@ -4,7 +4,8 @@
  */
 
 import { ApiClientProvider } from "@/api/ApiClientProvider";
-import { theme } from "@/theme";
+import { Toaster } from "@/components/ui/app-toaster";
+import { system } from "@/theme";
 import { ChakraProvider } from "@chakra-ui/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, RenderOptions } from "@testing-library/react";
@@ -42,9 +43,10 @@ const AllProviders = ({ children }: AllProvidersProps) => {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ChakraProvider theme={theme}>
+      <ChakraProvider value={system}>
         <ApiClientProvider>
           <BrowserRouter>{children}</BrowserRouter>
+          <Toaster />
         </ApiClientProvider>
       </ChakraProvider>
     </QueryClientProvider>

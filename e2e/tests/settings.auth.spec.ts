@@ -26,7 +26,7 @@ test.describe("設定（認証済み）", () => {
     await page.getByRole("button", { name: "保存" }).click();
 
     // トースト通知が表示されることを確認
-    await expect(page.locator(".chakra-toast").first()).toBeVisible();
+    await expect(page.locator(".chakra-toast__root").first()).toBeVisible();
 
     // 元に戻す
     await nameInput.clear();

@@ -15,30 +15,24 @@ import {
   Badge,
   Box,
   Button,
-  FormControl,
-  FormLabel,
+  CloseButton,
+  Dialog,
+  Field,
   Heading,
   HStack,
   Icon,
-  Modal,
-  ModalBody,
-  ModalCloseButton,
-  ModalContent,
-  ModalFooter,
-  ModalHeader,
-  ModalOverlay,
-  Radio,
+  NativeSelect,
+  Portal,
   RadioGroup,
-  Select,
   SimpleGrid,
   Stack,
   Text,
-  useToast,
   VStack,
 } from "@chakra-ui/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { FiCheck } from "react-icons/fi";
+import { toaster } from "@/components/ui/toaster";
 
 interface AddWidgetModalProps {
   isOpen: boolean;
@@ -51,7 +45,6 @@ export function AddWidgetModal({
   onClose,
   existingWidgets,
 }: AddWidgetModalProps) {
-  const toast = useToast();
   const queryClient = useQueryClient();
   const dashboardWidgetsApi = useDashboardWidgetsApi();
   const { data: appsData, isLoading: isAppsLoading } = useApps();
@@ -72,17 +65,17 @@ export function AddWidgetModal({
       dashboardWidgetsApi.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["dashboard", "widgets"] });
-      toast({
+      toaster.create({
         title: "ウィジェットを追加しました",
-        status: "success",
+        type: "success",
         duration: 3000,
       });
       handleClose();
     },
     onError: () => {
-      toast({
+      toaster.create({
         title: "追加に失敗しました",
-        status: "error",
+        type: "error",
         duration: 3000,
       });
     },
@@ -133,18 +126,18 @@ export function AddWidgetModal({
           boxSize={5}
         />
       )}
-      <HStack spacing={3}>
+      <HStack gap={3}>
         <Icon as={getAppIcon(app.icon)} boxSize={8} color="brand.500" />
-        <VStack align="start" spacing={0}>
+        <VStack align="start" gap={0}>
           <HStack>
             <Text fontWeight="semibold">{app.name}</Text>
             {app.is_external && (
-              <Badge colorScheme="purple" fontSize="xs">
+              <Badge colorPalette="purple" fontSize="xs">
                 外部
               </Badge>
             )}
           </HStack>
-          <Text fontSize="sm" color="gray.500" noOfLines={1}>
+          <Text fontSize="sm" color="gray.500" lineClamp={1}>
             {app.description || "説明なし"}
           </Text>
         </VStack>
@@ -153,80 +146,111 @@ export function AddWidgetModal({
   );
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} size="xl">
-      <ModalOverlay />
-      <ModalContent maxH="80vh">
-        <ModalHeader>ダッシュボードにウィジェットを追加</ModalHeader>
-        <ModalCloseButton />
-        <ModalBody overflowY="auto">
-          <VStack spacing={6} align="stretch">
-            {/* アプリ選択 */}
-            <Box>
-              <Heading size="sm" mb={3}>
-                アプリを選択
-              </Heading>
-              {isAppsLoading ? (
-                <Text color="gray.500">読み込み中...</Text>
-              ) : availableApps.length === 0 ? (
-                <Text color="gray.500">
-                  追加可能なアプリがありません。すべてのアプリが既にダッシュボードに追加されています。
-                </Text>
-              ) : (
-                <SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
-                  {availableApps.map((app) => (
-                    <AppCard
-                      key={app.id}
-                      app={app}
-                      isSelected={selectedAppId === app.id}
-                    />
-                  ))}
-                </SimpleGrid>
-              )}
-            </Box>
+    <Dialog.Root
+      open={isOpen}
+      onOpenChange={(e) => !e.open && handleClose()}
+      size="xl"
+    >
+      <Portal>
+        <Dialog.Backdrop />
+        <Dialog.Positioner>
+          <Dialog.Content maxH="80vh">
+            <Dialog.Header>
+              <Dialog.Title>ダッシュボードにウィジェットを追加</Dialog.Title>
+            </Dialog.Header>
+            <Dialog.CloseTrigger asChild>
+              <CloseButton size="sm" />
+            </Dialog.CloseTrigger>
+            <Dialog.Body overflowY="auto">
+              <VStack gap={6} align="stretch">
+                {/* アプリ選択 */}
+                <Box>
+                  <Heading size="sm" mb={3}>
+                    アプリを選択
+                  </Heading>
+                  {isAppsLoading ? (
+                    <Text color="gray.500">読み込み中...</Text>
+                  ) : availableApps.length === 0 ? (
+                    <Text color="gray.500">
+                      追加可能なアプリがありません。すべてのアプリが既にダッシュボードに追加されています。
+                    </Text>
+                  ) : (
+                    <SimpleGrid columns={{ base: 1, md: 2 }} gap={3}>
+                      {availableApps.map((app) => (
+                        <AppCard
+                          key={app.id}
+                          app={app}
+                          isSelected={selectedAppId === app.id}
+                        />
+                      ))}
+                    </SimpleGrid>
+                  )}
+                </Box>
 
-            {/* 表示形式選択 */}
-            {selectedAppId && (
-              <>
-                <FormControl>
-                  <FormLabel>表示形式</FormLabel>
-                  <RadioGroup value={viewType} onChange={setViewType}>
-                    <Stack direction="row" spacing={4}>
-                      <Radio value="table">テーブル</Radio>
-                      <Radio value="list">リスト</Radio>
-                      <Radio value="chart">グラフ</Radio>
-                    </Stack>
-                  </RadioGroup>
-                </FormControl>
+                {/* 表示形式選択 */}
+                {selectedAppId && (
+                  <>
+                    <Field.Root>
+                      <Field.Label>表示形式</Field.Label>
+                      <RadioGroup.Root
+                        value={viewType}
+                        onValueChange={(e) => e.value && setViewType(e.value)}
+                      >
+                        <Stack direction="row" gap={4}>
+                          {[
+                            { value: "table", label: "テーブル" },
+                            { value: "list", label: "リスト" },
+                            { value: "chart", label: "グラフ" },
+                          ].map((option) => (
+                            <RadioGroup.Item
+                              key={option.value}
+                              value={option.value}
+                            >
+                              <RadioGroup.ItemHiddenInput />
+                              <RadioGroup.ItemIndicator />
+                              <RadioGroup.ItemText>
+                                {option.label}
+                              </RadioGroup.ItemText>
+                            </RadioGroup.Item>
+                          ))}
+                        </Stack>
+                      </RadioGroup.Root>
+                    </Field.Root>
 
-                <FormControl>
-                  <FormLabel>ウィジェットサイズ</FormLabel>
-                  <Select
-                    value={widgetSize}
-                    onChange={(e) => setWidgetSize(e.target.value)}
-                  >
-                    <option value="small">小</option>
-                    <option value="medium">中</option>
-                    <option value="large">大</option>
-                  </Select>
-                </FormControl>
-              </>
-            )}
-          </VStack>
-        </ModalBody>
-        <ModalFooter>
-          <Button variant="ghost" mr={3} onClick={handleClose}>
-            キャンセル
-          </Button>
-          <Button
-            colorScheme="brand"
-            onClick={handleSubmit}
-            isLoading={createMutation.isPending}
-            isDisabled={!selectedAppId}
-          >
-            追加
-          </Button>
-        </ModalFooter>
-      </ModalContent>
-    </Modal>
+                    <Field.Root>
+                      <Field.Label>ウィジェットサイズ</Field.Label>
+                      <NativeSelect.Root>
+                        <NativeSelect.Field
+                          value={widgetSize}
+                          onChange={(e) => setWidgetSize(e.target.value)}
+                        >
+                          <option value="small">小</option>
+                          <option value="medium">中</option>
+                          <option value="large">大</option>
+                        </NativeSelect.Field>
+                        <NativeSelect.Indicator />
+                      </NativeSelect.Root>
+                    </Field.Root>
+                  </>
+                )}
+              </VStack>
+            </Dialog.Body>
+            <Dialog.Footer>
+              <Button variant="ghost" mr={3} onClick={handleClose}>
+                キャンセル
+              </Button>
+              <Button
+                colorPalette="brand"
+                onClick={handleSubmit}
+                loading={createMutation.isPending}
+                disabled={!selectedAppId}
+              >
+                追加
+              </Button>
+            </Dialog.Footer>
+          </Dialog.Content>
+        </Dialog.Positioner>
+      </Portal>
+    </Dialog.Root>
   );
 }

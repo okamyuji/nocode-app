@@ -2,21 +2,17 @@ import { useDashboardApi } from "@/api";
 import { Loading } from "@/components/common";
 import { AddWidgetModal, DashboardWidgetGrid } from "@/components/dashboard";
 import { useDashboardWidgets } from "@/hooks";
-import { AddIcon } from "@chakra-ui/icons";
+import { AddIcon } from "@chakra-ui/icons/Add";
 import {
   Box,
   Button,
   Card,
-  CardBody,
   Heading,
   HStack,
   Icon,
   SimpleGrid,
   Spinner,
   Stat,
-  StatHelpText,
-  StatLabel,
-  StatNumber,
   Text,
   useDisclosure,
 } from "@chakra-ui/react";
@@ -25,7 +21,7 @@ import { FiActivity, FiDatabase, FiGrid, FiUsers } from "react-icons/fi";
 
 export function DashboardPage() {
   const dashboardApi = useDashboardApi();
-  const { isOpen, onOpen, onClose } = useDisclosure();
+  const { open: isOpen, onOpen, onClose } = useDisclosure();
 
   // 統計データの取得
   const { data: statsData, isLoading: statsLoading } = useQuery({
@@ -71,34 +67,35 @@ export function DashboardPage() {
     <Box>
       <HStack justify="space-between" mb={6}>
         <Heading size="lg">ダッシュボード</Heading>
-        <Button leftIcon={<AddIcon />} colorScheme="brand" onClick={onOpen}>
+        <Button colorPalette="brand" onClick={onOpen}>
+          <AddIcon />
           ウィジェットを追加
         </Button>
       </HStack>
 
       {/* 統計カード */}
-      <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={4} mb={8}>
+      <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} gap={4} mb={8}>
         {stats.map((stat) => (
-          <Card key={stat.label}>
-            <CardBody>
-              <Stat>
+          <Card.Root key={stat.label}>
+            <Card.Body>
+              <Stat.Root>
                 <HStack justify="space-between">
-                  <Box>
-                    <StatLabel color="gray.500">{stat.label}</StatLabel>
-                    <StatNumber fontSize="3xl">
+                  <Box display="flex" flexDirection="column">
+                    <Stat.Label color="gray.500">{stat.label}</Stat.Label>
+                    <Stat.ValueText fontSize="3xl">
                       {stat.value === null ? (
                         <Spinner size="sm" />
                       ) : (
                         stat.value.toLocaleString()
                       )}
-                    </StatNumber>
-                    <StatHelpText mb={0}>前月比 -</StatHelpText>
+                    </Stat.ValueText>
+                    <Stat.HelpText mb={0}>前月比 -</Stat.HelpText>
                   </Box>
                   <Icon as={stat.icon} boxSize={10} color={stat.color} />
                 </HStack>
-              </Stat>
-            </CardBody>
-          </Card>
+              </Stat.Root>
+            </Card.Body>
+          </Card.Root>
         ))}
       </SimpleGrid>
 
@@ -111,15 +108,15 @@ export function DashboardPage() {
         {widgetsLoading ? (
           <Loading message="ウィジェットを読み込み中..." />
         ) : visibleWidgets.length === 0 ? (
-          <Card>
-            <CardBody>
+          <Card.Root>
+            <Card.Body>
               <Text color="gray.500" textAlign="center" py={8}>
                 表示中のウィジェットがありません。
                 <br />
                 「ウィジェットを追加」ボタンからアプリを追加してください。
               </Text>
-            </CardBody>
-          </Card>
+            </Card.Body>
+          </Card.Root>
         ) : (
           <DashboardWidgetGrid widgets={visibleWidgets} />
         )}

@@ -4,7 +4,8 @@
  */
 
 import { Field, RecordItem } from "@/types";
-import { ChevronLeftIcon, ChevronRightIcon } from "@chakra-ui/icons";
+import { ChevronLeftIcon } from "@chakra-ui/icons/ChevronLeft";
+import { ChevronRightIcon } from "@chakra-ui/icons/ChevronRight";
 import {
   Box,
   Button,
@@ -13,7 +14,7 @@ import {
   Heading,
   HStack,
   IconButton,
-  Select,
+  NativeSelect,
   Text,
   VStack,
 } from "@chakra-ui/react";
@@ -157,23 +158,25 @@ export function CalendarView({
     <Box>
       {/* ヘッダー */}
       <HStack justify="space-between" mb={4}>
-        <HStack spacing={4}>
+        <HStack gap={4}>
           <HStack>
             <IconButton
-              icon={<ChevronLeftIcon />}
               aria-label="前月"
               size="sm"
               onClick={() => navigateMonth(-1)}
-            />
+            >
+              <ChevronLeftIcon />
+            </IconButton>
             <Heading size="md" minW="150px" textAlign="center">
               {year}年 {month + 1}月
             </Heading>
             <IconButton
-              icon={<ChevronRightIcon />}
               aria-label="翌月"
               size="sm"
               onClick={() => navigateMonth(1)}
-            />
+            >
+              <ChevronRightIcon />
+            </IconButton>
           </HStack>
           <Button size="sm" onClick={goToToday}>
             今日
@@ -184,18 +187,19 @@ export function CalendarView({
           <Text fontSize="sm" color="gray.600">
             日付フィールド:
           </Text>
-          <Select
-            size="sm"
-            w="auto"
-            value={activeDateField}
-            onChange={(e) => setSelectedDateField(e.target.value)}
-          >
-            {dateFields.map((field) => (
-              <option key={field.id} value={field.field_code}>
-                {field.field_name}
-              </option>
-            ))}
-          </Select>
+          <NativeSelect.Root size="sm" w="auto">
+            <NativeSelect.Field
+              value={activeDateField}
+              onChange={(e) => setSelectedDateField(e.target.value)}
+            >
+              {dateFields.map((field) => (
+                <option key={field.id} value={field.field_code}>
+                  {field.field_name}
+                </option>
+              ))}
+            </NativeSelect.Field>
+            <NativeSelect.Indicator />
+          </NativeSelect.Root>
         </HStack>
       </HStack>
 
@@ -228,13 +232,13 @@ export function CalendarView({
               key={index}
               minH="100px"
               bg={day ? "white" : "gray.50"}
-              border="1px"
+              borderWidth="1px"
               borderColor="gray.200"
               borderRadius="md"
               p={2}
             >
               {day && (
-                <VStack align="stretch" spacing={1}>
+                <VStack align="stretch" gap={1}>
                   <Text
                     fontSize="sm"
                     fontWeight={isToday(day) ? "bold" : "normal"}
@@ -268,7 +272,7 @@ export function CalendarView({
                       cursor="pointer"
                       _hover={{ bg: "brand.200" }}
                       onClick={() => onRecordClick?.(record)}
-                      isTruncated
+                      truncate
                     >
                       {labelField
                         ? String(

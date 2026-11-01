@@ -22,25 +22,17 @@ import {
   Box,
   Button,
   Card,
-  CardBody,
   Checkbox,
-  FormControl,
-  FormErrorMessage,
-  FormLabel,
+  Field,
   Heading,
   HStack,
   Input,
-  Select,
+  NativeSelect,
   Table,
-  Tbody,
-  Td,
   Text,
-  Th,
-  Thead,
-  Tr,
-  useToast,
   VStack,
 } from "@chakra-ui/react";
+import { toaster } from "@/components/ui/toaster";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -64,7 +56,6 @@ export function ExternalAppFormBuilder({
   table,
   columns,
 }: ExternalAppFormBuilderProps) {
-  const toast = useToast();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -122,18 +113,18 @@ export function ExternalAppFormBuilder({
       // 個別アプリのキャッシュも設定
       queryClient.setQueryData(["app", newApp.id], newApp);
 
-      toast({
+      toaster.create({
         title: "アプリを作成しました",
-        status: "success",
+        type: "success",
         duration: 3000,
       });
       navigate("/apps");
     },
     onError: (error: Error) => {
-      toast({
+      toaster.create({
         title: "作成に失敗しました",
         description: error.message,
-        status: "error",
+        type: "error",
         duration: 5000,
       });
     },
@@ -227,32 +218,32 @@ export function ExternalAppFormBuilder({
   const selectedCount = fieldMappings.filter((f) => f.selected).length;
 
   return (
-    <VStack spacing={6} align="stretch">
+    <VStack gap={6} align="stretch">
       {/* 基本情報 */}
-      <Card>
-        <CardBody>
+      <Card.Root>
+        <Card.Body>
           <Heading size="md" mb={4}>
             アプリ基本情報
           </Heading>
-          <VStack spacing={4}>
-            <FormControl isInvalid={!!errors.appName}>
-              <FormLabel>アプリ名</FormLabel>
+          <VStack gap={4} align="stretch">
+            <Field.Root invalid={!!errors.appName}>
+              <Field.Label>アプリ名</Field.Label>
               <Input
                 value={appName}
                 onChange={(e) => setAppName(e.target.value)}
                 placeholder="アプリ名を入力"
               />
-              <FormErrorMessage>{errors.appName}</FormErrorMessage>
-            </FormControl>
+              <Field.ErrorText>{errors.appName}</Field.ErrorText>
+            </Field.Root>
 
-            <FormControl>
-              <FormLabel>説明</FormLabel>
+            <Field.Root>
+              <Field.Label>説明</Field.Label>
               <Input
                 value={appDescription}
                 onChange={(e) => setAppDescription(e.target.value)}
                 placeholder="アプリの説明（任意）"
               />
-            </FormControl>
+            </Field.Root>
 
             <Box w="100%">
               <Text fontSize="sm" color="gray.500">
@@ -264,12 +255,12 @@ export function ExternalAppFormBuilder({
               </Text>
             </Box>
           </VStack>
-        </CardBody>
-      </Card>
+        </Card.Body>
+      </Card.Root>
 
       {/* フィールドマッピング */}
-      <Card>
-        <CardBody>
+      <Card.Root>
+        <Card.Body>
           <HStack justify="space-between" mb={4}>
             <Heading size="md">フィールド設定</Heading>
             <Text fontSize="sm" color="gray.500">
@@ -284,40 +275,43 @@ export function ExternalAppFormBuilder({
           )}
 
           <Box overflowX="auto">
-            <Table size="sm">
-              <Thead>
-                <Tr>
-                  <Th width="50px">選択</Th>
-                  <Th>元カラム名</Th>
-                  <Th>フィールドコード</Th>
-                  <Th>表示名</Th>
-                  <Th>フィールドタイプ</Th>
-                </Tr>
-              </Thead>
-              <Tbody>
+            <Table.Root size="sm">
+              <Table.Header>
+                <Table.Row>
+                  <Table.ColumnHeader width="50px">選択</Table.ColumnHeader>
+                  <Table.ColumnHeader>元カラム名</Table.ColumnHeader>
+                  <Table.ColumnHeader>フィールドコード</Table.ColumnHeader>
+                  <Table.ColumnHeader>表示名</Table.ColumnHeader>
+                  <Table.ColumnHeader>フィールドタイプ</Table.ColumnHeader>
+                </Table.Row>
+              </Table.Header>
+              <Table.Body>
                 {fieldMappings.map((mapping, index) => (
-                  <Tr
+                  <Table.Row
                     key={mapping.source_column_name}
                     opacity={mapping.selected ? 1 : 0.5}
                   >
-                    <Td>
-                      <Checkbox
-                        isChecked={mapping.selected}
-                        onChange={(e) =>
+                    <Table.Cell>
+                      <Checkbox.Root
+                        checked={mapping.selected}
+                        onCheckedChange={(e) =>
                           handleFieldMappingChange(
                             index,
                             "selected",
-                            e.target.checked
+                            !!e.checked
                           )
                         }
-                      />
-                    </Td>
-                    <Td>
+                      >
+                        <Checkbox.HiddenInput />
+                        <Checkbox.Control />
+                      </Checkbox.Root>
+                    </Table.Cell>
+                    <Table.Cell>
                       <Text fontFamily="mono" fontSize="sm">
                         {mapping.source_column_name}
                       </Text>
-                    </Td>
-                    <Td>
+                    </Table.Cell>
+                    <Table.Cell>
                       <Input
                         size="sm"
                         value={mapping.field_code}
@@ -328,10 +322,10 @@ export function ExternalAppFormBuilder({
                             e.target.value
                           )
                         }
-                        isDisabled={!mapping.selected}
+                        disabled={!mapping.selected}
                       />
-                    </Td>
-                    <Td>
+                    </Table.Cell>
+                    <Table.Cell>
                       <Input
                         size="sm"
                         value={mapping.field_name}
@@ -342,42 +336,43 @@ export function ExternalAppFormBuilder({
                             e.target.value
                           )
                         }
-                        isDisabled={!mapping.selected}
+                        disabled={!mapping.selected}
                       />
-                    </Td>
-                    <Td>
-                      <Select
-                        size="sm"
-                        value={mapping.field_type}
-                        onChange={(e) =>
-                          handleFieldMappingChange(
-                            index,
-                            "field_type",
-                            e.target.value
-                          )
-                        }
-                        isDisabled={!mapping.selected}
-                      >
-                        {Object.entries(FIELD_TYPE_LABELS).map(
-                          ([type, label]) => (
-                            <option key={type} value={type}>
-                              {label}
-                            </option>
-                          )
-                        )}
-                      </Select>
-                    </Td>
-                  </Tr>
+                    </Table.Cell>
+                    <Table.Cell>
+                      <NativeSelect.Root size="sm" disabled={!mapping.selected}>
+                        <NativeSelect.Field
+                          value={mapping.field_type}
+                          onChange={(e) =>
+                            handleFieldMappingChange(
+                              index,
+                              "field_type",
+                              e.target.value
+                            )
+                          }
+                        >
+                          {Object.entries(FIELD_TYPE_LABELS).map(
+                            ([type, label]) => (
+                              <option key={type} value={type}>
+                                {label}
+                              </option>
+                            )
+                          )}
+                        </NativeSelect.Field>
+                        <NativeSelect.Indicator />
+                      </NativeSelect.Root>
+                    </Table.Cell>
+                  </Table.Row>
                 ))}
-              </Tbody>
-            </Table>
+              </Table.Body>
+            </Table.Root>
           </Box>
-        </CardBody>
-      </Card>
+        </Card.Body>
+      </Card.Root>
 
       {/* 注意事項 */}
-      <Card bg="orange.50">
-        <CardBody>
+      <Card.Root bg="orange.50">
+        <Card.Body>
           <Text fontWeight="bold" color="orange.700" mb={2}>
             ⚠️ 読み取り専用
           </Text>
@@ -385,16 +380,16 @@ export function ExternalAppFormBuilder({
             外部データソースから作成されたアプリは読み取り専用です。
             レコードの追加・編集・削除はできません。
           </Text>
-        </CardBody>
-      </Card>
+        </Card.Body>
+      </Card.Root>
 
       {/* 送信ボタン */}
       <HStack justify="flex-end">
         <Button
-          colorScheme="blue"
+          colorPalette="blue"
           size="lg"
           onClick={handleSubmit}
-          isLoading={createMutation.isPending}
+          loading={createMutation.isPending}
         >
           アプリを作成
         </Button>

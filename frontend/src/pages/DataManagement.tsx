@@ -5,7 +5,6 @@ import {
   Badge,
   Box,
   Card,
-  CardBody,
   Flex,
   Grid,
   Heading,
@@ -13,13 +12,12 @@ import {
   IconButton,
   Input,
   InputGroup,
-  InputLeftElement,
   Skeleton,
   SkeletonText,
   Text,
-  Tooltip,
   VStack,
 } from "@chakra-ui/react";
+import { Tooltip } from "@/components/ui/tooltip";
 import { useMemo, useState } from "react";
 import { FiDatabase, FiSearch, FiSettings } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
@@ -53,7 +51,7 @@ export function DataManagementPage() {
 
   return (
     <Box p={6}>
-      <VStack spacing={6} align="stretch">
+      <VStack gap={6} align="stretch">
         <Flex justify="space-between" align="center">
           <Box>
             <Heading size="lg" mb={2}>
@@ -63,10 +61,10 @@ export function DataManagementPage() {
           </Box>
         </Flex>
 
-        <InputGroup maxW="400px">
-          <InputLeftElement>
-            <Icon as={FiSearch} color="gray.400" />
-          </InputLeftElement>
+        <InputGroup
+          maxW="400px"
+          startElement={<Icon as={FiSearch} color="gray.400" />}
+        >
           <Input
             placeholder="アプリを検索..."
             value={searchQuery}
@@ -77,17 +75,17 @@ export function DataManagementPage() {
         {isLoading ? (
           <Grid templateColumns="repeat(auto-fill, minmax(300px, 1fr))" gap={4}>
             {[1, 2, 3, 4].map((i) => (
-              <Card key={i}>
-                <CardBody>
+              <Card.Root key={i}>
+                <Card.Body>
                   <Skeleton height="20px" width="60%" mb={2} />
                   <SkeletonText noOfLines={2} />
-                </CardBody>
-              </Card>
+                </Card.Body>
+              </Card.Root>
             ))}
           </Grid>
         ) : filteredApps.length === 0 ? (
-          <Card>
-            <CardBody textAlign="center" py={10}>
+          <Card.Root>
+            <Card.Body textAlign="center" py={10}>
               <Icon as={FiDatabase} boxSize={12} color="gray.300" mb={4} />
               <Text fontSize="lg" color="gray.500">
                 {searchQuery
@@ -99,8 +97,8 @@ export function DataManagementPage() {
                   「アプリ一覧」から新しいアプリを作成してください
                 </Text>
               )}
-            </CardBody>
-          </Card>
+            </Card.Body>
+          </Card.Root>
         ) : (
           <Grid templateColumns="repeat(auto-fill, minmax(300px, 1fr))" gap={4}>
             {filteredApps.map((app) => (
@@ -133,7 +131,7 @@ function AppDataCard({
   isAdmin,
 }: AppDataCardProps) {
   return (
-    <Card
+    <Card.Root
       cursor="pointer"
       _hover={{
         transform: "translateY(-2px)",
@@ -145,7 +143,7 @@ function AppDataCard({
       borderWidth="1px"
       borderColor="gray.200"
     >
-      <CardBody>
+      <Card.Body>
         <Flex align="start" gap={3}>
           <Flex
             w={10}
@@ -161,27 +159,31 @@ function AppDataCard({
           <Box flex={1} minW={0}>
             <Flex align="center" justify="space-between" mb={1}>
               <Flex align="center" gap={2} flex={1} minW={0}>
-                <Heading size="sm" noOfLines={1}>
+                <Heading size="sm" lineClamp={1}>
                   {app.name}
                 </Heading>
-                <Badge colorScheme="brand" fontSize="xs">
+                <Badge colorPalette="brand" fontSize="xs">
                   {app.field_count} フィールド
                 </Badge>
               </Flex>
               {isAdmin && (
-                <Tooltip label="アプリ設定" placement="top">
+                <Tooltip
+                  content="アプリ設定"
+                  positioning={{ placement: "top" }}
+                >
                   <IconButton
                     aria-label="アプリ設定"
-                    icon={<FiSettings />}
                     size="sm"
                     variant="ghost"
                     onClick={onSettingsClick}
                     _hover={{ bg: "gray.100" }}
-                  />
+                  >
+                    <FiSettings />
+                  </IconButton>
                 </Tooltip>
               )}
             </Flex>
-            <Text fontSize="sm" color="gray.600" noOfLines={2}>
+            <Text fontSize="sm" color="gray.600" lineClamp={2}>
               {app.description || "No description"}
             </Text>
             <Text fontSize="xs" color="gray.400" mt={2}>
@@ -189,7 +191,7 @@ function AppDataCard({
             </Text>
           </Box>
         </Flex>
-      </CardBody>
-    </Card>
+      </Card.Body>
+    </Card.Root>
   );
 }

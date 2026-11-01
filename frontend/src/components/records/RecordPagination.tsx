@@ -1,6 +1,13 @@
 import { Pagination } from "@/types";
-import { ChevronLeftIcon, ChevronRightIcon } from "@chakra-ui/icons";
-import { Button, HStack, IconButton, Select, Text } from "@chakra-ui/react";
+import { ChevronLeftIcon } from "@chakra-ui/icons/ChevronLeft";
+import { ChevronRightIcon } from "@chakra-ui/icons/ChevronRight";
+import {
+  Button,
+  HStack,
+  IconButton,
+  NativeSelect,
+  Text,
+} from "@chakra-ui/react";
 
 interface RecordPaginationProps {
   pagination: Pagination;
@@ -20,37 +27,39 @@ export function RecordPagination({
 
   return (
     <HStack justify="space-between" w="100%" py={4}>
-      <HStack spacing={2}>
+      <HStack gap={2}>
         <Text fontSize="sm" color="gray.600">
           表示件数:
         </Text>
-        <Select
-          size="sm"
-          w="80px"
-          value={limit}
-          onChange={(e) => onLimitChange(Number(e.target.value))}
-        >
-          <option value="10">10</option>
-          <option value="20">20</option>
-          <option value="50">50</option>
-          <option value="100">100</option>
-        </Select>
+        <NativeSelect.Root size="sm" w="80px">
+          <NativeSelect.Field
+            value={String(limit)}
+            onChange={(e) => onLimitChange(Number(e.target.value))}
+          >
+            <option value="10">10</option>
+            <option value="20">20</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+          </NativeSelect.Field>
+          <NativeSelect.Indicator />
+        </NativeSelect.Root>
       </HStack>
 
-      <HStack spacing={4}>
+      <HStack gap={4}>
         <Text fontSize="sm" color="gray.600">
           {total > 0 ? `${startRecord}-${endRecord} / 全${total}件` : "0件"}
         </Text>
 
-        <HStack spacing={1}>
+        <HStack gap={1}>
           <IconButton
-            icon={<ChevronLeftIcon />}
             aria-label="前のページ"
             size="sm"
             variant="outline"
-            isDisabled={page <= 1}
+            disabled={page <= 1}
             onClick={() => onPageChange(page - 1)}
-          />
+          >
+            <ChevronLeftIcon />
+          </IconButton>
 
           {generatePageNumbers(page, total_pages).map((pageNum, index) =>
             pageNum === "..." ? (
@@ -62,7 +71,7 @@ export function RecordPagination({
                 key={pageNum}
                 size="sm"
                 variant={page === pageNum ? "solid" : "outline"}
-                colorScheme={page === pageNum ? "brand" : "gray"}
+                colorPalette={page === pageNum ? "brand" : "gray"}
                 onClick={() => onPageChange(pageNum as number)}
               >
                 {pageNum}
@@ -71,13 +80,14 @@ export function RecordPagination({
           )}
 
           <IconButton
-            icon={<ChevronRightIcon />}
             aria-label="次のページ"
             size="sm"
             variant="outline"
-            isDisabled={page >= total_pages}
+            disabled={page >= total_pages}
             onClick={() => onPageChange(page + 1)}
-          />
+          >
+            <ChevronRightIcon />
+          </IconButton>
         </HStack>
       </HStack>
     </HStack>

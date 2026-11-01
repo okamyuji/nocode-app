@@ -1,15 +1,12 @@
-import { Field } from "@/types";
+import { Field as FieldModel } from "@/types";
 import { ChartDataRequest, ChartType } from "@/types/chart";
 import {
-  Box,
   Button,
-  FormControl,
-  FormLabel,
+  Field,
   HStack,
   Icon,
-  Radio,
+  NativeSelect,
   RadioGroup,
-  Select,
   Text,
   VStack,
   Wrap,
@@ -26,7 +23,7 @@ import {
 import { TbChartDonut } from "react-icons/tb";
 
 interface ChartBuilderProps {
-  fields: Field[];
+  fields: FieldModel[];
   config?: ChartDataRequest;
   onConfigChange: (config: ChartDataRequest) => void;
   onSave?: () => void;
@@ -127,26 +124,28 @@ export function ChartBuilder({
   };
 
   return (
-    <VStack align="stretch" spacing={4}>
+    <VStack align="stretch" gap={4}>
       {/* Settings Row - Aligned at top */}
-      <HStack spacing={6} align="flex-start" wrap="wrap">
+      <HStack gap={6} align="flex-start" wrap="wrap">
         {/* Chart Type */}
-        <FormControl w="auto" flexShrink={0}>
-          <FormLabel fontSize="sm" fontWeight="bold" mb={2}>
+        <Field.Root w="auto" flexShrink={0}>
+          <Field.Label fontSize="sm" fontWeight="bold" mb={2}>
             グラフ種類
-          </FormLabel>
-          <RadioGroup
+          </Field.Label>
+          <RadioGroup.Root
             value={chartType}
-            onChange={(v) => handleChartTypeChange(v as ChartType)}
+            onValueChange={(e) =>
+              e.value && handleChartTypeChange(e.value as ChartType)
+            }
           >
-            <Wrap spacing={1}>
+            <Wrap gap={1}>
               {chartTypes.map((ct) => (
                 <WrapItem key={ct.type}>
-                  <Box
-                    as="label"
+                  <RadioGroup.Item
+                    value={ct.type}
                     px={2}
                     py={1.5}
-                    border="1px"
+                    borderWidth="1px"
                     borderColor={
                       chartType === ct.type ? "brand.500" : "gray.200"
                     }
@@ -159,7 +158,7 @@ export function ChartBuilder({
                     gap={1.5}
                     h="32px"
                   >
-                    <Radio value={ct.type} display="none" />
+                    <RadioGroup.ItemHiddenInput />
                     <Icon
                       as={ct.icon}
                       boxSize={4}
@@ -171,94 +170,100 @@ export function ChartBuilder({
                     >
                       {ct.label}
                     </Text>
-                  </Box>
+                  </RadioGroup.Item>
                 </WrapItem>
               ))}
             </Wrap>
-          </RadioGroup>
-        </FormControl>
+          </RadioGroup.Root>
+        </Field.Root>
 
         {/* X-Axis */}
-        <FormControl w="160px" flexShrink={0}>
-          <FormLabel fontSize="sm" fontWeight="bold" mb={2}>
+        <Field.Root w="160px" flexShrink={0}>
+          <Field.Label fontSize="sm" fontWeight="bold" mb={2}>
             X軸
-          </FormLabel>
-          <Select
-            size="sm"
-            placeholder="フィールドを選択"
-            value={xAxisField}
-            onChange={(e) => handleXAxisChange(e.target.value)}
-            h="32px"
-          >
-            {categoricalFields.map((field) => (
-              <option key={field.id} value={field.field_code}>
-                {field.field_name}
-              </option>
-            ))}
-          </Select>
-        </FormControl>
-
-        {/* Y-Axis Aggregation */}
-        <FormControl w="120px" flexShrink={0}>
-          <FormLabel fontSize="sm" fontWeight="bold" mb={2}>
-            Y軸（集計）
-          </FormLabel>
-          <Select
-            size="sm"
-            value={aggregation}
-            onChange={(e) => handleAggregationChange(e.target.value)}
-            h="32px"
-          >
-            {aggregationTypes.map((agg) => (
-              <option key={agg.value} value={agg.value}>
-                {agg.label}
-              </option>
-            ))}
-          </Select>
-        </FormControl>
-
-        {/* Y-Axis Field (only for non-count aggregations) */}
-        {aggregation !== "count" && (
-          <FormControl w="160px" flexShrink={0}>
-            <FormLabel fontSize="sm" fontWeight="bold" mb={2}>
-              集計フィールド
-            </FormLabel>
-            <Select
-              size="sm"
-              placeholder="数値フィールド"
-              value={yAxisField}
-              onChange={(e) => handleYAxisFieldChange(e.target.value)}
+          </Field.Label>
+          <NativeSelect.Root size="sm">
+            <NativeSelect.Field
+              value={xAxisField}
+              onChange={(e) => handleXAxisChange(e.target.value)}
+              placeholder="フィールドを選択"
               h="32px"
             >
-              {numericFields.map((field) => (
+              {categoricalFields.map((field) => (
                 <option key={field.id} value={field.field_code}>
                   {field.field_name}
                 </option>
               ))}
-            </Select>
-          </FormControl>
+            </NativeSelect.Field>
+            <NativeSelect.Indicator />
+          </NativeSelect.Root>
+        </Field.Root>
+
+        {/* Y-Axis Aggregation */}
+        <Field.Root w="120px" flexShrink={0}>
+          <Field.Label fontSize="sm" fontWeight="bold" mb={2}>
+            Y軸（集計）
+          </Field.Label>
+          <NativeSelect.Root size="sm">
+            <NativeSelect.Field
+              value={aggregation}
+              onChange={(e) => handleAggregationChange(e.target.value)}
+              h="32px"
+            >
+              {aggregationTypes.map((agg) => (
+                <option key={agg.value} value={agg.value}>
+                  {agg.label}
+                </option>
+              ))}
+            </NativeSelect.Field>
+            <NativeSelect.Indicator />
+          </NativeSelect.Root>
+        </Field.Root>
+
+        {/* Y-Axis Field (only for non-count aggregations) */}
+        {aggregation !== "count" && (
+          <Field.Root w="160px" flexShrink={0}>
+            <Field.Label fontSize="sm" fontWeight="bold" mb={2}>
+              集計フィールド
+            </Field.Label>
+            <NativeSelect.Root size="sm">
+              <NativeSelect.Field
+                value={yAxisField}
+                onChange={(e) => handleYAxisFieldChange(e.target.value)}
+                placeholder="数値フィールド"
+                h="32px"
+              >
+                {numericFields.map((field) => (
+                  <option key={field.id} value={field.field_code}>
+                    {field.field_name}
+                  </option>
+                ))}
+              </NativeSelect.Field>
+              <NativeSelect.Indicator />
+            </NativeSelect.Root>
+          </Field.Root>
         )}
 
         {onSave && (
-          <FormControl w="auto" flexShrink={0}>
-            <FormLabel
+          <Field.Root w="auto" flexShrink={0}>
+            <Field.Label
               fontSize="sm"
               fontWeight="bold"
               mb={2}
               visibility="hidden"
             >
               &nbsp;
-            </FormLabel>
+            </Field.Label>
             <Button
               size="sm"
-              colorScheme="brand"
+              colorPalette="brand"
               onClick={onSave}
-              isDisabled={!xAxisField}
+              disabled={!xAxisField}
               h="32px"
             >
               保存
             </Button>
-          </FormControl>
+          </Field.Root>
         )}
       </HStack>
     </VStack>

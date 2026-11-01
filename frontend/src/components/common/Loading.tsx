@@ -14,11 +14,11 @@ export function Loading({
   fullScreen = false,
 }: LoadingProps) {
   const content = (
-    <VStack spacing={4}>
+    <VStack gap={4}>
       <Spinner
-        thickness="4px"
-        speed="0.65s"
-        emptyColor="gray.200"
+        borderWidth="4px"
+        animationDuration="0.65s"
+        css={{ "--spinner-track-color": "colors.gray.200" }}
         color="brand.500"
         size="xl"
       />

@@ -1,6 +1,7 @@
 import { ViewType } from "@/types";
-import { CalendarIcon } from "@chakra-ui/icons";
-import { Button, ButtonGroup, Icon, Tooltip } from "@chakra-ui/react";
+import { CalendarIcon } from "@chakra-ui/icons/Calendar";
+import { Tooltip } from "@/components/ui/tooltip";
+import { Button, ButtonGroup, Icon } from "@chakra-ui/react";
 import { FiBarChart2, FiGrid, FiList } from "react-icons/fi";
 
 interface ViewSelectorProps {
@@ -47,7 +48,7 @@ export function ViewSelector({
   hasDateField = true,
 }: ViewSelectorProps) {
   return (
-    <ButtonGroup size="sm" isAttached variant="outline">
+    <ButtonGroup size="sm" attached variant="outline">
       {viewOptions.map((option) => {
         // Hide calendar view if no date field
         if (option.type === "calendar" && !hasDateField) {
@@ -55,14 +56,14 @@ export function ViewSelector({
         }
 
         return (
-          <Tooltip key={option.type} label={option.tooltip}>
+          <Tooltip key={option.type} content={option.tooltip}>
             <Button
-              leftIcon={option.icon as React.ReactElement}
-              isActive={currentView === option.type}
+              aria-pressed={currentView === option.type}
               onClick={() => onViewChange(option.type)}
-              colorScheme={currentView === option.type ? "brand" : "gray"}
+              colorPalette={currentView === option.type ? "brand" : "gray"}
               variant={currentView === option.type ? "solid" : "outline"}
             >
+              {option.icon}
               {option.label}
             </Button>
           </Tooltip>

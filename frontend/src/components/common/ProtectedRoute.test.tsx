@@ -3,7 +3,7 @@
  */
 
 import { useAuthStore } from "@/stores";
-import { theme } from "@/theme";
+import { system } from "@/theme";
 import { ChakraProvider } from "@chakra-ui/react";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
@@ -18,7 +18,7 @@ vi.mock("@/stores", () => ({
 /** テスト用ラッパーでルーターを初期化 */
 const renderWithRouter = (initialRoute = "/protected") => {
   return render(
-    <ChakraProvider theme={theme}>
+    <ChakraProvider value={system}>
       <MemoryRouter initialEntries={[initialRoute]}>
         <Routes>
           <Route path="/login" element={<div>Login Page</div>} />

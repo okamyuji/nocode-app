@@ -3,22 +3,15 @@ import { ExternalAppFormBuilder } from "@/components/apps/ExternalAppFormBuilder
 import { DataSourceSelector } from "@/components/datasources";
 import { useAuth } from "@/hooks";
 import type { ColumnInfo, DataSource, TableInfo } from "@/types/datasource";
-import { ChevronRightIcon } from "@chakra-ui/icons";
+import { ChevronRightIcon } from "@chakra-ui/icons/ChevronRight";
 import {
   Alert,
-  AlertDescription,
-  AlertIcon,
-  AlertTitle,
   Box,
   Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
   Button,
   Card,
-  CardBody,
   Heading,
   HStack,
-  Radio,
   RadioGroup,
   Stack,
   Text,
@@ -43,15 +36,15 @@ export function AppCreatePage() {
   if (isAuthenticated && !isAdmin) {
     return (
       <Box p={6}>
-        <Alert status="warning" borderRadius="md">
-          <AlertIcon />
-          <Box>
-            <AlertTitle>アクセス権限がありません</AlertTitle>
-            <AlertDescription>
+        <Alert.Root status="warning" borderRadius="md">
+          <Alert.Indicator />
+          <Alert.Content>
+            <Alert.Title>アクセス権限がありません</Alert.Title>
+            <Alert.Description>
               アプリの作成は管理者のみ可能です。
-            </AlertDescription>
-          </Box>
-        </Alert>
+            </Alert.Description>
+          </Alert.Content>
+        </Alert.Root>
         <Box mt={4}>
           <Navigate to="/apps" replace />
         </Box>
@@ -77,20 +70,21 @@ export function AppCreatePage() {
 
   return (
     <Box>
-      <Breadcrumb
-        spacing="8px"
-        separator={<ChevronRightIcon color="gray.500" />}
-        mb={4}
-      >
-        <BreadcrumbItem>
-          <BreadcrumbLink as={RouterLink} to="/apps">
-            アプリ一覧
-          </BreadcrumbLink>
-        </BreadcrumbItem>
-        <BreadcrumbItem isCurrentPage>
-          <BreadcrumbLink>新規作成</BreadcrumbLink>
-        </BreadcrumbItem>
-      </Breadcrumb>
+      <Breadcrumb.Root mb={4}>
+        <Breadcrumb.List gap="8px">
+          <Breadcrumb.Item>
+            <Breadcrumb.Link asChild>
+              <RouterLink to="/apps">アプリ一覧</RouterLink>
+            </Breadcrumb.Link>
+          </Breadcrumb.Item>
+          <Breadcrumb.Separator>
+            <ChevronRightIcon color="gray.500" />
+          </Breadcrumb.Separator>
+          <Breadcrumb.Item>
+            <Breadcrumb.CurrentLink>新規作成</Breadcrumb.CurrentLink>
+          </Breadcrumb.Item>
+        </Breadcrumb.List>
+      </Breadcrumb.Root>
 
       <Heading size="lg" mb={6}>
         アプリを作成
@@ -98,22 +92,28 @@ export function AppCreatePage() {
 
       {/* モード選択 */}
       {!mode && (
-        <VStack spacing={4} align="stretch" maxW="600px">
+        <VStack gap={4} align="stretch" maxW="600px">
           <Text color="gray.600" mb={2}>
             アプリの作成方法を選択してください
           </Text>
-          <RadioGroup onChange={(value) => setMode(value as CreateMode)}>
-            <Stack spacing={4}>
-              <Card
+          <RadioGroup.Root
+            size="lg"
+            onValueChange={(e) => e.value && setMode(e.value as CreateMode)}
+          >
+            <Stack gap={4}>
+              <Card.Root
                 cursor="pointer"
                 onClick={() => setMode("new")}
                 _hover={{ borderColor: "blue.300" }}
                 borderWidth="2px"
                 borderColor={mode === "new" ? "blue.500" : "gray.200"}
               >
-                <CardBody>
-                  <HStack spacing={4}>
-                    <Radio value="new" size="lg" />
+                <Card.Body>
+                  <HStack gap={4}>
+                    <RadioGroup.Item value="new">
+                      <RadioGroup.ItemHiddenInput />
+                      <RadioGroup.ItemIndicator />
+                    </RadioGroup.Item>
                     <Box flex={1}>
                       <HStack>
                         <FiPlusCircle size={20} />
@@ -124,19 +124,22 @@ export function AppCreatePage() {
                       </Text>
                     </Box>
                   </HStack>
-                </CardBody>
-              </Card>
+                </Card.Body>
+              </Card.Root>
 
-              <Card
+              <Card.Root
                 cursor="pointer"
                 onClick={() => setMode("external")}
                 _hover={{ borderColor: "blue.300" }}
                 borderWidth="2px"
                 borderColor={mode === "external" ? "blue.500" : "gray.200"}
               >
-                <CardBody>
-                  <HStack spacing={4}>
-                    <Radio value="external" size="lg" />
+                <Card.Body>
+                  <HStack gap={4}>
+                    <RadioGroup.Item value="external">
+                      <RadioGroup.ItemHiddenInput />
+                      <RadioGroup.ItemIndicator />
+                    </RadioGroup.Item>
                     <Box flex={1}>
                       <HStack>
                         <FiDatabase size={20} />
@@ -147,10 +150,10 @@ export function AppCreatePage() {
                       </Text>
                     </Box>
                   </HStack>
-                </CardBody>
-              </Card>
+                </Card.Body>
+              </Card.Root>
             </Stack>
-          </RadioGroup>
+          </RadioGroup.Root>
         </VStack>
       )}
 
@@ -170,14 +173,14 @@ export function AppCreatePage() {
           <Button variant="ghost" mb={4} onClick={handleBack}>
             ← 戻る
           </Button>
-          <Card>
-            <CardBody>
+          <Card.Root>
+            <Card.Body>
               <Heading size="md" mb={4}>
                 データソースとテーブルを選択
               </Heading>
               <DataSourceSelector onSelect={handleExternalSelect} />
-            </CardBody>
-          </Card>
+            </Card.Body>
+          </Card.Root>
         </Box>
       )}
 

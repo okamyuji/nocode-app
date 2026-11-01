@@ -3,15 +3,7 @@
  * 子コンポーネントで発生したエラーをキャッチしてフォールバックUIを表示する
  */
 
-import {
-  Alert,
-  AlertDescription,
-  AlertIcon,
-  AlertTitle,
-  Box,
-  Button,
-  VStack,
-} from "@chakra-ui/react";
+import { Alert, Box, Button, VStack } from "@chakra-ui/react";
 import { Component, ErrorInfo, ReactNode } from "react";
 
 interface Props {
@@ -59,7 +51,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
       return (
         <Box p={8}>
-          <Alert
+          <Alert.Root
             status="error"
             variant="subtle"
             flexDirection="column"
@@ -69,12 +61,12 @@ export class ErrorBoundary extends Component<Props, State> {
             borderRadius="lg"
             py={8}
           >
-            <AlertIcon boxSize="40px" mr={0} />
-            <AlertTitle mt={4} mb={1} fontSize="lg">
+            <Alert.Indicator boxSize="40px" mr={0} />
+            <Alert.Title mt={4} mb={1} fontSize="lg">
               エラーが発生しました
-            </AlertTitle>
-            <AlertDescription maxWidth="sm">
-              <VStack spacing={4}>
+            </Alert.Title>
+            <Alert.Description maxWidth="sm">
+              <VStack gap={4}>
                 <Box>
                   予期せぬエラーが発生しました。
                   {this.state.error?.message && (
@@ -83,12 +75,12 @@ export class ErrorBoundary extends Component<Props, State> {
                     </Box>
                   )}
                 </Box>
-                <Button onClick={this.handleReset} colorScheme="red" size="sm">
+                <Button onClick={this.handleReset} colorPalette="red" size="sm">
                   再試行
                 </Button>
               </VStack>
-            </AlertDescription>
-          </Alert>
+            </Alert.Description>
+          </Alert.Root>
         </Box>
       );
     }
