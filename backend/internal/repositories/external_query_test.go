@@ -8,6 +8,7 @@ import (
 	"nocode-app/backend/internal/models"
 
 	"github.com/go-sql-driver/mysql"
+	"github.com/sijms/go-ora/v3/configurations"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -530,7 +531,7 @@ func TestBuildDSN(t *testing.T) {
 			},
 			password:       "testpass",
 			expectedDriver: "oracle",
-			expectedDSN:    "oracle://testuser:testpass@localhost:1521/ORCL",
+			expectedDSN:    "oracle://testuser:testpass@localhost:1521/ORCL?FAST+LOGIN=false",
 			expectedError:  false,
 		},
 		{
@@ -544,7 +545,7 @@ func TestBuildDSN(t *testing.T) {
 			},
 			password:       "test@pass/word",
 			expectedDriver: "oracle",
-			expectedDSN:    "oracle://testuser:test%40pass%2Fword@localhost:1521/ORCL",
+			expectedDSN:    "oracle://testuser:test%40pass%2Fword@localhost:1521/ORCL?FAST+LOGIN=false",
 			expectedError:  false,
 		},
 
@@ -617,7 +618,7 @@ func TestBuildDSN(t *testing.T) {
 			},
 			password:       "testpass",
 			expectedDriver: "oracle",
-			expectedDSN:    "oracle://testuser:testpass@localhost:1521/FREEPDB1%3FTRACE%20FILE=%2Ftmp%2Fx",
+			expectedDSN:    "oracle://testuser:testpass@localhost:1521/FREEPDB1%3FTRACE%20FILE=%2Ftmp%2Fx?FAST+LOGIN=false",
 			expectedError:  false,
 		},
 		{
@@ -871,7 +872,7 @@ func TestBuildDSN_HardeningRoundTrip(t *testing.T) {
 		require.NoError(t, parseErr)
 		assert.Equal(t, "/FREEPDB1%3FTRACE%20FILE=%2Ftmp%2Fx", u.EscapedPath())
 		assert.Equal(t, "/FREEPDB1?TRACE FILE=/tmp/x", u.Path)
-		assert.Empty(t, u.RawQuery)
+		assert.Equal(t, "FAST+LOGIN=false", u.RawQuery)
 		assert.Equal(t, "localhost:1521", u.Host)
 	})
 
@@ -959,4 +960,20 @@ func TestParseRecordID(t *testing.T) {
 			assert.Equal(t, tt.expected, parseRecordID(tt.input))
 		})
 	}
+}
+
+// go-ora v3.0.1 の FastLogin は、2 本目以降の接続で Oracle 23c に EOF で切られる（sijms/go-ora#732）
+func TestBuildDSN_OracleDisablesFastLogin(t *testing.T) {
+	_, dsn, err := buildDSN(&models.DataSource{
+		DBType:       models.DBTypeOracle,
+		Host:         "localhost",
+		Port:         1521,
+		Username:     "testuser",
+		DatabaseName: "FREEPDB1",
+	}, "testpass")
+	require.NoError(t, err)
+
+	cfg, err := configurations.ParseConfig(dsn)
+	require.NoError(t, err)
+	assert.False(t, cfg.FastLogin)
 }
