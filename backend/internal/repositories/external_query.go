@@ -285,13 +285,13 @@ func (e *ExternalQueryExecutor) GetColumns(ctx context.Context, ds *models.DataS
 
 	case models.DBTypeOracle:
 		// DATA_DEFAULTはLONG型のため、TO_CHARは使用できない
-		// 代わりに空文字を返す（デフォルト値は必須ではない）
+		// 代わりにNULLを返す（デフォルト値は必須ではない）。'' は長さ0の列になり、go-ora v3.0.1 が読めない
 		query = `SELECT
 			c.column_name,
 			c.data_type,
 			CASE WHEN c.nullable = 'Y' THEN 1 ELSE 0 END as is_nullable,
 			CASE WHEN cc.constraint_type = 'P' THEN 1 ELSE 0 END as is_primary_key,
-			'' as default_value
+			CAST(NULL AS VARCHAR2(4000)) as default_value
 		FROM all_tab_columns c
 		LEFT JOIN (
 			SELECT acc.column_name, ac.constraint_type
