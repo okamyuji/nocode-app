@@ -82,13 +82,15 @@ func GetQueryParam(r *http.Request, key, defaultValue string) string {
 	return value
 }
 
+// maxPage は、(page-1)*limit の offset が int32 に収まる page の上限。
+// bun は OFFSET を int32 に切り詰め、外部 DB の SQL は offset をそのまま埋め込む。
+const maxPage = 1_000_000
+
 // GetPagination page と limit のクエリパラメータを取得する。
-// page が 1 未満なら 1、limit が 1 未満か 100 を超えるなら 20 にする。
+// page は 1 から maxPage の範囲に収める。limit が 1 未満か 100 を超えるなら 20 にする。
 func GetPagination(r *http.Request) (page, limit int) {
 	page, _ = strconv.Atoi(r.URL.Query().Get("page"))
-	if page < 1 {
-		page = 1
-	}
+	page = min(max(page, 1), maxPage)
 	limit, _ = strconv.Atoi(r.URL.Query().Get("limit"))
 	if limit < 1 || limit > 100 {
 		limit = 20

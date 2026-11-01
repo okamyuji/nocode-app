@@ -30,6 +30,9 @@ var paginationBoundsCases = []struct {
 	{"page が 0", "?page=0&limit=20", 1, 20},
 	{"page が数字でない", "?page=-3&limit=5", 1, 5},
 	{"page が正しい", "?page=3&limit=5", 3, 5},
+	{"page が上限ちょうど", "?page=1000000&limit=100", 1000000, 100},
+	{"page が上限を超える", "?page=1000001&limit=100", 1000000, 100},
+	{"page が int の最大値", "?page=9223372036854775807&limit=100", 1000000, 100},
 }
 
 func TestAppHandler_List_PaginationBounds(t *testing.T) {
