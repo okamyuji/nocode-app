@@ -4,6 +4,7 @@ package utils
 import (
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/go-playground/validator/v10"
@@ -81,21 +82,20 @@ func GetQueryParam(r *http.Request, key, defaultValue string) string {
 	return value
 }
 
-// GetQueryParamInt デフォルト値付きでクエリパラメータをintとして取得する
-func GetQueryParamInt(r *http.Request, key string, defaultValue int) int {
-	value := r.URL.Query().Get(key)
-	if value == "" {
-		return defaultValue
+// maxPage は page の上限。巨大な page では (page-1)*limit が int を溢れて負の offset になり、
+// 外部 DB の record 一覧はその offset を SQL にそのまま埋め込む。limit の上限 100 との積は int32 にも収まる。
+const maxPage = 1_000_000
+
+// GetPagination page と limit のクエリパラメータを取得する。
+// page は 1 から maxPage の範囲に収める。limit が 1 未満か 100 を超えるなら 20 にする。
+func GetPagination(r *http.Request) (page, limit int) {
+	page, _ = strconv.Atoi(r.URL.Query().Get("page"))
+	page = min(max(page, 1), maxPage)
+	limit, _ = strconv.Atoi(r.URL.Query().Get("limit"))
+	if limit < 1 || limit > 100 {
+		limit = 20
 	}
-	var result int
-	for _, c := range value {
-		if c >= '0' && c <= '9' {
-			result = result*10 + int(c-'0')
-		} else {
-			return defaultValue
-		}
-	}
-	return result
+	return page, limit
 }
 
 // ExtractPathParam URLからパスパラメータを抽出する

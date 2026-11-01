@@ -41,9 +41,10 @@ func (h *RecordHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// クエリオプションをパース
+	page, limit := utils.GetPagination(r)
 	opts := repositories.RecordQueryOptions{
-		Page:    utils.GetQueryParamInt(r, "page", 1),
-		Limit:   utils.GetQueryParamInt(r, "limit", 20),
+		Page:    page,
+		Limit:   limit,
 		Sort:    utils.GetQueryParam(r, "sort", ""),
 		Order:   utils.GetQueryParam(r, "order", "desc"),
 		Filters: parseFilters(r),

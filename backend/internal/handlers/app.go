@@ -34,8 +34,7 @@ func (h *AppHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	page := utils.GetQueryParamInt(r, "page", 1)
-	limit := utils.GetQueryParamInt(r, "limit", 20)
+	page, limit := utils.GetPagination(r)
 
 	resp, err := h.appService.GetApps(r.Context(), page, limit)
 	if err != nil {
