@@ -14,7 +14,7 @@ import (
 	"github.com/go-sql-driver/mysql"    // MySQL driver（DSN組み立てにmysql.Configを使うため非ブランクimport）
 	_ "github.com/lib/pq"               // PostgreSQL driver
 	_ "github.com/microsoft/go-mssqldb" // SQL Server driver
-	_ "github.com/sijms/go-ora/v2"      // Oracle driver (Pure Go)
+	_ "github.com/sijms/go-ora/v3"      // Oracle driver (Pure Go)
 
 	"nocode-app/backend/internal/models"
 )
@@ -86,7 +86,7 @@ func buildDSN(ds *models.DataSource, password string) (string, string, error) {
 		return "mysql", cfg.FormatDSN(), nil
 
 	case models.DBTypeOracle:
-		// go-ora v2 format: oracle://user:pass@host:port/service_name
+		// go-ora format: oracle://user:pass@host:port/service_name
 		u := url.URL{
 			Scheme: "oracle",
 			User:   url.UserPassword(ds.Username, password),

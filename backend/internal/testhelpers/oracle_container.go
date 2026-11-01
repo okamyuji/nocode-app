@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	_ "github.com/sijms/go-ora/v2" // Oracleドライバ
+	_ "github.com/sijms/go-ora/v3" // Oracleドライバ
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 )
