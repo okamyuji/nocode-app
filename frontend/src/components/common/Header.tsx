@@ -4,7 +4,9 @@
  */
 
 import { useAuth } from "@/hooks";
-import { AddIcon, CloseIcon, HamburgerIcon } from "@chakra-ui/icons";
+import { AddIcon } from "@chakra-ui/icons/Add";
+import { CloseIcon } from "@chakra-ui/icons/Close";
+import { HamburgerIcon } from "@chakra-ui/icons/Hamburger";
 import {
   Avatar,
   Box,
@@ -13,10 +15,7 @@ import {
   HStack,
   IconButton,
   Menu,
-  MenuButton,
-  MenuDivider,
-  MenuItem,
-  MenuList,
+  Portal,
   Stack,
   Text,
   useDisclosure,
@@ -24,7 +23,7 @@ import {
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 
 export function Header() {
-  const { isOpen, onOpen, onClose } = useDisclosure();
+  const { open: isOpen, onOpen, onClose } = useDisclosure();
   const { user, logout, isAuthenticated, isAdmin } = useAuth();
   const navigate = useNavigate();
 
@@ -34,47 +33,45 @@ export function Header() {
         {/* モバイルメニューボタン */}
         <IconButton
           size="md"
-          icon={isOpen ? <CloseIcon /> : <HamburgerIcon />}
           aria-label="メニュー"
           display={{ md: "none" }}
           onClick={isOpen ? onClose : onOpen}
           variant="ghost"
           color="white"
           _hover={{ bg: "brand.600" }}
-        />
+        >
+          {isOpen ? <CloseIcon /> : <HamburgerIcon />}
+        </IconButton>
 
         {/* ロゴとナビゲーション */}
-        <HStack spacing={8} alignItems="center">
+        <HStack gap={8} alignItems="center">
           <Box
-            as={RouterLink}
-            to="/"
+            asChild
             fontWeight="bold"
             fontSize="xl"
             color="white"
             _hover={{ textDecoration: "none" }}
           >
-            Nocode App
+            <RouterLink to="/">Nocode App</RouterLink>
           </Box>
 
           {isAuthenticated && (
-            <HStack as="nav" spacing={4} display={{ base: "none", md: "flex" }}>
+            <HStack as="nav" gap={4} display={{ base: "none", md: "flex" }}>
               <Button
-                as={RouterLink}
-                to="/"
+                asChild
                 variant="ghost"
                 color="white"
                 _hover={{ bg: "brand.600" }}
               >
-                ダッシュボード
+                <RouterLink to="/">ダッシュボード</RouterLink>
               </Button>
               <Button
-                as={RouterLink}
-                to="/apps"
+                asChild
                 variant="ghost"
                 color="white"
                 _hover={{ bg: "brand.600" }}
               >
-                アプリ一覧
+                <RouterLink to="/apps">アプリ一覧</RouterLink>
               </Button>
             </HStack>
           )}
@@ -85,63 +82,69 @@ export function Header() {
           <Flex alignItems="center">
             {isAdmin && (
               <Button
-                leftIcon={<AddIcon />}
-                colorScheme="whiteAlpha"
                 variant="outline"
+                color="white"
+                borderColor="whiteAlpha.500"
+                _hover={{ bg: "whiteAlpha.200" }}
                 size="sm"
                 mr={4}
                 display={{ base: "none", md: "flex" }}
                 onClick={() => navigate("/apps/new")}
               >
+                <AddIcon />
                 新規アプリ
               </Button>
             )}
 
-            <Menu>
-              <MenuButton
-                as={Button}
-                rounded="full"
-                variant="link"
-                cursor="pointer"
-                minW={0}
-              >
-                <Avatar
-                  size="sm"
-                  name={user?.name}
-                  bg="white"
-                  color="brand.500"
-                />
-              </MenuButton>
-              <MenuList>
-                <Box px={3} py={2}>
-                  <Text fontWeight="bold">{user?.name}</Text>
-                  <Text fontSize="sm" color="gray.500">
-                    {user?.email}
-                  </Text>
-                </Box>
-                <MenuDivider />
-                <MenuItem onClick={logout}>ログアウト</MenuItem>
-              </MenuList>
-            </Menu>
+            <Menu.Root>
+              <Menu.Trigger asChild>
+                <Button
+                  rounded="full"
+                  variant="plain"
+                  cursor="pointer"
+                  minW={0}
+                >
+                  <Avatar.Root size="sm" bg="white" color="brand.500">
+                    <Avatar.Fallback name={user?.name} />
+                  </Avatar.Root>
+                </Button>
+              </Menu.Trigger>
+              <Portal>
+                <Menu.Positioner>
+                  <Menu.Content>
+                    <Box px={3} py={2}>
+                      <Text fontWeight="bold">{user?.name}</Text>
+                      <Text fontSize="sm" color="gray.500">
+                        {user?.email}
+                      </Text>
+                    </Box>
+                    <Menu.Separator />
+                    <Menu.Item value="logout" onClick={logout}>
+                      ログアウト
+                    </Menu.Item>
+                  </Menu.Content>
+                </Menu.Positioner>
+              </Portal>
+            </Menu.Root>
           </Flex>
         ) : (
-          <HStack spacing={2}>
+          <HStack gap={2}>
             <Button
-              as={RouterLink}
-              to="/login"
+              asChild
               variant="ghost"
               color="white"
               _hover={{ bg: "brand.600" }}
             >
-              ログイン
+              <RouterLink to="/login">ログイン</RouterLink>
             </Button>
             <Button
-              as={RouterLink}
-              to="/register"
-              colorScheme="whiteAlpha"
+              asChild
               variant="outline"
+              color="white"
+              borderColor="whiteAlpha.500"
+              _hover={{ bg: "whiteAlpha.200" }}
             >
-              登録
+              <RouterLink to="/register">登録</RouterLink>
             </Button>
           </HStack>
         )}
@@ -150,36 +153,33 @@ export function Header() {
       {/* モバイルナビゲーション */}
       {isOpen && (
         <Box pb={4} display={{ md: "none" }}>
-          <Stack as="nav" spacing={4}>
+          <Stack as="nav" gap={4}>
             {isAuthenticated && (
               <>
                 <Button
-                  as={RouterLink}
-                  to="/"
+                  asChild
                   variant="ghost"
                   color="white"
                   justifyContent="flex-start"
                 >
-                  ダッシュボード
+                  <RouterLink to="/">ダッシュボード</RouterLink>
                 </Button>
                 <Button
-                  as={RouterLink}
-                  to="/apps"
+                  asChild
                   variant="ghost"
                   color="white"
                   justifyContent="flex-start"
                 >
-                  アプリ一覧
+                  <RouterLink to="/apps">アプリ一覧</RouterLink>
                 </Button>
                 {isAdmin && (
                   <Button
-                    as={RouterLink}
-                    to="/apps/new"
+                    asChild
                     variant="ghost"
                     color="white"
                     justifyContent="flex-start"
                   >
-                    新規アプリ作成
+                    <RouterLink to="/apps/new">新規アプリ作成</RouterLink>
                   </Button>
                 )}
               </>

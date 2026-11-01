@@ -10,7 +10,7 @@ import type {
   CreateDashboardWidgetRequest,
   CreateFieldRequest,
   CreateUserRequest,
-  Field,
+  Field as AppField,
   FieldOptions,
   FieldType,
   UpdateAppRequest,
@@ -25,56 +25,33 @@ import type {
 import { FIELD_TYPE_LABELS, mapDataTypeToFieldType } from "@/types";
 import { getAppIcon } from "@/utils";
 import { generateFieldCode } from "@/utils/fieldCodeGenerator";
+import { toaster } from "@/components/ui/toaster";
 import {
-  AlertDialog,
-  AlertDialogBody,
-  AlertDialogContent,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogOverlay,
   Badge,
   Box,
   Button,
   Card,
-  CardBody,
-  CardHeader,
+  CloseButton,
+  Dialog,
+  Field,
   Flex,
-  FormControl,
-  FormErrorMessage,
-  FormLabel,
   Grid,
   Heading,
   Icon,
   IconButton,
   Input,
   InputGroup,
-  InputLeftElement,
-  Modal,
-  ModalBody,
-  ModalCloseButton,
-  ModalContent,
-  ModalFooter,
-  ModalHeader,
-  ModalOverlay,
-  Select,
+  NativeSelect,
+  Portal,
   Skeleton,
   SkeletonText,
   Switch,
-  Tab,
   Table,
-  TabList,
-  TabPanel,
-  TabPanels,
   Tabs,
   Tag,
-  Tbody,
-  Td,
   Text,
-  Th,
-  Thead,
-  Tr,
+  Textarea,
   useDisclosure,
-  useToast,
   VStack,
 } from "@chakra-ui/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -97,30 +74,13 @@ export function SettingsPage() {
   const isAdmin = user?.role === "admin";
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Get initial tab from URL query param
+  // URL の tab パラメータから初期タブを決める。管理者専用タブは一般ユーザーでは無効にする
   const tabParam = searchParams.get("tab");
-  const getInitialTabIndex = () => {
-    if (isAdmin) {
-      // admin: profile(0), password(1), users(2), apps(3), datasources(4)
-      if (tabParam === "datasources") return 4;
-      if (tabParam === "apps") return 3;
-      if (tabParam === "users") return 2;
-      if (tabParam === "password") return 1;
-      return 0; // profile
-    } else {
-      // user: profile(0), password(1)
-      if (tabParam === "password") return 1;
-      return 0; // profile
-    }
-  };
-  const initialTabIndex = getInitialTabIndex();
-
-  const handleTabChange = (index: number) => {
-    const tabNames = isAdmin
-      ? ["profile", "password", "users", "apps", "datasources"]
-      : ["profile", "password"];
-    setSearchParams({ tab: tabNames[index] });
-  };
+  const allowedTabs = isAdmin
+    ? ["profile", "password", "users", "apps", "datasources"]
+    : ["profile", "password"];
+  const initialTab =
+    tabParam && allowedTabs.includes(tabParam) ? tabParam : "profile";
 
   return (
     <Box p={6}>
@@ -128,43 +88,43 @@ export function SettingsPage() {
         設定
       </Heading>
 
-      <Tabs
-        colorScheme="brand"
-        defaultIndex={initialTabIndex}
-        onChange={handleTabChange}
+      <Tabs.Root
+        colorPalette="brand"
+        defaultValue={initialTab}
+        onValueChange={(e) => setSearchParams({ tab: e.value })}
       >
-        <TabList>
-          <Tab>プロフィール</Tab>
-          <Tab>パスワード変更</Tab>
-          {isAdmin && <Tab>ユーザー管理</Tab>}
-          {isAdmin && <Tab>アプリ設定</Tab>}
-          {isAdmin && <Tab>データソース</Tab>}
-        </TabList>
+        <Tabs.List>
+          <Tabs.Trigger value="profile">プロフィール</Tabs.Trigger>
+          <Tabs.Trigger value="password">パスワード変更</Tabs.Trigger>
+          {isAdmin && <Tabs.Trigger value="users">ユーザー管理</Tabs.Trigger>}
+          {isAdmin && <Tabs.Trigger value="apps">アプリ設定</Tabs.Trigger>}
+          {isAdmin && (
+            <Tabs.Trigger value="datasources">データソース</Tabs.Trigger>
+          )}
+        </Tabs.List>
 
-        <TabPanels>
-          <TabPanel>
-            <ProfileSettings />
-          </TabPanel>
-          <TabPanel>
-            <PasswordSettings />
-          </TabPanel>
-          {isAdmin && (
-            <TabPanel>
-              <UserManagement />
-            </TabPanel>
-          )}
-          {isAdmin && (
-            <TabPanel>
-              <AppSettings />
-            </TabPanel>
-          )}
-          {isAdmin && (
-            <TabPanel>
-              <DataSourceList />
-            </TabPanel>
-          )}
-        </TabPanels>
-      </Tabs>
+        <Tabs.Content value="profile">
+          <ProfileSettings />
+        </Tabs.Content>
+        <Tabs.Content value="password">
+          <PasswordSettings />
+        </Tabs.Content>
+        {isAdmin && (
+          <Tabs.Content value="users">
+            <UserManagement />
+          </Tabs.Content>
+        )}
+        {isAdmin && (
+          <Tabs.Content value="apps">
+            <AppSettings />
+          </Tabs.Content>
+        )}
+        {isAdmin && (
+          <Tabs.Content value="datasources">
+            <DataSourceList />
+          </Tabs.Content>
+        )}
+      </Tabs.Root>
     </Box>
   );
 }
@@ -173,7 +133,6 @@ export function SettingsPage() {
 function ProfileSettings() {
   const { user, setUser } = useAuthStore();
   const { profile } = useApiClient();
-  const toast = useToast();
   const [name, setName] = useState(user?.name || "");
   const [error, setError] = useState("");
 
@@ -181,16 +140,16 @@ function ProfileSettings() {
     mutationFn: (data: UpdateProfileRequest) => profile.updateProfile(data),
     onSuccess: (updatedUser) => {
       setUser(updatedUser);
-      toast({
+      toaster.create({
         title: "プロフィールを更新しました",
-        status: "success",
+        type: "success",
         duration: 3000,
       });
     },
     onError: () => {
-      toast({
+      toaster.create({
         title: "プロフィールの更新に失敗しました",
-        status: "error",
+        type: "error",
         duration: 3000,
       });
     },
@@ -209,56 +168,55 @@ function ProfileSettings() {
   };
 
   return (
-    <Card maxW="md">
-      <CardHeader>
+    <Card.Root maxW="md">
+      <Card.Header>
         <Heading size="md">プロフィール設定</Heading>
-      </CardHeader>
-      <CardBody>
+      </Card.Header>
+      <Card.Body>
         <form onSubmit={handleSubmit}>
-          <VStack spacing={4}>
-            <FormControl>
-              <FormLabel>メールアドレス</FormLabel>
-              <Input value={user?.email || ""} isReadOnly bg="gray.50" />
-            </FormControl>
+          <VStack gap={4}>
+            <Field.Root>
+              <Field.Label>メールアドレス</Field.Label>
+              <Input value={user?.email || ""} readOnly bg="gray.50" />
+            </Field.Root>
 
-            <FormControl>
-              <FormLabel>ロール</FormLabel>
+            <Field.Root>
+              <Field.Label>ロール</Field.Label>
               <Input
                 value={user?.role === "admin" ? "管理者" : "一般ユーザー"}
-                isReadOnly
+                readOnly
                 bg="gray.50"
               />
-            </FormControl>
+            </Field.Root>
 
-            <FormControl isInvalid={!!error}>
-              <FormLabel>名前</FormLabel>
+            <Field.Root invalid={!!error}>
+              <Field.Label>名前</Field.Label>
               <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="名前を入力"
               />
-              <FormErrorMessage>{error}</FormErrorMessage>
-            </FormControl>
+              <Field.ErrorText>{error}</Field.ErrorText>
+            </Field.Root>
 
             <Button
               type="submit"
-              colorScheme="brand"
+              colorPalette="brand"
               w="full"
-              isLoading={updateProfileMutation.isPending}
+              loading={updateProfileMutation.isPending}
             >
               保存
             </Button>
           </VStack>
         </form>
-      </CardBody>
-    </Card>
+      </Card.Body>
+    </Card.Root>
   );
 }
 
 // Password Settings Component
 function PasswordSettings() {
   const { profile } = useApiClient();
-  const toast = useToast();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -267,9 +225,9 @@ function PasswordSettings() {
   const changePasswordMutation = useMutation({
     mutationFn: (data: ChangePasswordRequest) => profile.changePassword(data),
     onSuccess: () => {
-      toast({
+      toaster.create({
         title: "パスワードを変更しました",
-        status: "success",
+        type: "success",
         duration: 3000,
       });
       setCurrentPassword("");
@@ -277,10 +235,10 @@ function PasswordSettings() {
       setConfirmPassword("");
     },
     onError: () => {
-      toast({
+      toaster.create({
         title: "パスワードの変更に失敗しました",
         description: "現在のパスワードが正しくない可能性があります",
-        status: "error",
+        type: "error",
         duration: 3000,
       });
     },
@@ -313,55 +271,55 @@ function PasswordSettings() {
   };
 
   return (
-    <Card maxW="md">
-      <CardHeader>
+    <Card.Root maxW="md">
+      <Card.Header>
         <Heading size="md">パスワード変更</Heading>
-      </CardHeader>
-      <CardBody>
+      </Card.Header>
+      <Card.Body>
         <form onSubmit={handleSubmit}>
-          <VStack spacing={4}>
-            <FormControl isInvalid={!!errors.currentPassword}>
-              <FormLabel>現在のパスワード</FormLabel>
+          <VStack gap={4}>
+            <Field.Root invalid={!!errors.currentPassword}>
+              <Field.Label>現在のパスワード</Field.Label>
               <Input
                 type="password"
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
               />
-              <FormErrorMessage>{errors.currentPassword}</FormErrorMessage>
-            </FormControl>
+              <Field.ErrorText>{errors.currentPassword}</Field.ErrorText>
+            </Field.Root>
 
-            <FormControl isInvalid={!!errors.newPassword}>
-              <FormLabel>新しいパスワード</FormLabel>
+            <Field.Root invalid={!!errors.newPassword}>
+              <Field.Label>新しいパスワード</Field.Label>
               <Input
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
               />
-              <FormErrorMessage>{errors.newPassword}</FormErrorMessage>
-            </FormControl>
+              <Field.ErrorText>{errors.newPassword}</Field.ErrorText>
+            </Field.Root>
 
-            <FormControl isInvalid={!!errors.confirmPassword}>
-              <FormLabel>新しいパスワード（確認）</FormLabel>
+            <Field.Root invalid={!!errors.confirmPassword}>
+              <Field.Label>新しいパスワード（確認）</Field.Label>
               <Input
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
               />
-              <FormErrorMessage>{errors.confirmPassword}</FormErrorMessage>
-            </FormControl>
+              <Field.ErrorText>{errors.confirmPassword}</Field.ErrorText>
+            </Field.Root>
 
             <Button
               type="submit"
-              colorScheme="brand"
+              colorPalette="brand"
               w="full"
-              isLoading={changePasswordMutation.isPending}
+              loading={changePasswordMutation.isPending}
             >
               パスワードを変更
             </Button>
           </VStack>
         </form>
-      </CardBody>
-    </Card>
+      </Card.Body>
+    </Card.Root>
   );
 }
 
@@ -370,22 +328,21 @@ function UserManagement() {
   const { users } = useApiClient();
   const { user: currentUser } = useAuthStore();
   const queryClient = useQueryClient();
-  const toast = useToast();
   const [page, setPage] = useState(1);
   const limit = 20;
 
   const {
-    isOpen: isCreateOpen,
+    open: isCreateOpen,
     onOpen: onCreateOpen,
     onClose: onCreateClose,
   } = useDisclosure();
   const {
-    isOpen: isEditOpen,
+    open: isEditOpen,
     onOpen: onEditOpen,
     onClose: onEditClose,
   } = useDisclosure();
   const {
-    isOpen: isDeleteOpen,
+    open: isDeleteOpen,
     onOpen: onDeleteOpen,
     onClose: onDeleteClose,
   } = useDisclosure();
@@ -402,17 +359,17 @@ function UserManagement() {
     mutationFn: (id: number) => users.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
-      toast({
+      toaster.create({
         title: "ユーザーを削除しました",
-        status: "success",
+        type: "success",
         duration: 3000,
       });
       onDeleteClose();
     },
     onError: () => {
-      toast({
+      toaster.create({
         title: "ユーザーの削除に失敗しました",
-        status: "error",
+        type: "error",
         duration: 3000,
       });
     },
@@ -438,88 +395,87 @@ function UserManagement() {
     <Box>
       <Flex justify="space-between" align="center" mb={4}>
         <Heading size="md">ユーザー管理</Heading>
-        <Button
-          leftIcon={<FiPlus />}
-          colorScheme="brand"
-          onClick={onCreateOpen}
-        >
+        <Button colorPalette="brand" onClick={onCreateOpen}>
+          <FiPlus />
           新規ユーザー
         </Button>
       </Flex>
 
-      <Card>
-        <CardBody p={0}>
-          <Table variant="simple">
-            <Thead>
-              <Tr>
-                <Th>名前</Th>
-                <Th>メールアドレス</Th>
-                <Th>ロール</Th>
-                <Th>作成日</Th>
-                <Th w="100px">操作</Th>
-              </Tr>
-            </Thead>
-            <Tbody>
+      <Card.Root>
+        <Card.Body p={0}>
+          <Table.Root variant="line">
+            <Table.Header>
+              <Table.Row>
+                <Table.ColumnHeader>名前</Table.ColumnHeader>
+                <Table.ColumnHeader>メールアドレス</Table.ColumnHeader>
+                <Table.ColumnHeader>ロール</Table.ColumnHeader>
+                <Table.ColumnHeader>作成日</Table.ColumnHeader>
+                <Table.ColumnHeader w="100px">操作</Table.ColumnHeader>
+              </Table.Row>
+            </Table.Header>
+            <Table.Body>
               {isLoading ? (
-                <Tr>
-                  <Td colSpan={5} textAlign="center">
+                <Table.Row>
+                  <Table.Cell colSpan={5} textAlign="center">
                     読み込み中...
-                  </Td>
-                </Tr>
+                  </Table.Cell>
+                </Table.Row>
               ) : data?.users?.length === 0 ? (
-                <Tr>
-                  <Td colSpan={5} textAlign="center">
+                <Table.Row>
+                  <Table.Cell colSpan={5} textAlign="center">
                     ユーザーがいません
-                  </Td>
-                </Tr>
+                  </Table.Cell>
+                </Table.Row>
               ) : (
                 data?.users?.map((user) => (
-                  <Tr key={user.id}>
-                    <Td>{user.name}</Td>
-                    <Td>{user.email}</Td>
-                    <Td>
+                  <Table.Row key={user.id}>
+                    <Table.Cell>{user.name}</Table.Cell>
+                    <Table.Cell>{user.email}</Table.Cell>
+                    <Table.Cell>
                       <Badge
-                        colorScheme={user.role === "admin" ? "purple" : "gray"}
+                        colorPalette={user.role === "admin" ? "purple" : "gray"}
                       >
                         {user.role === "admin" ? "管理者" : "一般"}
                       </Badge>
-                    </Td>
-                    <Td>
+                    </Table.Cell>
+                    <Table.Cell>
                       {new Date(user.created_at).toLocaleDateString("ja-JP")}
-                    </Td>
-                    <Td>
+                    </Table.Cell>
+                    <Table.Cell>
                       <Flex gap={2}>
                         <IconButton
                           aria-label="編集"
-                          icon={<FiEdit2 />}
                           size="sm"
                           variant="ghost"
                           onClick={() => handleEdit(user)}
-                        />
+                        >
+                          <FiEdit2 />
+                        </IconButton>
                         <IconButton
                           aria-label="削除"
-                          icon={<FiTrash2 />}
                           size="sm"
                           variant="ghost"
-                          colorScheme="red"
-                          isDisabled={user.id === currentUser?.id}
+                          colorPalette="red"
+                          disabled={user.id === currentUser?.id}
                           onClick={() => handleDelete(user)}
-                        />
+                        >
+                          <FiTrash2 />
+                        </IconButton>
                       </Flex>
-                    </Td>
-                  </Tr>
+                    </Table.Cell>
+                  </Table.Row>
                 ))
               )}
-            </Tbody>
-          </Table>
-        </CardBody>
-      </Card>
+            </Table.Body>
+          </Table.Root>
+        </Card.Body>
+      </Card.Root>
 
       {data?.pagination && data.pagination.total_pages > 1 && (
         <Flex justify="center" mt={4} gap={2}>
           <Button
             size="sm"
-            isDisabled={page === 1}
+            disabled={page === 1}
             onClick={() => setPage((p) => p - 1)}
           >
             前へ
@@ -529,7 +485,7 @@ function UserManagement() {
           </Text>
           <Button
             size="sm"
-            isDisabled={page === data.pagination.total_pages}
+            disabled={page === data.pagination.total_pages}
             onClick={() => setPage((p) => p + 1)}
           >
             次へ
@@ -550,34 +506,40 @@ function UserManagement() {
       )}
 
       {/* Delete Confirmation */}
-      <AlertDialog
-        isOpen={isDeleteOpen}
-        leastDestructiveRef={cancelRef}
-        onClose={onDeleteClose}
+      <Dialog.Root
+        role="alertdialog"
+        open={isDeleteOpen}
+        onOpenChange={(e) => !e.open && onDeleteClose()}
+        initialFocusEl={() => cancelRef.current}
       >
-        <AlertDialogOverlay>
-          <AlertDialogContent>
-            <AlertDialogHeader>ユーザーの削除</AlertDialogHeader>
-            <AlertDialogBody>
-              「{selectedUser?.name}」を削除してもよろしいですか？
-              この操作は取り消せません。
-            </AlertDialogBody>
-            <AlertDialogFooter>
-              <Button ref={cancelRef} onClick={onDeleteClose}>
-                キャンセル
-              </Button>
-              <Button
-                colorScheme="red"
-                onClick={confirmDelete}
-                ml={3}
-                isLoading={deleteMutation.isPending}
-              >
-                削除
-              </Button>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialogOverlay>
-      </AlertDialog>
+        <Portal>
+          <Dialog.Backdrop />
+          <Dialog.Positioner>
+            <Dialog.Content>
+              <Dialog.Header>
+                <Dialog.Title>ユーザーの削除</Dialog.Title>
+              </Dialog.Header>
+              <Dialog.Body>
+                「{selectedUser?.name}」を削除してもよろしいですか？
+                この操作は取り消せません。
+              </Dialog.Body>
+              <Dialog.Footer>
+                <Button ref={cancelRef} onClick={onDeleteClose}>
+                  キャンセル
+                </Button>
+                <Button
+                  colorPalette="red"
+                  onClick={confirmDelete}
+                  ml={3}
+                  loading={deleteMutation.isPending}
+                >
+                  削除
+                </Button>
+              </Dialog.Footer>
+            </Dialog.Content>
+          </Dialog.Positioner>
+        </Portal>
+      </Dialog.Root>
     </Box>
   );
 }
@@ -592,7 +554,6 @@ function CreateUserModal({
 }) {
   const { users } = useApiClient();
   const queryClient = useQueryClient();
-  const toast = useToast();
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -605,19 +566,19 @@ function CreateUserModal({
     mutationFn: (data: CreateUserRequest) => users.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
-      toast({
+      toaster.create({
         title: "ユーザーを作成しました",
-        status: "success",
+        type: "success",
         duration: 3000,
       });
       onClose();
       setFormData({ email: "", password: "", name: "", role: "user" });
     },
     onError: () => {
-      toast({
+      toaster.create({
         title: "ユーザーの作成に失敗しました",
         description: "メールアドレスが既に使用されている可能性があります",
-        status: "error",
+        type: "error",
         duration: 3000,
       });
     },
@@ -641,81 +602,92 @@ function CreateUserModal({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose}>
-      <ModalOverlay />
-      <ModalContent>
-        <form onSubmit={handleSubmit}>
-          <ModalHeader>新規ユーザー作成</ModalHeader>
-          <ModalCloseButton />
-          <ModalBody>
-            <VStack spacing={4}>
-              <FormControl isInvalid={!!errors.email}>
-                <FormLabel>メールアドレス</FormLabel>
-                <Input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) =>
-                    setFormData({ ...formData, email: e.target.value })
-                  }
-                />
-                <FormErrorMessage>{errors.email}</FormErrorMessage>
-              </FormControl>
+    <Dialog.Root open={isOpen} onOpenChange={(e) => !e.open && onClose()}>
+      <Portal>
+        <Dialog.Backdrop />
+        <Dialog.Positioner>
+          <Dialog.Content>
+            <form onSubmit={handleSubmit}>
+              <Dialog.Header>
+                <Dialog.Title>新規ユーザー作成</Dialog.Title>
+              </Dialog.Header>
+              <Dialog.CloseTrigger asChild>
+                <CloseButton size="sm" />
+              </Dialog.CloseTrigger>
+              <Dialog.Body>
+                <VStack gap={4}>
+                  <Field.Root invalid={!!errors.email}>
+                    <Field.Label>メールアドレス</Field.Label>
+                    <Input
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) =>
+                        setFormData({ ...formData, email: e.target.value })
+                      }
+                    />
+                    <Field.ErrorText>{errors.email}</Field.ErrorText>
+                  </Field.Root>
 
-              <FormControl isInvalid={!!errors.password}>
-                <FormLabel>パスワード</FormLabel>
-                <Input
-                  type="password"
-                  value={formData.password}
-                  onChange={(e) =>
-                    setFormData({ ...formData, password: e.target.value })
-                  }
-                />
-                <FormErrorMessage>{errors.password}</FormErrorMessage>
-              </FormControl>
+                  <Field.Root invalid={!!errors.password}>
+                    <Field.Label>パスワード</Field.Label>
+                    <Input
+                      type="password"
+                      value={formData.password}
+                      onChange={(e) =>
+                        setFormData({ ...formData, password: e.target.value })
+                      }
+                    />
+                    <Field.ErrorText>{errors.password}</Field.ErrorText>
+                  </Field.Root>
 
-              <FormControl isInvalid={!!errors.name}>
-                <FormLabel>名前</FormLabel>
-                <Input
-                  value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
-                />
-                <FormErrorMessage>{errors.name}</FormErrorMessage>
-              </FormControl>
+                  <Field.Root invalid={!!errors.name}>
+                    <Field.Label>名前</Field.Label>
+                    <Input
+                      value={formData.name}
+                      onChange={(e) =>
+                        setFormData({ ...formData, name: e.target.value })
+                      }
+                    />
+                    <Field.ErrorText>{errors.name}</Field.ErrorText>
+                  </Field.Root>
 
-              <FormControl>
-                <FormLabel>ロール</FormLabel>
-                <Select
-                  value={formData.role}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      role: e.target.value as "admin" | "user",
-                    })
-                  }
+                  <Field.Root>
+                    <Field.Label>ロール</Field.Label>
+                    <NativeSelect.Root>
+                      <NativeSelect.Field
+                        value={formData.role}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            role: e.target.value as "admin" | "user",
+                          })
+                        }
+                      >
+                        <option value="user">一般ユーザー</option>
+                        <option value="admin">管理者</option>
+                      </NativeSelect.Field>
+                      <NativeSelect.Indicator />
+                    </NativeSelect.Root>
+                  </Field.Root>
+                </VStack>
+              </Dialog.Body>
+              <Dialog.Footer>
+                <Button variant="ghost" mr={3} onClick={onClose}>
+                  キャンセル
+                </Button>
+                <Button
+                  type="submit"
+                  colorPalette="brand"
+                  loading={createMutation.isPending}
                 >
-                  <option value="user">一般ユーザー</option>
-                  <option value="admin">管理者</option>
-                </Select>
-              </FormControl>
-            </VStack>
-          </ModalBody>
-          <ModalFooter>
-            <Button variant="ghost" mr={3} onClick={onClose}>
-              キャンセル
-            </Button>
-            <Button
-              type="submit"
-              colorScheme="brand"
-              isLoading={createMutation.isPending}
-            >
-              作成
-            </Button>
-          </ModalFooter>
-        </form>
-      </ModalContent>
-    </Modal>
+                  作成
+                </Button>
+              </Dialog.Footer>
+            </form>
+          </Dialog.Content>
+        </Dialog.Positioner>
+      </Portal>
+    </Dialog.Root>
   );
 }
 
@@ -732,7 +704,6 @@ function EditUserModal({
   const { users } = useApiClient();
   const { user: currentUser } = useAuthStore();
   const queryClient = useQueryClient();
-  const toast = useToast();
   const [formData, setFormData] = useState({
     name: user.name,
     role: user.role as "admin" | "user",
@@ -743,17 +714,17 @@ function EditUserModal({
     mutationFn: (data: UpdateUserRequest) => users.update(user.id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
-      toast({
+      toaster.create({
         title: "ユーザーを更新しました",
-        status: "success",
+        type: "success",
         duration: 3000,
       });
       onClose();
     },
     onError: () => {
-      toast({
+      toaster.create({
         title: "ユーザーの更新に失敗しました",
-        status: "error",
+        type: "error",
         duration: 3000,
       });
     },
@@ -774,68 +745,78 @@ function EditUserModal({
   const isSelf = user.id === currentUser?.id;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose}>
-      <ModalOverlay />
-      <ModalContent>
-        <form onSubmit={handleSubmit}>
-          <ModalHeader>ユーザー編集</ModalHeader>
-          <ModalCloseButton />
-          <ModalBody>
-            <VStack spacing={4}>
-              <FormControl>
-                <FormLabel>メールアドレス</FormLabel>
-                <Input value={user.email} isReadOnly bg="gray.50" />
-              </FormControl>
+    <Dialog.Root open={isOpen} onOpenChange={(e) => !e.open && onClose()}>
+      <Portal>
+        <Dialog.Backdrop />
+        <Dialog.Positioner>
+          <Dialog.Content>
+            <form onSubmit={handleSubmit}>
+              <Dialog.Header>
+                <Dialog.Title>ユーザー編集</Dialog.Title>
+              </Dialog.Header>
+              <Dialog.CloseTrigger asChild>
+                <CloseButton size="sm" />
+              </Dialog.CloseTrigger>
+              <Dialog.Body>
+                <VStack gap={4}>
+                  <Field.Root>
+                    <Field.Label>メールアドレス</Field.Label>
+                    <Input value={user.email} readOnly bg="gray.50" />
+                  </Field.Root>
 
-              <FormControl isInvalid={!!error}>
-                <FormLabel>名前</FormLabel>
-                <Input
-                  value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
-                />
-                <FormErrorMessage>{error}</FormErrorMessage>
-              </FormControl>
+                  <Field.Root invalid={!!error}>
+                    <Field.Label>名前</Field.Label>
+                    <Input
+                      value={formData.name}
+                      onChange={(e) =>
+                        setFormData({ ...formData, name: e.target.value })
+                      }
+                    />
+                    <Field.ErrorText>{error}</Field.ErrorText>
+                  </Field.Root>
 
-              <FormControl>
-                <FormLabel>ロール</FormLabel>
-                <Select
-                  value={formData.role}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      role: e.target.value as "admin" | "user",
-                    })
-                  }
-                  isDisabled={isSelf}
+                  <Field.Root>
+                    <Field.Label>ロール</Field.Label>
+                    <NativeSelect.Root disabled={isSelf}>
+                      <NativeSelect.Field
+                        value={formData.role}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            role: e.target.value as "admin" | "user",
+                          })
+                        }
+                      >
+                        <option value="user">一般ユーザー</option>
+                        <option value="admin">管理者</option>
+                      </NativeSelect.Field>
+                      <NativeSelect.Indicator />
+                    </NativeSelect.Root>
+                    {isSelf && (
+                      <Text fontSize="sm" color="gray.500" mt={1}>
+                        自分のロールは変更できません
+                      </Text>
+                    )}
+                  </Field.Root>
+                </VStack>
+              </Dialog.Body>
+              <Dialog.Footer>
+                <Button variant="ghost" mr={3} onClick={onClose}>
+                  キャンセル
+                </Button>
+                <Button
+                  type="submit"
+                  colorPalette="brand"
+                  loading={updateMutation.isPending}
                 >
-                  <option value="user">一般ユーザー</option>
-                  <option value="admin">管理者</option>
-                </Select>
-                {isSelf && (
-                  <Text fontSize="sm" color="gray.500" mt={1}>
-                    自分のロールは変更できません
-                  </Text>
-                )}
-              </FormControl>
-            </VStack>
-          </ModalBody>
-          <ModalFooter>
-            <Button variant="ghost" mr={3} onClick={onClose}>
-              キャンセル
-            </Button>
-            <Button
-              type="submit"
-              colorScheme="brand"
-              isLoading={updateMutation.isPending}
-            >
-              保存
-            </Button>
-          </ModalFooter>
-        </form>
-      </ModalContent>
-    </Modal>
+                  保存
+                </Button>
+              </Dialog.Footer>
+            </form>
+          </Dialog.Content>
+        </Dialog.Positioner>
+      </Portal>
+    </Dialog.Root>
   );
 }
 
@@ -919,10 +900,11 @@ function AppSettingsList({
         </Box>
       </Flex>
 
-      <InputGroup maxW="400px" mb={4}>
-        <InputLeftElement>
-          <Icon as={FiSearch} color="gray.400" />
-        </InputLeftElement>
+      <InputGroup
+        maxW="400px"
+        mb={4}
+        startElement={<Icon as={FiSearch} color="gray.400" />}
+      >
         <Input
           placeholder="アプリを検索..."
           value={searchQuery}
@@ -933,29 +915,29 @@ function AppSettingsList({
       {isLoading ? (
         <Grid templateColumns="repeat(auto-fill, minmax(280px, 1fr))" gap={4}>
           {[1, 2, 3, 4].map((i) => (
-            <Card key={i}>
-              <CardBody>
+            <Card.Root key={i}>
+              <Card.Body>
                 <Skeleton height="20px" width="60%" mb={2} />
                 <SkeletonText noOfLines={2} />
-              </CardBody>
-            </Card>
+              </Card.Body>
+            </Card.Root>
           ))}
         </Grid>
       ) : filteredApps.length === 0 ? (
-        <Card>
-          <CardBody textAlign="center" py={10}>
+        <Card.Root>
+          <Card.Body textAlign="center" py={10}>
             <Icon as={FiDatabase} boxSize={12} color="gray.300" mb={4} />
             <Text fontSize="lg" color="gray.500">
               {searchQuery
                 ? "検索条件に一致するアプリがありません"
                 : "アプリがありません"}
             </Text>
-          </CardBody>
-        </Card>
+          </Card.Body>
+        </Card.Root>
       ) : (
         <Grid templateColumns="repeat(auto-fill, minmax(280px, 1fr))" gap={4}>
           {filteredApps.map((app) => (
-            <Card
+            <Card.Root
               key={app.id}
               cursor="pointer"
               _hover={{
@@ -968,7 +950,7 @@ function AppSettingsList({
               borderWidth="1px"
               borderColor="gray.200"
             >
-              <CardBody>
+              <Card.Body>
                 <Flex align="start" gap={3}>
                   <Flex
                     w={10}
@@ -987,20 +969,20 @@ function AppSettingsList({
                   </Flex>
                   <Box flex={1} minW={0}>
                     <Flex align="center" gap={2} mb={1}>
-                      <Heading size="sm" noOfLines={1}>
+                      <Heading size="sm" lineClamp={1}>
                         {app.name}
                       </Heading>
-                      <Badge colorScheme="brand" fontSize="xs">
+                      <Badge colorPalette="brand" fontSize="xs">
                         {app.field_count} フィールド
                       </Badge>
                     </Flex>
-                    <Text fontSize="sm" color="gray.600" noOfLines={2}>
+                    <Text fontSize="sm" color="gray.600" lineClamp={2}>
                       {app.description || "No description"}
                     </Text>
                   </Box>
                 </Flex>
-              </CardBody>
-            </Card>
+              </Card.Body>
+            </Card.Root>
           ))}
         </Grid>
       )}
@@ -1018,7 +1000,6 @@ function AppSettingsDetail({ app, onBack }: AppSettingsDetailProps) {
   const { apps, fields } = useApiClient();
   const dashboardWidgetsApi = useDashboardWidgetsApi();
   const queryClient = useQueryClient();
-  const toast = useToast();
   const cancelRef = useRef<HTMLButtonElement>(null);
 
   // Form state for basic info
@@ -1070,27 +1051,27 @@ function AppSettingsDetail({ app, onBack }: AppSettingsDetailProps) {
 
   // Modal states
   const {
-    isOpen: isDeleteAppOpen,
+    open: isDeleteAppOpen,
     onOpen: onDeleteAppOpen,
     onClose: onDeleteAppClose,
   } = useDisclosure();
   const {
-    isOpen: isAddFieldOpen,
+    open: isAddFieldOpen,
     onOpen: onAddFieldOpen,
     onClose: onAddFieldClose,
   } = useDisclosure();
   const {
-    isOpen: isEditFieldOpen,
+    open: isEditFieldOpen,
     onOpen: onEditFieldOpen,
     onClose: onEditFieldClose,
   } = useDisclosure();
   const {
-    isOpen: isDeleteFieldOpen,
+    open: isDeleteFieldOpen,
     onOpen: onDeleteFieldOpen,
     onClose: onDeleteFieldClose,
   } = useDisclosure();
 
-  const [selectedField, setSelectedField] = useState<Field | null>(null);
+  const [selectedField, setSelectedField] = useState<AppField | null>(null);
 
   // Fetch fields
   const { data: fieldsData, isLoading: fieldsLoading } = useQuery({
@@ -1124,16 +1105,16 @@ function AppSettingsDetail({ app, onBack }: AppSettingsDetailProps) {
       // 個別アプリのキャッシュも更新
       queryClient.setQueryData(["app", app.id], updatedApp);
 
-      toast({
+      toaster.create({
         title: "アプリを更新しました",
-        status: "success",
+        type: "success",
         duration: 3000,
       });
     },
     onError: () => {
-      toast({
+      toaster.create({
         title: "アプリの更新に失敗しました",
-        status: "error",
+        type: "error",
         duration: 3000,
       });
     },
@@ -1144,17 +1125,17 @@ function AppSettingsDetail({ app, onBack }: AppSettingsDetailProps) {
     mutationFn: () => apps.delete(app.id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["apps"] });
-      toast({
+      toaster.create({
         title: "アプリを削除しました",
-        status: "success",
+        type: "success",
         duration: 3000,
       });
       onBack();
     },
     onError: () => {
-      toast({
+      toaster.create({
         title: "アプリの削除に失敗しました",
-        status: "error",
+        type: "error",
         duration: 3000,
       });
     },
@@ -1166,16 +1147,16 @@ function AppSettingsDetail({ app, onBack }: AppSettingsDetailProps) {
       dashboardWidgetsApi.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["dashboard", "widgets"] });
-      toast({
+      toaster.create({
         title: "ダッシュボード設定を保存しました",
-        status: "success",
+        type: "success",
         duration: 3000,
       });
     },
     onError: () => {
-      toast({
+      toaster.create({
         title: "ダッシュボード設定の保存に失敗しました",
-        status: "error",
+        type: "error",
         duration: 3000,
       });
     },
@@ -1192,16 +1173,16 @@ function AppSettingsDetail({ app, onBack }: AppSettingsDetailProps) {
     }) => dashboardWidgetsApi.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["dashboard", "widgets"] });
-      toast({
+      toaster.create({
         title: "ダッシュボード設定を保存しました",
-        status: "success",
+        type: "success",
         duration: 3000,
       });
     },
     onError: () => {
-      toast({
+      toaster.create({
         title: "ダッシュボード設定の保存に失敗しました",
-        status: "error",
+        type: "error",
         duration: 3000,
       });
     },
@@ -1212,16 +1193,16 @@ function AppSettingsDetail({ app, onBack }: AppSettingsDetailProps) {
     mutationFn: (id: number) => dashboardWidgetsApi.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["dashboard", "widgets"] });
-      toast({
+      toaster.create({
         title: "ダッシュボードから削除しました",
-        status: "success",
+        type: "success",
         duration: 3000,
       });
     },
     onError: () => {
-      toast({
+      toaster.create({
         title: "削除に失敗しました",
-        status: "error",
+        type: "error",
         duration: 3000,
       });
     },
@@ -1232,17 +1213,17 @@ function AppSettingsDetail({ app, onBack }: AppSettingsDetailProps) {
     mutationFn: (fieldId: number) => fields.delete(app.id, fieldId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["fields", app.id] });
-      toast({
+      toaster.create({
         title: "フィールドを削除しました",
-        status: "success",
+        type: "success",
         duration: 3000,
       });
       onDeleteFieldClose();
     },
     onError: () => {
-      toast({
+      toaster.create({
         title: "フィールドの削除に失敗しました",
-        status: "error",
+        type: "error",
         duration: 3000,
       });
     },
@@ -1250,9 +1231,9 @@ function AppSettingsDetail({ app, onBack }: AppSettingsDetailProps) {
 
   const handleSaveBasicInfo = () => {
     if (!name.trim()) {
-      toast({
+      toaster.create({
         title: "アプリ名を入力してください",
-        status: "error",
+        type: "error",
         duration: 3000,
       });
       return;
@@ -1260,12 +1241,12 @@ function AppSettingsDetail({ app, onBack }: AppSettingsDetailProps) {
     updateAppMutation.mutate({ name: name.trim(), description, icon });
   };
 
-  const handleEditField = (field: Field) => {
+  const handleEditField = (field: AppField) => {
     setSelectedField(field);
     onEditFieldOpen();
   };
 
-  const handleDeleteField = (field: Field) => {
+  const handleDeleteField = (field: AppField) => {
     setSelectedField(field);
     onDeleteFieldOpen();
   };
@@ -1328,208 +1309,210 @@ function AppSettingsDetail({ app, onBack }: AppSettingsDetailProps) {
 
   return (
     <Box>
-      <Button
-        leftIcon={<FiArrowLeft />}
-        variant="ghost"
-        mb={4}
-        onClick={onBack}
-      >
+      <Button variant="ghost" mb={4} onClick={onBack}>
+        <FiArrowLeft />
         アプリ一覧に戻る
       </Button>
 
       <Flex justify="space-between" align="center" mb={6}>
         <Heading size="md">{app.name} の設定</Heading>
-        <Button
-          colorScheme="red"
-          variant="outline"
-          leftIcon={<FiTrash2 />}
-          onClick={onDeleteAppOpen}
-        >
+        <Button colorPalette="red" variant="outline" onClick={onDeleteAppOpen}>
+          <FiTrash2 />
           アプリを削除
         </Button>
       </Flex>
 
       <Grid templateColumns={{ base: "1fr", lg: "1fr 1fr" }} gap={6}>
         {/* Basic Info Card */}
-        <Card>
-          <CardHeader>
+        <Card.Root>
+          <Card.Header>
             <Heading size="sm">基本情報</Heading>
-          </CardHeader>
-          <CardBody>
-            <VStack spacing={4}>
-              <FormControl>
-                <FormLabel>アプリ名</FormLabel>
+          </Card.Header>
+          <Card.Body>
+            <VStack gap={4}>
+              <Field.Root>
+                <Field.Label>アプリ名</Field.Label>
                 <Input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="アプリ名を入力"
                 />
-              </FormControl>
+              </Field.Root>
 
-              <FormControl>
-                <FormLabel>説明</FormLabel>
+              <Field.Root>
+                <Field.Label>説明</Field.Label>
                 <Input
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="アプリの説明を入力"
                 />
-              </FormControl>
+              </Field.Root>
 
-              <FormControl>
-                <FormLabel>アイコン</FormLabel>
-                <Select value={icon} onChange={(e) => setIcon(e.target.value)}>
-                  <option value="default">デフォルト</option>
-                  <option value="grid">グリッド</option>
-                  <option value="list">リスト</option>
-                  <option value="calendar">カレンダー</option>
-                  <option value="database">データベース</option>
-                </Select>
-              </FormControl>
+              <Field.Root>
+                <Field.Label>アイコン</Field.Label>
+                <NativeSelect.Root>
+                  <NativeSelect.Field
+                    value={icon}
+                    onChange={(e) => setIcon(e.target.value)}
+                  >
+                    <option value="default">デフォルト</option>
+                    <option value="grid">グリッド</option>
+                    <option value="list">リスト</option>
+                    <option value="calendar">カレンダー</option>
+                    <option value="database">データベース</option>
+                  </NativeSelect.Field>
+                  <NativeSelect.Indicator />
+                </NativeSelect.Root>
+              </Field.Root>
 
               <Button
-                colorScheme="brand"
+                colorPalette="brand"
                 w="full"
                 onClick={handleSaveBasicInfo}
-                isLoading={updateAppMutation.isPending}
+                loading={updateAppMutation.isPending}
               >
                 保存
               </Button>
             </VStack>
-          </CardBody>
-        </Card>
+          </Card.Body>
+        </Card.Root>
 
         {/* Dashboard Settings Card */}
-        <Card>
-          <CardHeader>
+        <Card.Root>
+          <Card.Header>
             <Heading size="sm">ダッシュボード表示設定</Heading>
-          </CardHeader>
-          <CardBody>
-            <VStack spacing={4} align="stretch">
-              <FormControl display="flex" alignItems="center">
-                <FormLabel mb="0">ダッシュボードに表示</FormLabel>
-                <Switch
-                  isChecked={showOnDashboard}
-                  onChange={(e) => setShowOnDashboard(e.target.checked)}
-                />
-              </FormControl>
+          </Card.Header>
+          <Card.Body>
+            <VStack gap={4} align="stretch">
+              <Field.Root display="flex" alignItems="center">
+                <Field.Label mb="0">ダッシュボードに表示</Field.Label>
+                <Switch.Root
+                  checked={showOnDashboard}
+                  onCheckedChange={(e) => setShowOnDashboard(e.checked)}
+                >
+                  <Switch.HiddenInput />
+                  <Switch.Control>
+                    <Switch.Thumb />
+                  </Switch.Control>
+                </Switch.Root>
+              </Field.Root>
 
               {showOnDashboard && (
                 <>
-                  <FormControl>
-                    <FormLabel>表示形式</FormLabel>
+                  <Field.Root>
+                    <Field.Label>表示形式</Field.Label>
                     <Grid templateColumns="repeat(3, 1fr)" gap={2}>
                       <Button
                         variant={viewType === "table" ? "solid" : "outline"}
-                        colorScheme={viewType === "table" ? "brand" : "gray"}
+                        colorPalette={viewType === "table" ? "brand" : "gray"}
                         onClick={() => setViewType("table")}
-                        leftIcon={<Icon as={FiGrid} />}
                         size="sm"
                       >
+                        <Icon as={FiGrid} />
                         テーブル
                       </Button>
                       <Button
                         variant={viewType === "list" ? "solid" : "outline"}
-                        colorScheme={viewType === "list" ? "brand" : "gray"}
+                        colorPalette={viewType === "list" ? "brand" : "gray"}
                         onClick={() => setViewType("list")}
-                        leftIcon={<Icon as={FiList} />}
                         size="sm"
                       >
+                        <Icon as={FiList} />
                         リスト
                       </Button>
                       <Button
                         variant={viewType === "chart" ? "solid" : "outline"}
-                        colorScheme={viewType === "chart" ? "brand" : "gray"}
+                        colorPalette={viewType === "chart" ? "brand" : "gray"}
                         onClick={() => setViewType("chart")}
-                        leftIcon={<Icon as={FiBarChart2} />}
                         size="sm"
                       >
+                        <Icon as={FiBarChart2} />
                         グラフ
                       </Button>
                     </Grid>
-                  </FormControl>
+                  </Field.Root>
 
                   {viewType === "chart" && (
-                    <FormControl>
-                      <FormLabel>表示するグラフ</FormLabel>
+                    <Field.Root>
+                      <Field.Label>表示するグラフ</Field.Label>
                       {chartConfigs.length === 0 ? (
-                        <VStack spacing={2} align="start">
+                        <VStack gap={2} align="start">
                           <Text fontSize="sm" color="gray.500">
                             グラフ設定がありません。
                           </Text>
-                          <Button
-                            as={RouterLink}
-                            to={`/apps/${app.id}/charts`}
-                            size="sm"
-                            colorScheme="brand"
-                            leftIcon={<Icon as={FiBarChart2} />}
-                          >
-                            グラフ設定を作成する
+                          <Button asChild size="sm" colorPalette="brand">
+                            <RouterLink to={`/apps/${app.id}/charts`}>
+                              <Icon as={FiBarChart2} />
+                              グラフ設定を作成する
+                            </RouterLink>
                           </Button>
                         </VStack>
                       ) : (
-                        <Select
-                          value={selectedChartConfigId || ""}
-                          onChange={(e) =>
-                            setSelectedChartConfigId(
-                              e.target.value ? Number(e.target.value) : null
-                            )
-                          }
-                          placeholder="グラフを選択"
-                        >
-                          {chartConfigs.map((config) => (
-                            <option key={config.id} value={config.id}>
-                              {config.name}
-                            </option>
-                          ))}
-                        </Select>
+                        <NativeSelect.Root>
+                          <NativeSelect.Field
+                            value={selectedChartConfigId || ""}
+                            onChange={(e) =>
+                              setSelectedChartConfigId(
+                                e.target.value ? Number(e.target.value) : null
+                              )
+                            }
+                            placeholder="グラフを選択"
+                          >
+                            {chartConfigs.map((config) => (
+                              <option key={config.id} value={config.id}>
+                                {config.name}
+                              </option>
+                            ))}
+                          </NativeSelect.Field>
+                          <NativeSelect.Indicator />
+                        </NativeSelect.Root>
                       )}
-                    </FormControl>
+                    </Field.Root>
                   )}
 
-                  <FormControl>
-                    <FormLabel>ウィジェットサイズ</FormLabel>
-                    <Select
-                      value={widgetSize}
-                      onChange={(e) =>
-                        setWidgetSize(e.target.value as WidgetSize)
-                      }
-                    >
-                      <option value="small">小</option>
-                      <option value="medium">中</option>
-                      <option value="large">大</option>
-                    </Select>
-                  </FormControl>
+                  <Field.Root>
+                    <Field.Label>ウィジェットサイズ</Field.Label>
+                    <NativeSelect.Root>
+                      <NativeSelect.Field
+                        value={widgetSize}
+                        onChange={(e) =>
+                          setWidgetSize(e.target.value as WidgetSize)
+                        }
+                      >
+                        <option value="small">小</option>
+                        <option value="medium">中</option>
+                        <option value="large">大</option>
+                      </NativeSelect.Field>
+                      <NativeSelect.Indicator />
+                    </NativeSelect.Root>
+                  </Field.Root>
                 </>
               )}
 
               <Button
-                colorScheme="brand"
+                colorPalette="brand"
                 w="full"
                 onClick={handleSaveDashboardSettings}
-                isLoading={isDashboardSaving}
+                loading={isDashboardSaving}
               >
                 ダッシュボード設定を保存
               </Button>
             </VStack>
-          </CardBody>
-        </Card>
+          </Card.Body>
+        </Card.Root>
 
         {/* Fields Card */}
-        <Card>
-          <CardHeader>
+        <Card.Root>
+          <Card.Header>
             <Flex justify="space-between" align="center">
               <Heading size="sm">フィールド管理</Heading>
-              <Button
-                size="sm"
-                leftIcon={<FiPlus />}
-                colorScheme="brand"
-                onClick={onAddFieldOpen}
-              >
+              <Button size="sm" colorPalette="brand" onClick={onAddFieldOpen}>
+                <FiPlus />
                 フィールド追加
               </Button>
             </Flex>
-          </CardHeader>
-          <CardBody p={0}>
+          </Card.Header>
+          <Card.Body p={0}>
             {fieldsLoading ? (
               <Box p={4}>
                 <SkeletonText noOfLines={5} />
@@ -1539,65 +1522,67 @@ function AppSettingsDetail({ app, onBack }: AppSettingsDetailProps) {
                 <Text color="gray.500">フィールドがありません</Text>
               </Box>
             ) : (
-              <Table variant="simple" size="sm">
-                <Thead>
-                  <Tr>
-                    <Th>名前</Th>
-                    <Th>タイプ</Th>
-                    <Th>必須</Th>
-                    <Th w="80px">操作</Th>
-                  </Tr>
-                </Thead>
-                <Tbody>
+              <Table.Root variant="line" size="sm">
+                <Table.Header>
+                  <Table.Row>
+                    <Table.ColumnHeader>名前</Table.ColumnHeader>
+                    <Table.ColumnHeader>タイプ</Table.ColumnHeader>
+                    <Table.ColumnHeader>必須</Table.ColumnHeader>
+                    <Table.ColumnHeader w="80px">操作</Table.ColumnHeader>
+                  </Table.Row>
+                </Table.Header>
+                <Table.Body>
                   {fieldsData.fields.map((field) => (
-                    <Tr key={field.id}>
-                      <Td>
-                        <VStack align="start" spacing={0}>
+                    <Table.Row key={field.id}>
+                      <Table.Cell>
+                        <VStack align="start" gap={0}>
                           <Text fontWeight="medium">{field.field_name}</Text>
                           <Text fontSize="xs" color="gray.500">
                             {field.field_code}
                           </Text>
                         </VStack>
-                      </Td>
-                      <Td>
-                        <Tag size="sm" colorScheme="blue">
+                      </Table.Cell>
+                      <Table.Cell>
+                        <Tag.Root size="sm" colorPalette="blue">
                           {FIELD_TYPE_LABELS[field.field_type] ||
                             field.field_type}
-                        </Tag>
-                      </Td>
-                      <Td>
+                        </Tag.Root>
+                      </Table.Cell>
+                      <Table.Cell>
                         {field.required ? (
-                          <Badge colorScheme="red">必須</Badge>
+                          <Badge colorPalette="red">必須</Badge>
                         ) : (
                           <Text color="gray.400">-</Text>
                         )}
-                      </Td>
-                      <Td>
+                      </Table.Cell>
+                      <Table.Cell>
                         <Flex gap={1}>
                           <IconButton
                             aria-label="編集"
-                            icon={<FiEdit2 />}
                             size="xs"
                             variant="ghost"
                             onClick={() => handleEditField(field)}
-                          />
+                          >
+                            <FiEdit2 />
+                          </IconButton>
                           <IconButton
                             aria-label="削除"
-                            icon={<FiTrash2 />}
                             size="xs"
                             variant="ghost"
-                            colorScheme="red"
+                            colorPalette="red"
                             onClick={() => handleDeleteField(field)}
-                          />
+                          >
+                            <FiTrash2 />
+                          </IconButton>
                         </Flex>
-                      </Td>
-                    </Tr>
+                      </Table.Cell>
+                    </Table.Row>
                   ))}
-                </Tbody>
-              </Table>
+                </Table.Body>
+              </Table.Root>
             )}
-          </CardBody>
-        </Card>
+          </Card.Body>
+        </Card.Root>
       </Grid>
 
       {/* Add Field Modal */}
@@ -1619,65 +1604,77 @@ function AppSettingsDetail({ app, onBack }: AppSettingsDetailProps) {
       )}
 
       {/* Delete Field Confirmation */}
-      <AlertDialog
-        isOpen={isDeleteFieldOpen}
-        leastDestructiveRef={cancelRef}
-        onClose={onDeleteFieldClose}
+      <Dialog.Root
+        role="alertdialog"
+        open={isDeleteFieldOpen}
+        onOpenChange={(e) => !e.open && onDeleteFieldClose()}
+        initialFocusEl={() => cancelRef.current}
       >
-        <AlertDialogOverlay>
-          <AlertDialogContent>
-            <AlertDialogHeader>フィールドの削除</AlertDialogHeader>
-            <AlertDialogBody>
-              「{selectedField?.field_name}」を削除してもよろしいですか？
-              このフィールドに保存されたデータも削除されます。
-            </AlertDialogBody>
-            <AlertDialogFooter>
-              <Button ref={cancelRef} onClick={onDeleteFieldClose}>
-                キャンセル
-              </Button>
-              <Button
-                colorScheme="red"
-                onClick={confirmDeleteField}
-                ml={3}
-                isLoading={deleteFieldMutation.isPending}
-              >
-                削除
-              </Button>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialogOverlay>
-      </AlertDialog>
+        <Portal>
+          <Dialog.Backdrop />
+          <Dialog.Positioner>
+            <Dialog.Content>
+              <Dialog.Header>
+                <Dialog.Title>フィールドの削除</Dialog.Title>
+              </Dialog.Header>
+              <Dialog.Body>
+                「{selectedField?.field_name}」を削除してもよろしいですか？
+                このフィールドに保存されたデータも削除されます。
+              </Dialog.Body>
+              <Dialog.Footer>
+                <Button ref={cancelRef} onClick={onDeleteFieldClose}>
+                  キャンセル
+                </Button>
+                <Button
+                  colorPalette="red"
+                  onClick={confirmDeleteField}
+                  ml={3}
+                  loading={deleteFieldMutation.isPending}
+                >
+                  削除
+                </Button>
+              </Dialog.Footer>
+            </Dialog.Content>
+          </Dialog.Positioner>
+        </Portal>
+      </Dialog.Root>
 
       {/* Delete App Confirmation */}
-      <AlertDialog
-        isOpen={isDeleteAppOpen}
-        leastDestructiveRef={cancelRef}
-        onClose={onDeleteAppClose}
+      <Dialog.Root
+        role="alertdialog"
+        open={isDeleteAppOpen}
+        onOpenChange={(e) => !e.open && onDeleteAppClose()}
+        initialFocusEl={() => cancelRef.current}
       >
-        <AlertDialogOverlay>
-          <AlertDialogContent>
-            <AlertDialogHeader>アプリの削除</AlertDialogHeader>
-            <AlertDialogBody>
-              「{app.name}」を削除してもよろしいですか？
-              このアプリに保存されたすべてのレコードとフィールドも削除されます。
-              この操作は取り消せません。
-            </AlertDialogBody>
-            <AlertDialogFooter>
-              <Button ref={cancelRef} onClick={onDeleteAppClose}>
-                キャンセル
-              </Button>
-              <Button
-                colorScheme="red"
-                onClick={confirmDeleteApp}
-                ml={3}
-                isLoading={deleteAppMutation.isPending}
-              >
-                削除
-              </Button>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialogOverlay>
-      </AlertDialog>
+        <Portal>
+          <Dialog.Backdrop />
+          <Dialog.Positioner>
+            <Dialog.Content>
+              <Dialog.Header>
+                <Dialog.Title>アプリの削除</Dialog.Title>
+              </Dialog.Header>
+              <Dialog.Body>
+                「{app.name}」を削除してもよろしいですか？
+                このアプリに保存されたすべてのレコードとフィールドも削除されます。
+                この操作は取り消せません。
+              </Dialog.Body>
+              <Dialog.Footer>
+                <Button ref={cancelRef} onClick={onDeleteAppClose}>
+                  キャンセル
+                </Button>
+                <Button
+                  colorPalette="red"
+                  onClick={confirmDeleteApp}
+                  ml={3}
+                  loading={deleteAppMutation.isPending}
+                >
+                  削除
+                </Button>
+              </Dialog.Footer>
+            </Dialog.Content>
+          </Dialog.Positioner>
+        </Portal>
+      </Dialog.Root>
     </Box>
   );
 }
@@ -1696,7 +1693,6 @@ function AddFieldModal({
 }) {
   const { fields, dataSources } = useApiClient();
   const queryClient = useQueryClient();
-  const toast = useToast();
 
   // 新規データソース用のフォームステート
   const [formData, setFormData] = useState<{
@@ -1740,18 +1736,18 @@ function AddFieldModal({
     mutationFn: (data: CreateFieldRequest) => fields.create(app.id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["fields", app.id] });
-      toast({
+      toaster.create({
         title: "フィールドを追加しました",
-        status: "success",
+        type: "success",
         duration: 3000,
       });
       onClose();
       resetForm();
     },
     onError: () => {
-      toast({
+      toaster.create({
         title: "フィールドの追加に失敗しました",
-        status: "error",
+        type: "error",
         duration: 3000,
       });
     },
@@ -1799,18 +1795,18 @@ function AddFieldModal({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["fields", app.id] });
-      toast({
+      toaster.create({
         title: "フィールドを追加しました",
-        status: "success",
+        type: "success",
         duration: 3000,
       });
       onClose();
       resetForm();
     },
     onError: () => {
-      toast({
+      toaster.create({
         title: "フィールドの追加に失敗しました",
-        status: "error",
+        type: "error",
         duration: 3000,
       });
     },
@@ -1879,9 +1875,9 @@ function AddFieldModal({
   // 外部データソース用のサブミット
   const handleExternalSubmit = () => {
     if (selectedColumns.size === 0) {
-      toast({
+      toaster.create({
         title: "カラムを選択してください",
-        status: "warning",
+        type: "warning",
         duration: 3000,
       });
       return;
@@ -1917,218 +1913,270 @@ function AddFieldModal({
   // 外部データソースの場合
   if (app.is_external) {
     return (
-      <Modal isOpen={isOpen} onClose={handleClose} size="xl">
-        <ModalOverlay />
-        <ModalContent>
-          <ModalHeader>カラムからフィールドを追加</ModalHeader>
-          <ModalCloseButton />
-          <ModalBody>
-            {columnsLoading ? (
-              <VStack spacing={4}>
-                <Skeleton height="40px" width="100%" />
-                <Skeleton height="40px" width="100%" />
-                <Skeleton height="40px" width="100%" />
-              </VStack>
-            ) : availableColumns.length === 0 ? (
-              <Text color="gray.500" textAlign="center" py={4}>
-                追加可能なカラムがありません。
-                {columnsData?.columns?.length === existingFieldCodes.length &&
-                  "すべてのカラムが既に追加されています。"}
-              </Text>
-            ) : (
-              <VStack spacing={4} align="stretch">
-                <Text fontSize="sm" color="gray.600">
-                  テーブル「{app.source_table_name}
-                  」のカラムから追加するものを選択してください
-                </Text>
-                <Flex justify="space-between" align="center">
-                  <Text fontWeight="medium">
-                    {selectedColumns.size} / {availableColumns.length} 件選択中
+      <Dialog.Root
+        open={isOpen}
+        onOpenChange={(e) => !e.open && handleClose()}
+        size="xl"
+      >
+        <Portal>
+          <Dialog.Backdrop />
+          <Dialog.Positioner>
+            <Dialog.Content>
+              <Dialog.Header>
+                <Dialog.Title>カラムからフィールドを追加</Dialog.Title>
+              </Dialog.Header>
+              <Dialog.CloseTrigger asChild>
+                <CloseButton size="sm" />
+              </Dialog.CloseTrigger>
+              <Dialog.Body>
+                {columnsLoading ? (
+                  <VStack gap={4}>
+                    <Skeleton height="40px" width="100%" />
+                    <Skeleton height="40px" width="100%" />
+                    <Skeleton height="40px" width="100%" />
+                  </VStack>
+                ) : availableColumns.length === 0 ? (
+                  <Text color="gray.500" textAlign="center" py={4}>
+                    追加可能なカラムがありません。
+                    {columnsData?.columns?.length ===
+                      existingFieldCodes.length &&
+                      "すべてのカラムが既に追加されています。"}
                   </Text>
-                  <Button size="sm" variant="ghost" onClick={handleSelectAll}>
-                    {selectedColumns.size === availableColumns.length
-                      ? "全て解除"
-                      : "全て選択"}
-                  </Button>
-                </Flex>
-                <Box
-                  maxH="400px"
-                  overflowY="auto"
-                  borderWidth="1px"
-                  borderRadius="md"
-                >
-                  <Table size="sm">
-                    <Thead position="sticky" top={0} bg="white" zIndex={1}>
-                      <Tr>
-                        <Th width="40px" />
-                        <Th>カラム名</Th>
-                        <Th>データ型</Th>
-                        <Th>フィールド型</Th>
-                        <Th>NULL可</Th>
-                      </Tr>
-                    </Thead>
-                    <Tbody>
-                      {availableColumns.map((column) => (
-                        <Tr
-                          key={column.name}
-                          cursor="pointer"
-                          _hover={{ bg: "gray.50" }}
-                          onClick={() => handleColumnToggle(column.name)}
+                ) : (
+                  <VStack gap={4} align="stretch">
+                    <Text fontSize="sm" color="gray.600">
+                      テーブル「{app.source_table_name}
+                      」のカラムから追加するものを選択してください
+                    </Text>
+                    <Flex justify="space-between" align="center">
+                      <Text fontWeight="medium">
+                        {selectedColumns.size} / {availableColumns.length}{" "}
+                        件選択中
+                      </Text>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={handleSelectAll}
+                      >
+                        {selectedColumns.size === availableColumns.length
+                          ? "全て解除"
+                          : "全て選択"}
+                      </Button>
+                    </Flex>
+                    <Box
+                      maxH="400px"
+                      overflowY="auto"
+                      borderWidth="1px"
+                      borderRadius="md"
+                    >
+                      <Table.Root size="sm">
+                        <Table.Header
+                          position="sticky"
+                          top={0}
+                          bg="white"
+                          zIndex={1}
                         >
-                          <Td>
-                            <Switch
-                              isChecked={selectedColumns.has(column.name)}
-                              onChange={() => handleColumnToggle(column.name)}
-                              size="sm"
-                            />
-                          </Td>
-                          <Td fontWeight="medium">{column.name}</Td>
-                          <Td>
-                            <Tag size="sm" colorScheme="gray">
-                              {column.data_type}
-                            </Tag>
-                          </Td>
-                          <Td>
-                            <Tag size="sm" colorScheme="blue">
-                              {FIELD_TYPE_LABELS[
-                                mapDataTypeToFieldType(
-                                  column.data_type
-                                ) as FieldType
-                              ] || mapDataTypeToFieldType(column.data_type)}
-                            </Tag>
-                          </Td>
-                          <Td>
-                            {column.is_nullable ? (
-                              <Tag size="sm" colorScheme="green">
-                                可
-                              </Tag>
-                            ) : (
-                              <Tag size="sm" colorScheme="red">
-                                不可
-                              </Tag>
-                            )}
-                          </Td>
-                        </Tr>
-                      ))}
-                    </Tbody>
-                  </Table>
-                </Box>
-              </VStack>
-            )}
-          </ModalBody>
-          <ModalFooter>
-            <Button variant="ghost" mr={3} onClick={handleClose}>
-              キャンセル
-            </Button>
-            <Button
-              colorScheme="brand"
-              onClick={handleExternalSubmit}
-              isLoading={bulkCreateMutation.isPending}
-              isDisabled={selectedColumns.size === 0}
-            >
-              {selectedColumns.size > 0
-                ? `${selectedColumns.size}件追加`
-                : "追加"}
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+                          <Table.Row>
+                            <Table.ColumnHeader width="40px" />
+                            <Table.ColumnHeader>カラム名</Table.ColumnHeader>
+                            <Table.ColumnHeader>データ型</Table.ColumnHeader>
+                            <Table.ColumnHeader>
+                              フィールド型
+                            </Table.ColumnHeader>
+                            <Table.ColumnHeader>NULL可</Table.ColumnHeader>
+                          </Table.Row>
+                        </Table.Header>
+                        <Table.Body>
+                          {availableColumns.map((column) => (
+                            <Table.Row
+                              key={column.name}
+                              cursor="pointer"
+                              _hover={{ bg: "gray.50" }}
+                              onClick={() => handleColumnToggle(column.name)}
+                            >
+                              <Table.Cell>
+                                <Switch.Root
+                                  checked={selectedColumns.has(column.name)}
+                                  onCheckedChange={() =>
+                                    handleColumnToggle(column.name)
+                                  }
+                                  onClick={(e) => e.stopPropagation()}
+                                  size="sm"
+                                >
+                                  <Switch.HiddenInput />
+                                  <Switch.Control>
+                                    <Switch.Thumb />
+                                  </Switch.Control>
+                                </Switch.Root>
+                              </Table.Cell>
+                              <Table.Cell fontWeight="medium">
+                                {column.name}
+                              </Table.Cell>
+                              <Table.Cell>
+                                <Tag.Root size="sm" colorPalette="gray">
+                                  {column.data_type}
+                                </Tag.Root>
+                              </Table.Cell>
+                              <Table.Cell>
+                                <Tag.Root size="sm" colorPalette="blue">
+                                  {FIELD_TYPE_LABELS[
+                                    mapDataTypeToFieldType(
+                                      column.data_type
+                                    ) as FieldType
+                                  ] || mapDataTypeToFieldType(column.data_type)}
+                                </Tag.Root>
+                              </Table.Cell>
+                              <Table.Cell>
+                                {column.is_nullable ? (
+                                  <Tag.Root size="sm" colorPalette="green">
+                                    可
+                                  </Tag.Root>
+                                ) : (
+                                  <Tag.Root size="sm" colorPalette="red">
+                                    不可
+                                  </Tag.Root>
+                                )}
+                              </Table.Cell>
+                            </Table.Row>
+                          ))}
+                        </Table.Body>
+                      </Table.Root>
+                    </Box>
+                  </VStack>
+                )}
+              </Dialog.Body>
+              <Dialog.Footer>
+                <Button variant="ghost" mr={3} onClick={handleClose}>
+                  キャンセル
+                </Button>
+                <Button
+                  colorPalette="brand"
+                  onClick={handleExternalSubmit}
+                  loading={bulkCreateMutation.isPending}
+                  disabled={selectedColumns.size === 0}
+                >
+                  {selectedColumns.size > 0
+                    ? `${selectedColumns.size}件追加`
+                    : "追加"}
+                </Button>
+              </Dialog.Footer>
+            </Dialog.Content>
+          </Dialog.Positioner>
+        </Portal>
+      </Dialog.Root>
     );
   }
 
   // 新規データソースの場合（従来のフォーム）
   return (
-    <Modal isOpen={isOpen} onClose={handleClose}>
-      <ModalOverlay />
-      <ModalContent>
-        <form onSubmit={handleSubmit}>
-          <ModalHeader>フィールド追加</ModalHeader>
-          <ModalCloseButton />
-          <ModalBody>
-            <VStack spacing={4}>
-              <FormControl isInvalid={!!errors.field_code}>
-                <FormLabel>フィールドコード</FormLabel>
-                <Input
-                  value={formData.field_code}
-                  onChange={(e) =>
-                    setFormData({ ...formData, field_code: e.target.value })
-                  }
-                  placeholder="例: customer_name"
-                />
-                <FormErrorMessage>{errors.field_code}</FormErrorMessage>
-              </FormControl>
+    <Dialog.Root open={isOpen} onOpenChange={(e) => !e.open && handleClose()}>
+      <Portal>
+        <Dialog.Backdrop />
+        <Dialog.Positioner>
+          <Dialog.Content>
+            <form onSubmit={handleSubmit}>
+              <Dialog.Header>
+                <Dialog.Title>フィールド追加</Dialog.Title>
+              </Dialog.Header>
+              <Dialog.CloseTrigger asChild>
+                <CloseButton size="sm" />
+              </Dialog.CloseTrigger>
+              <Dialog.Body>
+                <VStack gap={4}>
+                  <Field.Root invalid={!!errors.field_code}>
+                    <Field.Label>フィールドコード</Field.Label>
+                    <Input
+                      value={formData.field_code}
+                      onChange={(e) =>
+                        setFormData({ ...formData, field_code: e.target.value })
+                      }
+                      placeholder="例: customer_name"
+                    />
+                    <Field.ErrorText>{errors.field_code}</Field.ErrorText>
+                  </Field.Root>
 
-              <FormControl isInvalid={!!errors.field_name}>
-                <FormLabel>フィールド名</FormLabel>
-                <Input
-                  value={formData.field_name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, field_name: e.target.value })
-                  }
-                  placeholder="例: 顧客名"
-                />
-                <FormErrorMessage>{errors.field_name}</FormErrorMessage>
-              </FormControl>
+                  <Field.Root invalid={!!errors.field_name}>
+                    <Field.Label>フィールド名</Field.Label>
+                    <Input
+                      value={formData.field_name}
+                      onChange={(e) =>
+                        setFormData({ ...formData, field_name: e.target.value })
+                      }
+                      placeholder="例: 顧客名"
+                    />
+                    <Field.ErrorText>{errors.field_name}</Field.ErrorText>
+                  </Field.Root>
 
-              <FormControl>
-                <FormLabel>フィールドタイプ</FormLabel>
-                <Select
-                  value={formData.field_type}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      field_type: e.target.value as FieldType,
-                    })
-                  }
+                  <Field.Root>
+                    <Field.Label>フィールドタイプ</Field.Label>
+                    <NativeSelect.Root>
+                      <NativeSelect.Field
+                        value={formData.field_type}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            field_type: e.target.value as FieldType,
+                          })
+                        }
+                      >
+                        {Object.entries(FIELD_TYPE_LABELS).map(
+                          ([value, label]) => (
+                            <option key={value} value={value}>
+                              {label}
+                            </option>
+                          )
+                        )}
+                      </NativeSelect.Field>
+                      <NativeSelect.Indicator />
+                    </NativeSelect.Root>
+                  </Field.Root>
+
+                  {needsChoices && (
+                    <Field.Root invalid={!!errors.choices}>
+                      <Field.Label>選択肢（1行に1つ）</Field.Label>
+                      <Textarea
+                        value={choicesText}
+                        onChange={(e) => setChoicesText(e.target.value)}
+                        placeholder="選択肢1&#10;選択肢2&#10;選択肢3"
+                        minH="100px"
+                      />
+                      <Field.ErrorText>{errors.choices}</Field.ErrorText>
+                    </Field.Root>
+                  )}
+
+                  <Field.Root display="flex" alignItems="center">
+                    <Field.Label mb="0">必須項目</Field.Label>
+                    <Switch.Root
+                      checked={formData.required}
+                      onCheckedChange={(e) =>
+                        setFormData({ ...formData, required: e.checked })
+                      }
+                    >
+                      <Switch.HiddenInput />
+                      <Switch.Control>
+                        <Switch.Thumb />
+                      </Switch.Control>
+                    </Switch.Root>
+                  </Field.Root>
+                </VStack>
+              </Dialog.Body>
+              <Dialog.Footer>
+                <Button variant="ghost" mr={3} onClick={handleClose}>
+                  キャンセル
+                </Button>
+                <Button
+                  type="submit"
+                  colorPalette="brand"
+                  loading={createMutation.isPending}
                 >
-                  {Object.entries(FIELD_TYPE_LABELS).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </Select>
-              </FormControl>
-
-              {needsChoices && (
-                <FormControl isInvalid={!!errors.choices}>
-                  <FormLabel>選択肢（1行に1つ）</FormLabel>
-                  <Input
-                    as="textarea"
-                    value={choicesText}
-                    onChange={(e) => setChoicesText(e.target.value)}
-                    placeholder="選択肢1&#10;選択肢2&#10;選択肢3"
-                    minH="100px"
-                  />
-                  <FormErrorMessage>{errors.choices}</FormErrorMessage>
-                </FormControl>
-              )}
-
-              <FormControl display="flex" alignItems="center">
-                <FormLabel mb="0">必須項目</FormLabel>
-                <Switch
-                  isChecked={formData.required}
-                  onChange={(e) =>
-                    setFormData({ ...formData, required: e.target.checked })
-                  }
-                />
-              </FormControl>
-            </VStack>
-          </ModalBody>
-          <ModalFooter>
-            <Button variant="ghost" mr={3} onClick={handleClose}>
-              キャンセル
-            </Button>
-            <Button
-              type="submit"
-              colorScheme="brand"
-              isLoading={createMutation.isPending}
-            >
-              追加
-            </Button>
-          </ModalFooter>
-        </form>
-      </ModalContent>
-    </Modal>
+                  追加
+                </Button>
+              </Dialog.Footer>
+            </form>
+          </Dialog.Content>
+        </Dialog.Positioner>
+      </Portal>
+    </Dialog.Root>
   );
 }
 
@@ -2142,11 +2190,10 @@ function EditFieldModal({
   isOpen: boolean;
   onClose: () => void;
   appId: number;
-  field: Field;
+  field: AppField;
 }) {
   const { fields } = useApiClient();
   const queryClient = useQueryClient();
-  const toast = useToast();
   const [formData, setFormData] = useState({
     field_name: field.field_name,
     required: field.required,
@@ -2161,17 +2208,17 @@ function EditFieldModal({
       fields.update(appId, field.id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["fields", appId] });
-      toast({
+      toaster.create({
         title: "フィールドを更新しました",
-        status: "success",
+        type: "success",
         duration: 3000,
       });
       onClose();
     },
     onError: () => {
-      toast({
+      toaster.create({
         title: "フィールドの更新に失敗しました",
-        status: "error",
+        type: "error",
         duration: 3000,
       });
     },
@@ -2206,78 +2253,90 @@ function EditFieldModal({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose}>
-      <ModalOverlay />
-      <ModalContent>
-        <form onSubmit={handleSubmit}>
-          <ModalHeader>フィールド編集</ModalHeader>
-          <ModalCloseButton />
-          <ModalBody>
-            <VStack spacing={4}>
-              <FormControl>
-                <FormLabel>フィールドコード</FormLabel>
-                <Input value={field.field_code} isReadOnly bg="gray.50" />
-              </FormControl>
+    <Dialog.Root open={isOpen} onOpenChange={(e) => !e.open && onClose()}>
+      <Portal>
+        <Dialog.Backdrop />
+        <Dialog.Positioner>
+          <Dialog.Content>
+            <form onSubmit={handleSubmit}>
+              <Dialog.Header>
+                <Dialog.Title>フィールド編集</Dialog.Title>
+              </Dialog.Header>
+              <Dialog.CloseTrigger asChild>
+                <CloseButton size="sm" />
+              </Dialog.CloseTrigger>
+              <Dialog.Body>
+                <VStack gap={4}>
+                  <Field.Root>
+                    <Field.Label>フィールドコード</Field.Label>
+                    <Input value={field.field_code} readOnly bg="gray.50" />
+                  </Field.Root>
 
-              <FormControl>
-                <FormLabel>フィールドタイプ</FormLabel>
-                <Input
-                  value={
-                    FIELD_TYPE_LABELS[field.field_type] || field.field_type
-                  }
-                  isReadOnly
-                  bg="gray.50"
-                />
-              </FormControl>
+                  <Field.Root>
+                    <Field.Label>フィールドタイプ</Field.Label>
+                    <Input
+                      value={
+                        FIELD_TYPE_LABELS[field.field_type] || field.field_type
+                      }
+                      readOnly
+                      bg="gray.50"
+                    />
+                  </Field.Root>
 
-              <FormControl isInvalid={!!error}>
-                <FormLabel>フィールド名</FormLabel>
-                <Input
-                  value={formData.field_name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, field_name: e.target.value })
-                  }
-                />
-                <FormErrorMessage>{error}</FormErrorMessage>
-              </FormControl>
+                  <Field.Root invalid={!!error}>
+                    <Field.Label>フィールド名</Field.Label>
+                    <Input
+                      value={formData.field_name}
+                      onChange={(e) =>
+                        setFormData({ ...formData, field_name: e.target.value })
+                      }
+                    />
+                    <Field.ErrorText>{error}</Field.ErrorText>
+                  </Field.Root>
 
-              {needsChoices && (
-                <FormControl>
-                  <FormLabel>選択肢（1行に1つ）</FormLabel>
-                  <Input
-                    as="textarea"
-                    value={choicesText}
-                    onChange={(e) => setChoicesText(e.target.value)}
-                    minH="100px"
-                  />
-                </FormControl>
-              )}
+                  {needsChoices && (
+                    <Field.Root>
+                      <Field.Label>選択肢（1行に1つ）</Field.Label>
+                      <Textarea
+                        value={choicesText}
+                        onChange={(e) => setChoicesText(e.target.value)}
+                        minH="100px"
+                      />
+                    </Field.Root>
+                  )}
 
-              <FormControl display="flex" alignItems="center">
-                <FormLabel mb="0">必須項目</FormLabel>
-                <Switch
-                  isChecked={formData.required}
-                  onChange={(e) =>
-                    setFormData({ ...formData, required: e.target.checked })
-                  }
-                />
-              </FormControl>
-            </VStack>
-          </ModalBody>
-          <ModalFooter>
-            <Button variant="ghost" mr={3} onClick={onClose}>
-              キャンセル
-            </Button>
-            <Button
-              type="submit"
-              colorScheme="brand"
-              isLoading={updateMutation.isPending}
-            >
-              保存
-            </Button>
-          </ModalFooter>
-        </form>
-      </ModalContent>
-    </Modal>
+                  <Field.Root display="flex" alignItems="center">
+                    <Field.Label mb="0">必須項目</Field.Label>
+                    <Switch.Root
+                      checked={formData.required}
+                      onCheckedChange={(e) =>
+                        setFormData({ ...formData, required: e.checked })
+                      }
+                    >
+                      <Switch.HiddenInput />
+                      <Switch.Control>
+                        <Switch.Thumb />
+                      </Switch.Control>
+                    </Switch.Root>
+                  </Field.Root>
+                </VStack>
+              </Dialog.Body>
+              <Dialog.Footer>
+                <Button variant="ghost" mr={3} onClick={onClose}>
+                  キャンセル
+                </Button>
+                <Button
+                  type="submit"
+                  colorPalette="brand"
+                  loading={updateMutation.isPending}
+                >
+                  保存
+                </Button>
+              </Dialog.Footer>
+            </form>
+          </Dialog.Content>
+        </Dialog.Positioner>
+      </Portal>
+    </Dialog.Root>
   );
 }

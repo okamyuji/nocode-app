@@ -3,7 +3,7 @@
  * Vitestのグローバル設定とモックの初期化
  */
 
-import "@testing-library/jest-dom";
+import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
 import { afterAll, afterEach, beforeAll } from "vitest";
 import { server } from "./mocks/server";
@@ -36,7 +36,7 @@ class ResizeObserverMock {
 window.ResizeObserver = ResizeObserverMock;
 
 // 全テスト実行前にAPIモックサーバーを起動
-beforeAll(() => server.listen({ onUnhandledRequest: "warn" }));
+beforeAll(() => server.listen({ onUnhandledFrame: "warn" }));
 
 // 各テスト終了後にリクエストハンドラーをリセット
 // テスト間の影響を防ぐため

@@ -28,13 +28,13 @@ export function FieldValue({ field, value }: FieldValueProps) {
 
     case "select":
     case "radio":
-      return <Badge colorScheme="brand">{String(value)}</Badge>;
+      return <Badge colorPalette="brand">{String(value)}</Badge>;
 
     case "multiselect":
       return (
-        <HStack spacing={1} flexWrap="wrap">
+        <HStack gap={1} flexWrap="wrap">
           {(value as string[]).map((v) => (
-            <Badge key={v} colorScheme="brand">
+            <Badge key={v} colorPalette="brand">
               {v}
             </Badge>
           ))}
@@ -42,7 +42,12 @@ export function FieldValue({ field, value }: FieldValueProps) {
       );
 
     case "checkbox":
-      return <Checkbox isChecked={!!value} isReadOnly />;
+      return (
+        <Checkbox.Root checked={!!value} readOnly>
+          <Checkbox.HiddenInput />
+          <Checkbox.Control />
+        </Checkbox.Root>
+      );
 
     case "link": {
       const href =
@@ -50,7 +55,12 @@ export function FieldValue({ field, value }: FieldValueProps) {
           ? `mailto:${value}`
           : String(value);
       return (
-        <Link href={href} color="brand.500" isExternal>
+        <Link
+          href={href}
+          color="brand.500"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
           {String(value)}
         </Link>
       );

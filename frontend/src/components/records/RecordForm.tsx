@@ -11,7 +11,8 @@
 
 import { FieldRenderer } from "@/components/fields";
 import { Field, RecordData, RecordItem } from "@/types";
-import { Box, Button, HStack, useToast, VStack } from "@chakra-ui/react";
+import { toaster } from "@/components/ui/toaster";
+import { Box, Button, HStack, VStack } from "@chakra-ui/react";
 import { useEffect, useState } from "react";
 
 /** UTC ISO 文字列を <input type="datetime-local"> 用の local 文字列に変換 */
@@ -49,7 +50,6 @@ export function RecordForm({
 }: RecordFormProps) {
   const [data, setData] = useState<RecordData>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const toast = useToast();
 
   useEffect(() => {
     if (record) {
@@ -125,9 +125,9 @@ export function RecordForm({
     e.preventDefault();
 
     if (!validate()) {
-      toast({
+      toaster.create({
         title: "入力エラーがあります",
-        status: "error",
+        type: "error",
         duration: 3000,
       });
       return;
@@ -146,7 +146,7 @@ export function RecordForm({
 
   return (
     <Box as="form" onSubmit={handleSubmit}>
-      <VStack spacing={4} align="stretch">
+      <VStack gap={4} align="stretch">
         {fields.map((field) => (
           <FieldRenderer
             key={field.id}
@@ -157,14 +157,14 @@ export function RecordForm({
           />
         ))}
 
-        <HStack justify="flex-end" spacing={4} pt={4}>
+        <HStack justify="flex-end" gap={4} pt={4}>
           <Button variant="outline" onClick={onCancel}>
             キャンセル
           </Button>
           <Button
             type="submit"
-            colorScheme="brand"
-            isLoading={isSubmitting}
+            colorPalette="brand"
+            loading={isSubmitting}
             loadingText="保存中..."
           >
             {record ? "更新" : "作成"}

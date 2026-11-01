@@ -1,5 +1,5 @@
 import { RegisterForm } from "@/components/auth";
-import { Box, Card, CardBody, Heading, VStack } from "@chakra-ui/react";
+import { Box, Card, Heading, VStack } from "@chakra-ui/react";
 
 export function RegisterPage() {
   return (
@@ -11,17 +11,17 @@ export function RegisterPage() {
       bg="gray.50"
       p={4}
     >
-      <Card maxW="400px" w="100%">
-        <CardBody>
-          <VStack spacing={6}>
+      <Card.Root maxW="400px" w="100%">
+        <Card.Body>
+          <VStack gap={6}>
             <Heading size="lg" color="brand.500">
               Nocode App
             </Heading>
             <Heading size="md">新規登録</Heading>
             <RegisterForm />
           </VStack>
-        </CardBody>
-      </Card>
+        </Card.Body>
+      </Card.Root>
     </Box>
   );
 }

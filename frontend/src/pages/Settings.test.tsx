@@ -5,7 +5,7 @@
 import { ApiClientContext } from "@/api/ApiClientContext";
 import type { IApiClient } from "@/api/interfaces";
 import { useAuthStore } from "@/stores";
-import { theme } from "@/theme";
+import { system } from "@/theme";
 import { ChakraProvider } from "@chakra-ui/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
@@ -28,7 +28,7 @@ const createWrapper = (apiClient: IApiClient) => {
   return function Wrapper({ children }: { children: React.ReactNode }) {
     return (
       <QueryClientProvider client={queryClient}>
-        <ChakraProvider theme={theme}>
+        <ChakraProvider value={system}>
           <ApiClientContext.Provider value={apiClient}>
             <BrowserRouter>{children}</BrowserRouter>
           </ApiClientContext.Provider>

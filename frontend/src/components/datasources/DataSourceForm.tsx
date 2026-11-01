@@ -12,24 +12,17 @@ import {
 } from "@/types/datasource";
 import {
   Alert,
-  AlertIcon,
   Button,
-  FormControl,
-  FormErrorMessage,
-  FormLabel,
+  CloseButton,
+  Dialog,
+  Field,
   HStack,
   Input,
-  Modal,
-  ModalBody,
-  ModalCloseButton,
-  ModalContent,
-  ModalFooter,
-  ModalHeader,
-  ModalOverlay,
-  Select,
-  useToast,
+  NativeSelect,
+  Portal,
   VStack,
 } from "@chakra-ui/react";
+import { toaster } from "@/components/ui/toaster";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
@@ -46,7 +39,6 @@ export function DataSourceForm({
   onClose,
   dataSource,
 }: DataSourceFormProps) {
-  const toast = useToast();
   const queryClient = useQueryClient();
   const dataSourcesApi = useDataSourcesApi();
   const isEdit = !!dataSource;
@@ -125,18 +117,18 @@ export function DataSourceForm({
     mutationFn: () => dataSourcesApi.createDataSource(formData),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["dataSources"] });
-      toast({
+      toaster.create({
         title: "データソースを作成しました",
-        status: "success",
+        type: "success",
         duration: 3000,
       });
       onClose();
     },
     onError: (error: Error) => {
-      toast({
+      toaster.create({
         title: "作成に失敗しました",
         description: error.message,
-        status: "error",
+        type: "error",
         duration: 5000,
       });
     },
@@ -160,18 +152,18 @@ export function DataSourceForm({
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["dataSources"] });
-      toast({
+      toaster.create({
         title: "データソースを更新しました",
-        status: "success",
+        type: "success",
         duration: 3000,
       });
       onClose();
     },
     onError: (error: Error) => {
-      toast({
+      toaster.create({
         title: "更新に失敗しました",
         description: error.message,
-        status: "error",
+        type: "error",
         duration: 5000,
       });
     },
@@ -224,147 +216,172 @@ export function DataSourceForm({
     testMutation.isPending;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="lg">
-      <ModalOverlay />
-      <ModalContent>
-        <ModalHeader>
-          {isEdit ? "データソース編集" : "データソース作成"}
-        </ModalHeader>
-        <ModalCloseButton />
-        <ModalBody>
-          <VStack spacing={4}>
-            <FormControl isInvalid={!!errors.name}>
-              <FormLabel>名前</FormLabel>
-              <Input
-                value={formData.name}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, name: e.target.value }))
-                }
-                placeholder="本番DB、開発DBなど"
-              />
-              <FormErrorMessage>{errors.name}</FormErrorMessage>
-            </FormControl>
+    <Dialog.Root
+      open={isOpen}
+      onOpenChange={(e) => !e.open && onClose()}
+      size="lg"
+    >
+      <Portal>
+        <Dialog.Backdrop />
+        <Dialog.Positioner>
+          <Dialog.Content>
+            <Dialog.Header>
+              <Dialog.Title>
+                {isEdit ? "データソース編集" : "データソース作成"}
+              </Dialog.Title>
+            </Dialog.Header>
+            <Dialog.CloseTrigger asChild>
+              <CloseButton size="sm" />
+            </Dialog.CloseTrigger>
+            <Dialog.Body>
+              <VStack gap={4} align="stretch">
+                <Field.Root invalid={!!errors.name}>
+                  <Field.Label>名前</Field.Label>
+                  <Input
+                    value={formData.name}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, name: e.target.value }))
+                    }
+                    placeholder="本番DB、開発DBなど"
+                  />
+                  <Field.ErrorText>{errors.name}</Field.ErrorText>
+                </Field.Root>
 
-            <FormControl>
-              <FormLabel>データベース種類</FormLabel>
-              <Select
-                value={formData.db_type}
-                onChange={(e) => handleDBTypeChange(e.target.value as DBType)}
-                isDisabled={isEdit}
-              >
-                {DB_TYPES.map((type) => (
-                  <option key={type} value={type}>
-                    {DB_TYPE_LABELS[type]}
-                  </option>
-                ))}
-              </Select>
-            </FormControl>
+                <Field.Root>
+                  <Field.Label>データベース種類</Field.Label>
+                  <NativeSelect.Root disabled={isEdit}>
+                    <NativeSelect.Field
+                      value={formData.db_type}
+                      onChange={(e) =>
+                        handleDBTypeChange(e.target.value as DBType)
+                      }
+                    >
+                      {DB_TYPES.map((type) => (
+                        <option key={type} value={type}>
+                          {DB_TYPE_LABELS[type]}
+                        </option>
+                      ))}
+                    </NativeSelect.Field>
+                    <NativeSelect.Indicator />
+                  </NativeSelect.Root>
+                </Field.Root>
 
-            <HStack width="100%">
-              <FormControl isInvalid={!!errors.host} flex={3}>
-                <FormLabel>ホスト</FormLabel>
-                <Input
-                  value={formData.host}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, host: e.target.value }))
-                  }
-                  placeholder="localhost または IPアドレス"
-                />
-                <FormErrorMessage>{errors.host}</FormErrorMessage>
-              </FormControl>
+                <HStack width="100%">
+                  <Field.Root invalid={!!errors.host} flex={3}>
+                    <Field.Label>ホスト</Field.Label>
+                    <Input
+                      value={formData.host}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          host: e.target.value,
+                        }))
+                      }
+                      placeholder="localhost または IPアドレス"
+                    />
+                    <Field.ErrorText>{errors.host}</Field.ErrorText>
+                  </Field.Root>
 
-              <FormControl isInvalid={!!errors.port} flex={1}>
-                <FormLabel>ポート</FormLabel>
-                <Input
-                  type="number"
-                  value={formData.port}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      port: parseInt(e.target.value) || 0,
-                    }))
-                  }
-                />
-                <FormErrorMessage>{errors.port}</FormErrorMessage>
-              </FormControl>
-            </HStack>
+                  <Field.Root invalid={!!errors.port} flex={1}>
+                    <Field.Label>ポート</Field.Label>
+                    <Input
+                      type="number"
+                      value={formData.port}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          port: parseInt(e.target.value) || 0,
+                        }))
+                      }
+                    />
+                    <Field.ErrorText>{errors.port}</Field.ErrorText>
+                  </Field.Root>
+                </HStack>
 
-            <FormControl isInvalid={!!errors.database_name}>
-              <FormLabel>データベース名</FormLabel>
-              <Input
-                value={formData.database_name}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    database_name: e.target.value,
-                  }))
-                }
-                placeholder="データベース名"
-              />
-              <FormErrorMessage>{errors.database_name}</FormErrorMessage>
-            </FormControl>
+                <Field.Root invalid={!!errors.database_name}>
+                  <Field.Label>データベース名</Field.Label>
+                  <Input
+                    value={formData.database_name}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        database_name: e.target.value,
+                      }))
+                    }
+                    placeholder="データベース名"
+                  />
+                  <Field.ErrorText>{errors.database_name}</Field.ErrorText>
+                </Field.Root>
 
-            <FormControl isInvalid={!!errors.username}>
-              <FormLabel>ユーザー名</FormLabel>
-              <Input
-                value={formData.username}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, username: e.target.value }))
-                }
-                placeholder="データベースユーザー名"
-              />
-              <FormErrorMessage>{errors.username}</FormErrorMessage>
-            </FormControl>
+                <Field.Root invalid={!!errors.username}>
+                  <Field.Label>ユーザー名</Field.Label>
+                  <Input
+                    value={formData.username}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        username: e.target.value,
+                      }))
+                    }
+                    placeholder="データベースユーザー名"
+                  />
+                  <Field.ErrorText>{errors.username}</Field.ErrorText>
+                </Field.Root>
 
-            <FormControl isInvalid={!!errors.password}>
-              <FormLabel>
-                パスワード{isEdit && "（変更する場合のみ入力）"}
-              </FormLabel>
-              <Input
-                type="password"
-                value={formData.password}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, password: e.target.value }))
-                }
-                placeholder="パスワード"
-              />
-              <FormErrorMessage>{errors.password}</FormErrorMessage>
-            </FormControl>
+                <Field.Root invalid={!!errors.password}>
+                  <Field.Label>
+                    パスワード{isEdit && "（変更する場合のみ入力）"}
+                  </Field.Label>
+                  <Input
+                    type="password"
+                    value={formData.password}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        password: e.target.value,
+                      }))
+                    }
+                    placeholder="パスワード"
+                  />
+                  <Field.ErrorText>{errors.password}</Field.ErrorText>
+                </Field.Root>
 
-            {testResult && (
-              <Alert
-                status={testResult.success ? "success" : "error"}
-                borderRadius="md"
-              >
-                <AlertIcon />
-                {testResult.message}
-              </Alert>
-            )}
-          </VStack>
-        </ModalBody>
+                {testResult && (
+                  <Alert.Root
+                    status={testResult.success ? "success" : "error"}
+                    borderRadius="md"
+                  >
+                    <Alert.Indicator />
+                    <Alert.Title>{testResult.message}</Alert.Title>
+                  </Alert.Root>
+                )}
+              </VStack>
+            </Dialog.Body>
 
-        <ModalFooter>
-          <HStack spacing={3}>
-            <Button variant="ghost" onClick={onClose} isDisabled={isLoading}>
-              キャンセル
-            </Button>
-            <Button
-              variant="outline"
-              onClick={handleTestConnection}
-              isLoading={testMutation.isPending}
-            >
-              テスト接続
-            </Button>
-            <Button
-              colorScheme="blue"
-              onClick={handleSubmit}
-              isLoading={createMutation.isPending || updateMutation.isPending}
-            >
-              {isEdit ? "更新" : "作成"}
-            </Button>
-          </HStack>
-        </ModalFooter>
-      </ModalContent>
-    </Modal>
+            <Dialog.Footer>
+              <HStack gap={3}>
+                <Button variant="ghost" onClick={onClose} disabled={isLoading}>
+                  キャンセル
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleTestConnection}
+                  loading={testMutation.isPending}
+                >
+                  テスト接続
+                </Button>
+                <Button
+                  colorPalette="blue"
+                  onClick={handleSubmit}
+                  loading={createMutation.isPending || updateMutation.isPending}
+                >
+                  {isEdit ? "更新" : "作成"}
+                </Button>
+              </HStack>
+            </Dialog.Footer>
+          </Dialog.Content>
+        </Dialog.Positioner>
+      </Portal>
+    </Dialog.Root>
   );
 }

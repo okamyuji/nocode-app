@@ -5,38 +5,27 @@
 import { useDataSourcesApi } from "@/api";
 import { DB_TYPE_LABELS, type DataSource } from "@/types/datasource";
 import {
-  AlertDialog,
-  AlertDialogBody,
-  AlertDialogContent,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogOverlay,
   Badge,
   Box,
   Button,
   Card,
-  CardBody,
+  Dialog,
   Flex,
   Heading,
   HStack,
   IconButton,
+  Portal,
   Table,
-  Tbody,
-  Td,
   Text,
-  Th,
-  Thead,
-  Tr,
   useDisclosure,
-  useToast,
 } from "@chakra-ui/react";
+import { toaster } from "@/components/ui/toaster";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { FiDatabase, FiEdit2, FiPlus, FiTrash2 } from "react-icons/fi";
 import { DataSourceForm } from "./DataSourceForm";
 
 export function DataSourceList() {
-  const toast = useToast();
   const queryClient = useQueryClient();
   const dataSourcesApi = useDataSourcesApi();
   const cancelRef = useRef<HTMLButtonElement>(null);
@@ -45,12 +34,12 @@ export function DataSourceList() {
   const [deleteTarget, setDeleteTarget] = useState<DataSource | null>(null);
 
   const {
-    isOpen: isFormOpen,
+    open: isFormOpen,
     onOpen: onFormOpen,
     onClose: onFormClose,
   } = useDisclosure();
   const {
-    isOpen: isDeleteOpen,
+    open: isDeleteOpen,
     onOpen: onDeleteOpen,
     onClose: onDeleteClose,
   } = useDisclosure();
@@ -64,17 +53,17 @@ export function DataSourceList() {
     mutationFn: (id: number) => dataSourcesApi.deleteDataSource(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["dataSources"] });
-      toast({
+      toaster.create({
         title: "データソースを削除しました",
-        status: "success",
+        type: "success",
         duration: 3000,
       });
       onDeleteClose();
     },
     onError: () => {
-      toast({
+      toaster.create({
         title: "削除に失敗しました",
-        status: "error",
+        type: "error",
         duration: 3000,
       });
     },
@@ -109,7 +98,8 @@ export function DataSourceList() {
           <FiDatabase size={24} />
           <Heading size="md">データソース管理</Heading>
         </HStack>
-        <Button leftIcon={<FiPlus />} colorScheme="blue" onClick={handleCreate}>
+        <Button colorPalette="blue" onClick={handleCreate}>
+          <FiPlus />
           新規データソース
         </Button>
       </Flex>
@@ -117,68 +107,70 @@ export function DataSourceList() {
       {isLoading ? (
         <Text>読み込み中...</Text>
       ) : dataSources.length === 0 ? (
-        <Card>
-          <CardBody textAlign="center" py={10}>
+        <Card.Root>
+          <Card.Body textAlign="center" py={10}>
             <FiDatabase size={48} style={{ margin: "0 auto", opacity: 0.3 }} />
             <Text mt={4} color="gray.500">
               データソースがありません
             </Text>
-            <Button mt={4} colorScheme="blue" onClick={handleCreate}>
+            <Button mt={4} colorPalette="blue" onClick={handleCreate}>
               データソースを追加
             </Button>
-          </CardBody>
-        </Card>
+          </Card.Body>
+        </Card.Root>
       ) : (
-        <Card>
-          <CardBody p={0}>
-            <Table variant="simple">
-              <Thead>
-                <Tr>
-                  <Th>名前</Th>
-                  <Th>データベース種類</Th>
-                  <Th>ホスト</Th>
-                  <Th>データベース名</Th>
-                  <Th width="100px">操作</Th>
-                </Tr>
-              </Thead>
-              <Tbody>
+        <Card.Root>
+          <Card.Body p={0}>
+            <Table.Root variant="line">
+              <Table.Header>
+                <Table.Row>
+                  <Table.ColumnHeader>名前</Table.ColumnHeader>
+                  <Table.ColumnHeader>データベース種類</Table.ColumnHeader>
+                  <Table.ColumnHeader>ホスト</Table.ColumnHeader>
+                  <Table.ColumnHeader>データベース名</Table.ColumnHeader>
+                  <Table.ColumnHeader width="100px">操作</Table.ColumnHeader>
+                </Table.Row>
+              </Table.Header>
+              <Table.Body>
                 {dataSources.map((ds) => (
-                  <Tr key={ds.id}>
-                    <Td fontWeight="medium">{ds.name}</Td>
-                    <Td>
-                      <Badge colorScheme={getDBTypeBadgeColor(ds.db_type)}>
+                  <Table.Row key={ds.id}>
+                    <Table.Cell fontWeight="medium">{ds.name}</Table.Cell>
+                    <Table.Cell>
+                      <Badge colorPalette={getDBTypeBadgeColor(ds.db_type)}>
                         {DB_TYPE_LABELS[ds.db_type]}
                       </Badge>
-                    </Td>
-                    <Td>
+                    </Table.Cell>
+                    <Table.Cell>
                       {ds.host}:{ds.port}
-                    </Td>
-                    <Td>{ds.database_name}</Td>
-                    <Td>
-                      <HStack spacing={1}>
+                    </Table.Cell>
+                    <Table.Cell>{ds.database_name}</Table.Cell>
+                    <Table.Cell>
+                      <HStack gap={1}>
                         <IconButton
                           aria-label="編集"
-                          icon={<FiEdit2 />}
                           size="sm"
                           variant="ghost"
                           onClick={() => handleEdit(ds)}
-                        />
+                        >
+                          <FiEdit2 />
+                        </IconButton>
                         <IconButton
                           aria-label="削除"
-                          icon={<FiTrash2 />}
                           size="sm"
                           variant="ghost"
-                          colorScheme="red"
+                          colorPalette="red"
                           onClick={() => handleDelete(ds)}
-                        />
+                        >
+                          <FiTrash2 />
+                        </IconButton>
                       </HStack>
-                    </Td>
-                  </Tr>
+                    </Table.Cell>
+                  </Table.Row>
                 ))}
-              </Tbody>
-            </Table>
-          </CardBody>
-        </Card>
+              </Table.Body>
+            </Table.Root>
+          </Card.Body>
+        </Card.Root>
       )}
 
       {/* フォームモーダル */}
@@ -189,38 +181,42 @@ export function DataSourceList() {
       />
 
       {/* 削除確認ダイアログ */}
-      <AlertDialog
-        isOpen={isDeleteOpen}
-        leastDestructiveRef={cancelRef}
-        onClose={onDeleteClose}
+      <Dialog.Root
+        role="alertdialog"
+        open={isDeleteOpen}
+        onOpenChange={(e) => !e.open && onDeleteClose()}
+        initialFocusEl={() => cancelRef.current}
       >
-        <AlertDialogOverlay>
-          <AlertDialogContent>
-            <AlertDialogHeader fontSize="lg" fontWeight="bold">
-              データソースの削除
-            </AlertDialogHeader>
-            <AlertDialogBody>
-              「{deleteTarget?.name}
-              」を削除しますか？このデータソースを使用しているアプリにも影響があります。
-            </AlertDialogBody>
-            <AlertDialogFooter>
-              <Button ref={cancelRef} onClick={onDeleteClose}>
-                キャンセル
-              </Button>
-              <Button
-                colorScheme="red"
-                onClick={() =>
-                  deleteTarget && deleteMutation.mutate(deleteTarget.id)
-                }
-                ml={3}
-                isLoading={deleteMutation.isPending}
-              >
-                削除
-              </Button>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialogOverlay>
-      </AlertDialog>
+        <Portal>
+          <Dialog.Backdrop />
+          <Dialog.Positioner>
+            <Dialog.Content>
+              <Dialog.Header fontSize="lg" fontWeight="bold">
+                <Dialog.Title>データソースの削除</Dialog.Title>
+              </Dialog.Header>
+              <Dialog.Body>
+                「{deleteTarget?.name}
+                」を削除しますか？このデータソースを使用しているアプリにも影響があります。
+              </Dialog.Body>
+              <Dialog.Footer>
+                <Button ref={cancelRef} onClick={onDeleteClose}>
+                  キャンセル
+                </Button>
+                <Button
+                  colorPalette="red"
+                  onClick={() =>
+                    deleteTarget && deleteMutation.mutate(deleteTarget.id)
+                  }
+                  ml={3}
+                  loading={deleteMutation.isPending}
+                >
+                  削除
+                </Button>
+              </Dialog.Footer>
+            </Dialog.Content>
+          </Dialog.Positioner>
+        </Portal>
+      </Dialog.Root>
     </Box>
   );
 }

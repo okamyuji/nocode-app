@@ -2,30 +2,21 @@ import { useAuth, useDeleteApp } from "@/hooks";
 import { App } from "@/types";
 import { getAppIcon } from "@/utils";
 import {
-  AlertDialog,
-  AlertDialogBody,
-  AlertDialogContent,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogOverlay,
   Badge,
   Button,
   Card,
-  CardBody,
+  Dialog,
   Heading,
   HStack,
   Icon,
   IconButton,
   Menu,
-  MenuButton,
-  MenuItem,
-  MenuList,
   Portal,
   Text,
   useDisclosure,
-  useToast,
   VStack,
 } from "@chakra-ui/react";
+import { toaster } from "@/components/ui/toaster";
 import { useRef } from "react";
 import { FiEdit2, FiMoreVertical, FiSettings, FiTrash2 } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
@@ -37,135 +28,146 @@ interface AppCardProps {
 export function AppCard({ app }: AppCardProps) {
   const navigate = useNavigate();
   const { isAdmin } = useAuth();
-  const { isOpen, onOpen, onClose } = useDisclosure();
+  const { open: isOpen, onOpen, onClose } = useDisclosure();
   const cancelRef = useRef<HTMLButtonElement>(null);
   const deleteApp = useDeleteApp();
-  const toast = useToast();
 
   const handleDelete = async () => {
     try {
       await deleteApp.mutateAsync(app.id);
-      toast({
+      toaster.create({
         title: "アプリを削除しました",
-        status: "success",
+        type: "success",
         duration: 3000,
-        isClosable: true,
+        closable: true,
       });
       onClose();
     } catch {
-      toast({
+      toaster.create({
         title: "削除に失敗しました",
-        status: "error",
+        type: "error",
         duration: 5000,
-        isClosable: true,
+        closable: true,
       });
     }
   };
 
   return (
     <>
-      <Card
+      <Card.Root
         cursor="pointer"
         _hover={{ shadow: "md", transform: "translateY(-2px)" }}
         transition="all 0.2s"
         onClick={() => navigate(`/apps/${app.id}/records`)}
       >
-        <CardBody>
+        <Card.Body>
           <HStack justify="space-between" align="start">
-            <HStack spacing={4}>
+            <HStack gap={4}>
               <Icon as={getAppIcon(app.icon)} boxSize={10} color="brand.500" />
-              <VStack align="start" spacing={1}>
+              <VStack align="start" gap={1}>
                 <HStack>
                   <Heading size="md">{app.name}</Heading>
                   {app.is_external && (
-                    <Badge colorScheme="purple" fontSize="xs">
+                    <Badge colorPalette="purple" fontSize="xs">
                       外部
                     </Badge>
                   )}
                 </HStack>
-                <Text fontSize="sm" color="gray.500" noOfLines={2}>
+                <Text fontSize="sm" color="gray.500" lineClamp={2}>
                   {app.description || "説明なし"}
                 </Text>
               </VStack>
             </HStack>
 
-            <Menu>
-              <MenuButton
-                as={IconButton}
-                icon={<FiMoreVertical />}
-                variant="ghost"
-                size="sm"
-                onClick={(e) => e.stopPropagation()}
-              />
-              <Portal>
-                <MenuList
+            <Menu.Root lazyMount>
+              <Menu.Trigger asChild>
+                <IconButton
+                  aria-label="メニュー"
+                  variant="ghost"
+                  size="sm"
                   onClick={(e) => e.stopPropagation()}
-                  zIndex="dropdown"
                 >
-                  <MenuItem
-                    icon={<FiEdit2 />}
-                    onClick={() => navigate(`/apps/${app.id}/records`)}
+                  <FiMoreVertical />
+                </IconButton>
+              </Menu.Trigger>
+              <Portal>
+                <Menu.Positioner>
+                  <Menu.Content
+                    onClick={(e) => e.stopPropagation()}
+                    zIndex="dropdown"
                   >
-                    レコード管理
-                  </MenuItem>
-                  {isAdmin && (
-                    <>
-                      <MenuItem
-                        icon={<FiSettings />}
-                        onClick={() =>
-                          navigate(`/settings?tab=apps&appId=${app.id}`)
-                        }
-                      >
-                        アプリ設定
-                      </MenuItem>
-                      <MenuItem
-                        icon={<FiTrash2 />}
-                        color="red.500"
-                        onClick={onOpen}
-                      >
-                        削除
-                      </MenuItem>
-                    </>
-                  )}
-                </MenuList>
+                    <Menu.Item
+                      value="records"
+                      onClick={() => navigate(`/apps/${app.id}/records`)}
+                    >
+                      <FiEdit2 />
+                      レコード管理
+                    </Menu.Item>
+                    {isAdmin && (
+                      <>
+                        <Menu.Item
+                          value="settings"
+                          onClick={() =>
+                            navigate(`/settings?tab=apps&appId=${app.id}`)
+                          }
+                        >
+                          <FiSettings />
+                          アプリ設定
+                        </Menu.Item>
+                        <Menu.Item
+                          value="delete"
+                          color="red.500"
+                          onClick={onOpen}
+                        >
+                          <FiTrash2 />
+                          削除
+                        </Menu.Item>
+                      </>
+                    )}
+                  </Menu.Content>
+                </Menu.Positioner>
               </Portal>
-            </Menu>
+            </Menu.Root>
           </HStack>
-        </CardBody>
-      </Card>
+        </Card.Body>
+      </Card.Root>
 
-      <AlertDialog
-        isOpen={isOpen}
-        leastDestructiveRef={cancelRef}
-        onClose={onClose}
+      <Dialog.Root
+        role="alertdialog"
+        open={isOpen}
+        onOpenChange={(e) => !e.open && onClose()}
+        initialFocusEl={() => cancelRef.current}
       >
-        <AlertDialogOverlay>
-          <AlertDialogContent>
-            <AlertDialogHeader fontSize="lg" fontWeight="bold">
-              アプリの削除
-            </AlertDialogHeader>
+        <Portal>
+          <Dialog.Backdrop />
+          <Dialog.Positioner>
+            <Dialog.Content>
+              <Dialog.Header fontSize="lg" fontWeight="bold">
+                <Dialog.Title>アプリの削除</Dialog.Title>
+              </Dialog.Header>
 
-            <AlertDialogBody>
-              「{app.name}」を削除しますか？
-              この操作は取り消せません。アプリ内のすべてのデータも削除されます。
-            </AlertDialogBody>
+              <Dialog.Body>
+                「{app.name}」を削除しますか？
+                この操作は取り消せません。アプリ内のすべてのデータも削除されます。
+              </Dialog.Body>
 
-            <AlertDialogFooter>
-              <Button ref={cancelRef} onClick={onClose}>
-                キャンセル
-              </Button>
-              <Button
-                colorScheme="red"
-                onClick={handleDelete}
-                ml={3}
-                isLoading={deleteApp.isPending}
-              >
-                削除
-              </Button>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialogOverlay>
-      </AlertDialog>
+              <Dialog.Footer>
+                <Button ref={cancelRef} onClick={onClose}>
+                  キャンセル
+                </Button>
+                <Button
+                  colorPalette="red"
+                  onClick={handleDelete}
+                  ml={3}
+                  loading={deleteApp.isPending}
+                >
+                  削除
+                </Button>
+              </Dialog.Footer>
+            </Dialog.Content>
+          </Dialog.Positioner>
+        </Portal>
+      </Dialog.Root>
     </>
   );
 }

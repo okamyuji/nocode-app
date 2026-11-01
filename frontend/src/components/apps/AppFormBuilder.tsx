@@ -11,11 +11,7 @@ import {
   Box,
   Button,
   Card,
-  CardBody,
-  CardHeader,
-  FormControl,
-  FormErrorMessage,
-  FormLabel,
+  Field,
   Grid,
   GridItem,
   Heading,
@@ -23,9 +19,9 @@ import {
   Input,
   Text,
   Textarea,
-  useToast,
   VStack,
 } from "@chakra-ui/react";
+import { toaster } from "@/components/ui/toaster";
 import {
   closestCenter,
   DndContext,
@@ -65,7 +61,6 @@ export function AppFormBuilder() {
 
   const navigate = useNavigate();
   const createApp = useCreateApp();
-  const toast = useToast();
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -216,12 +211,12 @@ export function AppFormBuilder() {
 
     const errors = validateForm();
     if (errors.length > 0) {
-      toast({
+      toaster.create({
         title: "入力エラー",
         description: errors[0],
-        status: "error",
+        type: "error",
         duration: 5000,
-        isClosable: true,
+        closable: true,
       });
       return;
     }
@@ -236,20 +231,20 @@ export function AppFormBuilder() {
         })),
       });
 
-      toast({
+      toaster.create({
         title: "アプリを作成しました",
-        status: "success",
+        type: "success",
         duration: 3000,
       });
 
       navigate(`/apps/${app.id}/records`);
     } catch {
-      toast({
+      toaster.create({
         title: "アプリの作成に失敗しました",
         description: "入力内容を確認してもう一度お試しください",
-        status: "error",
+        type: "error",
         duration: 5000,
-        isClosable: true,
+        closable: true,
       });
     }
   };
@@ -276,15 +271,18 @@ export function AppFormBuilder() {
 
           {/* Main Content */}
           <GridItem>
-            <VStack spacing={6} align="stretch">
-              <Card>
-                <CardHeader>
+            <VStack gap={6} align="stretch">
+              <Card.Root>
+                <Card.Header>
                   <Heading size="md">基本情報</Heading>
-                </CardHeader>
-                <CardBody>
-                  <VStack spacing={4}>
-                    <FormControl isRequired isInvalid={!!nameError}>
-                      <FormLabel>アプリ名</FormLabel>
+                </Card.Header>
+                <Card.Body>
+                  <VStack gap={4} align="stretch">
+                    <Field.Root required invalid={!!nameError}>
+                      <Field.Label>
+                        アプリ名
+                        <Field.RequiredIndicator />
+                      </Field.Label>
                       <Input
                         value={name}
                         onChange={(e) => setName(e.target.value)}
@@ -295,28 +293,28 @@ export function AppFormBuilder() {
                         borderColor={nameError ? "red.300" : undefined}
                       />
                       {nameError && (
-                        <FormErrorMessage>{nameError}</FormErrorMessage>
+                        <Field.ErrorText>{nameError}</Field.ErrorText>
                       )}
-                    </FormControl>
+                    </Field.Root>
 
-                    <FormControl>
-                      <FormLabel>説明</FormLabel>
+                    <Field.Root>
+                      <Field.Label>説明</Field.Label>
                       <Textarea
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
                         placeholder="アプリの説明を入力"
                         rows={3}
                       />
-                    </FormControl>
+                    </Field.Root>
                   </VStack>
-                </CardBody>
-              </Card>
+                </Card.Body>
+              </Card.Root>
 
-              <Card>
-                <CardHeader>
+              <Card.Root>
+                <Card.Header>
                   <Heading size="md">フィールド設定</Heading>
-                </CardHeader>
-                <CardBody>
+                </Card.Header>
+                <Card.Body>
                   {fields.length === 0 ? (
                     <Box
                       p={8}
@@ -341,7 +339,7 @@ export function AppFormBuilder() {
                       items={fields.map((f) => f.tempId)}
                       strategy={verticalListSortingStrategy}
                     >
-                      <VStack spacing={4} align="stretch">
+                      <VStack gap={4} align="stretch">
                         {fields.map((field, index) => (
                           <FieldEditor
                             key={field.tempId}
@@ -356,19 +354,19 @@ export function AppFormBuilder() {
                       </VStack>
                     </SortableContext>
                   )}
-                </CardBody>
-              </Card>
+                </Card.Body>
+              </Card.Root>
 
-              <HStack justify="flex-end" spacing={4}>
+              <HStack justify="flex-end" gap={4}>
                 <Button variant="outline" onClick={() => navigate("/apps")}>
                   キャンセル
                 </Button>
                 <Button
                   type="submit"
-                  colorScheme="brand"
-                  isLoading={createApp.isPending}
+                  colorPalette="brand"
+                  loading={createApp.isPending}
                   loadingText="作成中..."
-                  isDisabled={fields.length === 0}
+                  disabled={fields.length === 0}
                 >
                   アプリを作成
                 </Button>

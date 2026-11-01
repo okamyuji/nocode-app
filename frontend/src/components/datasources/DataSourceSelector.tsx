@@ -12,16 +12,13 @@ import {
 } from "@/types/datasource";
 import {
   Alert,
-  AlertIcon,
   Badge,
   Box,
   Button,
   Card,
-  CardBody,
-  FormControl,
-  FormLabel,
+  Field,
   HStack,
-  Select,
+  NativeSelect,
   Skeleton,
   Text,
   VStack,
@@ -107,40 +104,45 @@ export function DataSourceSelector({
 
   if (dataSources.length === 0) {
     return (
-      <Alert status="warning" borderRadius="md">
-        <AlertIcon />
-        データソースが登録されていません。設定画面からデータソースを追加してください。
-      </Alert>
+      <Alert.Root status="warning" borderRadius="md">
+        <Alert.Indicator />
+        <Alert.Title>
+          データソースが登録されていません。設定画面からデータソースを追加してください。
+        </Alert.Title>
+      </Alert.Root>
     );
   }
 
   return (
-    <VStack spacing={4} align="stretch">
+    <VStack gap={4} align="stretch">
       {/* データソース選択 */}
-      <FormControl>
-        <FormLabel>データソース</FormLabel>
-        <Select
-          placeholder="データソースを選択"
-          value={dataSourceId || ""}
-          onChange={(e) => setDataSourceId(Number(e.target.value) || null)}
-        >
-          {dataSources.map((ds) => (
-            <option key={ds.id} value={ds.id}>
-              {ds.name} ({DB_TYPE_LABELS[ds.db_type]})
-            </option>
-          ))}
-        </Select>
-      </FormControl>
+      <Field.Root>
+        <Field.Label>データソース</Field.Label>
+        <NativeSelect.Root>
+          <NativeSelect.Field
+            placeholder="データソースを選択"
+            value={dataSourceId || ""}
+            onChange={(e) => setDataSourceId(Number(e.target.value) || null)}
+          >
+            {dataSources.map((ds) => (
+              <option key={ds.id} value={ds.id}>
+                {ds.name} ({DB_TYPE_LABELS[ds.db_type]})
+              </option>
+            ))}
+          </NativeSelect.Field>
+          <NativeSelect.Indicator />
+        </NativeSelect.Root>
+      </Field.Root>
 
       {/* 選択されたデータソースの情報 */}
       {selectedDataSource && (
-        <Card variant="outline">
-          <CardBody>
+        <Card.Root variant="outline">
+          <Card.Body>
             <HStack justify="space-between">
               <HStack>
                 <FiDatabase />
                 <Text fontWeight="medium">{selectedDataSource.name}</Text>
-                <Badge colorScheme="blue">
+                <Badge colorPalette="blue">
                   {DB_TYPE_LABELS[selectedDataSource.db_type]}
                 </Badge>
               </HStack>
@@ -149,42 +151,47 @@ export function DataSourceSelector({
                 {selectedDataSource.database_name}
               </Text>
             </HStack>
-          </CardBody>
-        </Card>
+          </Card.Body>
+        </Card.Root>
       )}
 
       {/* テーブル/ビュー選択 */}
       {dataSourceId && (
-        <FormControl>
+        <Field.Root>
           <HStack justify="space-between" mb={2}>
-            <FormLabel mb={0}>テーブル / ビュー</FormLabel>
+            <Field.Label mb={0}>テーブル / ビュー</Field.Label>
             <Button
               size="xs"
               variant="ghost"
-              leftIcon={<FiRefreshCw />}
               onClick={() => refetchTables()}
-              isLoading={isLoadingTables}
+              loading={isLoadingTables}
             >
+              <FiRefreshCw />
               更新
             </Button>
           </HStack>
           {isLoadingTables ? (
             <Skeleton height="40px" />
           ) : (
-            <Select
-              placeholder="テーブル/ビューを選択"
-              value={tableName || ""}
-              onChange={(e) => setTableName(e.target.value || null)}
-            >
-              {tables.map((table) => (
-                <option key={table.name} value={table.name}>
-                  [{table.type}]{" "}
-                  {table.schema ? `${table.schema}.${table.name}` : table.name}
-                </option>
-              ))}
-            </Select>
+            <NativeSelect.Root>
+              <NativeSelect.Field
+                placeholder="テーブル/ビューを選択"
+                value={tableName || ""}
+                onChange={(e) => setTableName(e.target.value || null)}
+              >
+                {tables.map((table) => (
+                  <option key={table.name} value={table.name}>
+                    [{table.type}]{" "}
+                    {table.schema
+                      ? `${table.schema}.${table.name}`
+                      : table.name}
+                  </option>
+                ))}
+              </NativeSelect.Field>
+              <NativeSelect.Indicator />
+            </NativeSelect.Root>
           )}
-        </FormControl>
+        </Field.Root>
       )}
 
       {/* カラムプレビュー */}
@@ -196,9 +203,9 @@ export function DataSourceSelector({
           {isLoadingColumns ? (
             <Skeleton height="100px" />
           ) : columns.length > 0 ? (
-            <Card variant="outline">
-              <CardBody>
-                <VStack align="stretch" spacing={1}>
+            <Card.Root variant="outline">
+              <Card.Body>
+                <VStack align="stretch" gap={1}>
                   {columns.map((col) => (
                     <HStack
                       key={col.name}
@@ -211,12 +218,12 @@ export function DataSourceSelector({
                       <HStack>
                         <Text fontWeight="medium">{col.name}</Text>
                         {col.is_primary_key && (
-                          <Badge colorScheme="yellow" size="sm">
+                          <Badge colorPalette="yellow" size="sm">
                             PK
                           </Badge>
                         )}
                         {!col.is_nullable && (
-                          <Badge colorScheme="red" size="sm">
+                          <Badge colorPalette="red" size="sm">
                             NOT NULL
                           </Badge>
                         )}
@@ -225,24 +232,21 @@ export function DataSourceSelector({
                     </HStack>
                   ))}
                 </VStack>
-              </CardBody>
-            </Card>
+              </Card.Body>
+            </Card.Root>
           ) : (
-            <Alert status="info" borderRadius="md">
-              <AlertIcon />
-              カラム情報を取得できませんでした
-            </Alert>
+            <Alert.Root status="info" borderRadius="md">
+              <Alert.Indicator />
+              <Alert.Title>カラム情報を取得できませんでした</Alert.Title>
+            </Alert.Root>
           )}
         </Box>
       )}
 
       {/* 確定ボタン */}
       {selectedDataSource && selectedTable && columns.length > 0 && (
-        <Button
-          colorScheme="blue"
-          leftIcon={<FiCheck />}
-          onClick={handleConfirm}
-        >
+        <Button colorPalette="blue" onClick={handleConfirm}>
+          <FiCheck />
           このテーブルを使用
         </Button>
       )}

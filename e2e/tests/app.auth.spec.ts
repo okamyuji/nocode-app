@@ -29,7 +29,7 @@ test.describe("アプリ管理（認証済み）", () => {
     await page.goto("/apps");
 
     // 最初のアプリカードをクリック（存在する場合）
-    const appCard = page.locator(".chakra-card").first();
+    const appCard = page.locator(".chakra-card__root").first();
     if (await appCard.isVisible({ timeout: 3000 })) {
       await appCard.click();
 

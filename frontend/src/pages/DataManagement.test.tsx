@@ -2,12 +2,12 @@ import { ApiClientContext } from "@/api/ApiClientContext";
 import type { IApiClient } from "@/api/interfaces";
 import { useAuthStore } from "@/stores";
 import { server } from "@/test/mocks/server";
-import { theme } from "@/theme";
+import { system } from "@/theme";
 import { ChakraProvider } from "@chakra-ui/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { http, HttpResponse } from "msw";
+import { http, HttpResponse } from "msw/http";
 import { BrowserRouter } from "react-router-dom";
 import { vi } from "vitest";
 import { DataManagementPage } from "./DataManagement";
@@ -153,7 +153,7 @@ const createWrapper = () => {
   return function Wrapper({ children }: { children: React.ReactNode }) {
     return (
       <QueryClientProvider client={queryClient}>
-        <ChakraProvider theme={theme}>
+        <ChakraProvider value={system}>
           <ApiClientContext.Provider value={mockApiClient}>
             <BrowserRouter>{children}</BrowserRouter>
           </ApiClientContext.Provider>

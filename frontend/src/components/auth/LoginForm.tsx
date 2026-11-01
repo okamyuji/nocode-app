@@ -2,15 +2,13 @@ import { useAuth } from "@/hooks";
 import {
   Box,
   Button,
-  FormControl,
-  FormErrorMessage,
-  FormLabel,
+  Field,
   Input,
   Link,
   Text,
-  useToast,
   VStack,
 } from "@chakra-ui/react";
+import { toaster } from "@/components/ui/toaster";
 import { useState } from "react";
 import { Link as RouterLink } from "react-router-dom";
 
@@ -22,7 +20,6 @@ export function LoginForm() {
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { login } = useAuth();
-  const toast = useToast();
 
   const validate = () => {
     const newErrors: { email?: string; password?: string } = {};
@@ -45,19 +42,19 @@ export function LoginForm() {
     setIsSubmitting(true);
     try {
       await login(email, password);
-      toast({
+      toaster.create({
         title: "ログイン成功",
-        status: "success",
+        type: "success",
         duration: 3000,
-        isClosable: true,
+        closable: true,
       });
     } catch {
-      toast({
+      toaster.create({
         title: "ログイン失敗",
         description: "メールアドレスまたはパスワードが正しくありません",
-        status: "error",
+        type: "error",
         duration: 5000,
-        isClosable: true,
+        closable: true,
       });
     } finally {
       setIsSubmitting(false);
@@ -66,34 +63,34 @@ export function LoginForm() {
 
   return (
     <Box as="form" onSubmit={handleSubmit} w="100%">
-      <VStack spacing={4}>
-        <FormControl isInvalid={!!errors.email}>
-          <FormLabel>メールアドレス</FormLabel>
+      <VStack gap={4}>
+        <Field.Root invalid={!!errors.email}>
+          <Field.Label>メールアドレス</Field.Label>
           <Input
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="email@example.com"
           />
-          <FormErrorMessage>{errors.email}</FormErrorMessage>
-        </FormControl>
+          <Field.ErrorText>{errors.email}</Field.ErrorText>
+        </Field.Root>
 
-        <FormControl isInvalid={!!errors.password}>
-          <FormLabel>パスワード</FormLabel>
+        <Field.Root invalid={!!errors.password}>
+          <Field.Label>パスワード</Field.Label>
           <Input
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="パスワードを入力"
           />
-          <FormErrorMessage>{errors.password}</FormErrorMessage>
-        </FormControl>
+          <Field.ErrorText>{errors.password}</Field.ErrorText>
+        </Field.Root>
 
         <Button
           type="submit"
-          colorScheme="brand"
+          colorPalette="brand"
           w="100%"
-          isLoading={isSubmitting}
+          loading={isSubmitting}
           loadingText="ログイン中..."
         >
           ログイン
@@ -101,8 +98,8 @@ export function LoginForm() {
 
         <Text fontSize="sm" color="gray.600">
           アカウントをお持ちでない方は
-          <Link as={RouterLink} to="/register" color="brand.500" ml={1}>
-            新規登録
+          <Link asChild color="brand.500" ml={1}>
+            <RouterLink to="/register">新規登録</RouterLink>
           </Link>
         </Text>
       </VStack>

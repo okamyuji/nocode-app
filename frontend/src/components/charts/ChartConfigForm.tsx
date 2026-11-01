@@ -3,21 +3,20 @@ import {
   ChartAxis,
   ChartDataRequest,
   ChartType,
-  Field,
+  Field as FieldModel,
 } from "@/types";
 import {
   Button,
-  FormControl,
-  FormLabel,
+  Field,
   HStack,
   Input,
-  Select,
+  NativeSelect,
   VStack,
 } from "@chakra-ui/react";
 import { useState } from "react";
 
 interface ChartConfigFormProps {
-  fields: Field[];
+  fields: FieldModel[];
   onSubmit: (config: ChartDataRequest) => void;
   initialConfig?: ChartDataRequest;
   isLoading?: boolean;
@@ -64,104 +63,125 @@ export function ChartConfigForm({
   const numberFields = fields.filter((f) => f.field_type === "number");
 
   return (
-    <VStack as="form" onSubmit={handleSubmit} spacing={4} align="stretch">
-      <FormControl isRequired>
-        <FormLabel>グラフタイプ</FormLabel>
-        <Select
-          value={chartType}
-          onChange={(e) => setChartType(e.target.value as ChartType)}
-        >
-          {Object.entries(CHART_TYPE_LABELS).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </Select>
-      </FormControl>
-
-      <FormControl isRequired>
-        <FormLabel>X軸（分類）</FormLabel>
-        <Select
-          value={xAxis.field}
-          onChange={(e) => setXAxis({ ...xAxis, field: e.target.value })}
-          placeholder="フィールドを選択"
-        >
-          {textFields.map((field) => (
-            <option key={field.id} value={field.field_code}>
-              {field.field_name}
-            </option>
-          ))}
-        </Select>
-      </FormControl>
-
-      <HStack spacing={4}>
-        <FormControl flex={1}>
-          <FormLabel>Y軸（集計フィールド）</FormLabel>
-          <Select
-            value={yAxis.field}
-            onChange={(e) => setYAxis({ ...yAxis, field: e.target.value })}
-            placeholder="フィールドを選択（空の場合はカウント）"
+    <VStack as="form" onSubmit={handleSubmit} gap={4} align="stretch">
+      <Field.Root required>
+        <Field.Label>
+          グラフタイプ
+          <Field.RequiredIndicator />
+        </Field.Label>
+        <NativeSelect.Root>
+          <NativeSelect.Field
+            value={chartType}
+            onChange={(e) => setChartType(e.target.value as ChartType)}
           >
-            <option value="">（レコード数をカウント）</option>
-            {numberFields.map((field) => (
+            {Object.entries(CHART_TYPE_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </NativeSelect.Field>
+          <NativeSelect.Indicator />
+        </NativeSelect.Root>
+      </Field.Root>
+
+      <Field.Root required>
+        <Field.Label>
+          X軸（分類）
+          <Field.RequiredIndicator />
+        </Field.Label>
+        <NativeSelect.Root>
+          <NativeSelect.Field
+            value={xAxis.field}
+            onChange={(e) => setXAxis({ ...xAxis, field: e.target.value })}
+            placeholder="フィールドを選択"
+          >
+            {textFields.map((field) => (
               <option key={field.id} value={field.field_code}>
                 {field.field_name}
               </option>
             ))}
-          </Select>
-        </FormControl>
+          </NativeSelect.Field>
+          <NativeSelect.Indicator />
+        </NativeSelect.Root>
+      </Field.Root>
 
-        <FormControl flex={1}>
-          <FormLabel>集計方法</FormLabel>
-          <Select
-            value={yAxis.aggregation || "count"}
-            onChange={(e) =>
-              setYAxis({
-                ...yAxis,
-                aggregation: e.target.value as ChartAxis["aggregation"],
-              })
-            }
-          >
-            {aggregationOptions.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </Select>
-        </FormControl>
+      <HStack gap={4}>
+        <Field.Root flex={1}>
+          <Field.Label>Y軸（集計フィールド）</Field.Label>
+          <NativeSelect.Root>
+            <NativeSelect.Field
+              value={yAxis.field}
+              onChange={(e) => setYAxis({ ...yAxis, field: e.target.value })}
+              placeholder="フィールドを選択（空の場合はカウント）"
+            >
+              <option value="">（レコード数をカウント）</option>
+              {numberFields.map((field) => (
+                <option key={field.id} value={field.field_code}>
+                  {field.field_name}
+                </option>
+              ))}
+            </NativeSelect.Field>
+            <NativeSelect.Indicator />
+          </NativeSelect.Root>
+        </Field.Root>
+
+        <Field.Root flex={1}>
+          <Field.Label>集計方法</Field.Label>
+          <NativeSelect.Root>
+            <NativeSelect.Field
+              value={yAxis.aggregation || "count"}
+              onChange={(e) =>
+                setYAxis({
+                  ...yAxis,
+                  aggregation: e.target.value as ChartAxis["aggregation"],
+                })
+              }
+            >
+              {aggregationOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </NativeSelect.Field>
+            <NativeSelect.Indicator />
+          </NativeSelect.Root>
+        </Field.Root>
       </HStack>
 
-      <FormControl>
-        <FormLabel>グループ化（オプション）</FormLabel>
-        <Select
-          value={groupBy}
-          onChange={(e) => setGroupBy(e.target.value)}
-          placeholder="なし"
-        >
-          <option value="">なし</option>
-          {textFields
-            .filter((f) => f.field_code !== xAxis.field)
-            .map((field) => (
-              <option key={field.id} value={field.field_code}>
-                {field.field_name}
-              </option>
-            ))}
-        </Select>
-      </FormControl>
+      <Field.Root>
+        <Field.Label>グループ化（オプション）</Field.Label>
+        <NativeSelect.Root>
+          <NativeSelect.Field
+            value={groupBy}
+            onChange={(e) => setGroupBy(e.target.value)}
+            placeholder="なし"
+          >
+            <option value="">なし</option>
+            {textFields
+              .filter((f) => f.field_code !== xAxis.field)
+              .map((field) => (
+                <option key={field.id} value={field.field_code}>
+                  {field.field_name}
+                </option>
+              ))}
+          </NativeSelect.Field>
+          <NativeSelect.Indicator />
+        </NativeSelect.Root>
+      </Field.Root>
 
-      <FormControl>
-        <FormLabel>Y軸ラベル</FormLabel>
+      <Field.Root>
+        <Field.Label>Y軸ラベル</Field.Label>
         <Input
           value={yAxis.label || ""}
           onChange={(e) => setYAxis({ ...yAxis, label: e.target.value })}
           placeholder="例: 売上金額"
         />
-      </FormControl>
+      </Field.Root>
 
       <Button
         type="submit"
-        colorScheme="brand"
-        isLoading={isLoading}
+        colorPalette="brand"
+        loading={isLoading}
         loadingText="グラフを生成中..."
       >
         グラフを表示

@@ -15,8 +15,6 @@ import {
   Badge,
   Box,
   Card,
-  CardBody,
-  CardHeader,
   Heading,
   HStack,
   Icon,
@@ -161,7 +159,7 @@ export function DashboardWidgetCard({
     (widget.view_type === "chart" && (isChartLoading || isConfigsLoading));
 
   return (
-    <Card
+    <Card.Root
       ref={setNodeRef}
       style={style}
       h={getWidgetHeight(widget.widget_size)}
@@ -170,31 +168,32 @@ export function DashboardWidgetCard({
       borderColor={isDragging || isSortableDragging ? "brand.400" : "gray.200"}
       overflow="hidden"
     >
-      <CardHeader pb={2}>
+      <Card.Header pb={2}>
         <HStack justify="space-between">
-          <HStack spacing={3}>
+          <HStack gap={3}>
             <IconButton
               {...attributes}
               {...listeners}
-              icon={<FiMove />}
               aria-label="ドラッグして移動"
               size="sm"
               variant="ghost"
               cursor="grab"
               _active={{ cursor: "grabbing" }}
-            />
+            >
+              <FiMove />
+            </IconButton>
             <Icon
               as={getAppIcon(widget.app?.icon || "default")}
               boxSize={6}
               color="brand.500"
             />
-            <VStack align="start" spacing={0}>
+            <VStack align="start" gap={0}>
               <HStack>
-                <Heading size="sm" noOfLines={1}>
+                <Heading size="sm" lineClamp={1}>
                   {widget.app?.name || "Unknown App"}
                 </Heading>
                 {widget.app?.is_external && (
-                  <Badge colorScheme="purple" fontSize="xs">
+                  <Badge colorPalette="purple" fontSize="xs">
                     外部
                   </Badge>
                 )}
@@ -207,9 +206,9 @@ export function DashboardWidgetCard({
             </VStack>
           </HStack>
         </HStack>
-      </CardHeader>
+      </Card.Header>
 
-      <CardBody
+      <Card.Body
         pt={0}
         overflow="hidden"
         h={getContentHeight(widget.widget_size)}
@@ -285,7 +284,7 @@ export function DashboardWidgetCard({
             )}
           </>
         )}
-      </CardBody>
-    </Card>
+      </Card.Body>
+    </Card.Root>
   );
 }
