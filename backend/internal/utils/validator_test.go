@@ -452,67 +452,6 @@ func TestGetQueryParam(t *testing.T) {
 	}
 }
 
-func TestGetQueryParamInt(t *testing.T) {
-	tests := []struct {
-		name         string
-		url          string
-		key          string
-		defaultValue int
-		expected     int
-	}{
-		{
-			name:         "existing integer param",
-			url:          "/test?page=5",
-			key:          "page",
-			defaultValue: 1,
-			expected:     5,
-		},
-		{
-			name:         "missing param",
-			url:          "/test",
-			key:          "page",
-			defaultValue: 1,
-			expected:     1,
-		},
-		{
-			name:         "empty param value",
-			url:          "/test?page=",
-			key:          "page",
-			defaultValue: 1,
-			expected:     1,
-		},
-		{
-			name:         "non-integer param",
-			url:          "/test?page=abc",
-			key:          "page",
-			defaultValue: 1,
-			expected:     1,
-		},
-		{
-			name:         "zero value",
-			url:          "/test?page=0",
-			key:          "page",
-			defaultValue: 1,
-			expected:     0,
-		},
-		{
-			name:         "large number",
-			url:          "/test?page=100",
-			key:          "page",
-			defaultValue: 1,
-			expected:     100,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			r := httptest.NewRequest(http.MethodGet, tt.url, nil)
-			got := utils.GetQueryParamInt(r, tt.key, tt.defaultValue)
-			assert.Equal(t, tt.expected, got)
-		})
-	}
-}
-
 func TestExtractPathParam(t *testing.T) {
 	tests := []struct {
 		name     string

@@ -4,6 +4,7 @@ package utils
 import (
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/go-playground/validator/v10"
@@ -81,21 +82,18 @@ func GetQueryParam(r *http.Request, key, defaultValue string) string {
 	return value
 }
 
-// GetQueryParamInt デフォルト値付きでクエリパラメータをintとして取得する
-func GetQueryParamInt(r *http.Request, key string, defaultValue int) int {
-	value := r.URL.Query().Get(key)
-	if value == "" {
-		return defaultValue
+// GetPagination page と limit のクエリパラメータを取得する。
+// page が 1 未満なら 1、limit が 1 未満か 100 を超えるなら 20 にする。
+func GetPagination(r *http.Request) (page, limit int) {
+	page, _ = strconv.Atoi(r.URL.Query().Get("page"))
+	if page < 1 {
+		page = 1
 	}
-	var result int
-	for _, c := range value {
-		if c >= '0' && c <= '9' {
-			result = result*10 + int(c-'0')
-		} else {
-			return defaultValue
-		}
+	limit, _ = strconv.Atoi(r.URL.Query().Get("limit"))
+	if limit < 1 || limit > 100 {
+		limit = 20
 	}
-	return result
+	return page, limit
 }
 
 // ExtractPathParam URLからパスパラメータを抽出する
