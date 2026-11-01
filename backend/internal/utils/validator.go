@@ -82,8 +82,8 @@ func GetQueryParam(r *http.Request, key, defaultValue string) string {
 	return value
 }
 
-// maxPage は、(page-1)*limit の offset が int32 に収まる page の上限。
-// bun は OFFSET を int32 に切り詰め、外部 DB の SQL は offset をそのまま埋め込む。
+// maxPage は page の上限。巨大な page では (page-1)*limit が int を溢れて負の offset になり、
+// 外部 DB の record 一覧はその offset を SQL にそのまま埋め込む。limit の上限 100 との積は int32 にも収まる。
 const maxPage = 1_000_000
 
 // GetPagination page と limit のクエリパラメータを取得する。
